@@ -1,0 +1,182 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = engine_version
+group = mod_group_id
+
+allprojects {
+    repositories {
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+def mainJavaFiles = {
+    fileTree(rootDir) {
+        include 'story-*/src/main/java/**/*.java'
+        exclude '**/build/**'
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    apply plugin: 'jacoco'
+
+    version = rootProject.version
+    group = rootProject.group
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+        if (project.name != 'story-forge-1.20.1') {
+            options.compilerArgs.addAll(['-Xlint:all'])
+        }
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    checkstyle {
+        toolVersion = checkstyle_version
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+        configProperties = [rootDir: rootProject.rootDir.absolutePath]
+    }
+
+    pmd {
+        toolVersion = pmd_version
+        ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+        ruleSets = []
+        consoleOutput = true
+    }
+
+    jacoco {
+        toolVersion = jacoco_version
+    }
+
+    tasks.named('check') {
+        dependsOn tasks.named('jacocoTestReport')
+    }
+}
+
+tasks.register('test') {
+    group = 'verification'
+    description = 'Runs unit tests for all modules.'
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('architectureTest') {
+    group = 'verification'
+    description = 'Runs architecture tests.'
+    dependsOn ':story-forge-1.20.1:test'
+}
+
+tasks.register('sourceShapeCheck') {
+    group = 'verification'
+    description = 'Checks source shape rules that are awkward to express in Checkstyle.'
+
+    doLast {
+        def forbiddenSegments = [
+                'npc', 'roads', 'traffic', 'vehicles', 'combat', 'weapons', 'magic',
+                'navigation', 'world', 'animation', 'cinematic', 'utils', 'helpers',
+                'misc', 'common', 'global', 'everything'
+        ] as Set
+        def forbiddenNames = ['Manager', 'Helper', 'Utils', 'Common', 'GlobalService', 'Impl']
+        def packageCounts = [:].withDefault { 0 }
+        def violations = []
+
+        mainJavaFiles().files.each { sourceFile ->
+            def text = sourceFile.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(sourceFile.toPath()).toString()
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+
+            if (logicalLines > 180) {
+                violations << "${relative}: production type exceeds 180 logical lines"
+            }
+
+            def packageMatcher = text =~ /(?m)^\s*package\s+([a-zA-Z0-9_.]+)\s*;/
+            if (packageMatcher.find()) {
+                def packageName = packageMatcher.group(1)
+                packageCounts[packageName] = packageCounts[packageName] + 1
+                packageName.split(/\./).each { segment ->
+                    if (forbiddenSegments.contains(segment)) {
+                        violations << "${relative}: forbidden package segment '${segment}'"
+                    }
+                }
+            }
+
+            def typeMatcher = text =~ /(?m)^\s*public\s+(?:final\s+)?(?:class|interface|record|enum)\s+([A-Za-z0-9_]+)/
+            while (typeMatcher.find()) {
+                def typeName = typeMatcher.group(1)
+                if (forbiddenNames.any { typeName == it || typeName.endsWith(it) }) {
+                    violations << "${relative}: forbidden vague type name '${typeName}'"
+                }
+            }
+        }
+
+        packageCounts.each { packageName, count ->
+            if (count > 12) {
+                violations << "${packageName}: leaf package has ${count} production types"
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = 'verification'
+    description = 'Checks project text files for trailing whitespace.'
+
+    doLast {
+        def textFiles = fileTree(rootDir) {
+            include 'build.gradle', 'settings.gradle', 'gradle.properties', '.gitignore'
+            include 'config/**/*.xml'
+            include 'story-*/**/*.java', 'story-*/**/*.gradle', 'story-*/**/*.toml', 'story-*/**/*.mcmeta'
+            include 'AGENTS.md', 'PLANS.md', 'PROGRESS.md', 'PROJECT_MAP.md', 'README.md', 'docs/**/*.md'
+            exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/run-data/**', '**/.git/**'
+        }
+        def violations = []
+        textFiles.files.each { file ->
+            file.readLines('UTF-8').eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    def relative = rootDir.toPath().relativize(file.toPath()).toString()
+                    violations << "${relative}:${index + 1}: trailing whitespace"
+                }
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+}
