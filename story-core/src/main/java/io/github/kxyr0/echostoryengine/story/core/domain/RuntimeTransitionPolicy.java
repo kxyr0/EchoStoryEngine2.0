@@ -8,7 +8,10 @@ import io.github.kxyr0.echostoryengine.story.api.command.ExternalActionResultCat
 import io.github.kxyr0.echostoryengine.story.api.command.ExternalCommand;
 import io.github.kxyr0.echostoryengine.story.api.diagnostic.StoryDiagnostic;
 import io.github.kxyr0.echostoryengine.story.api.identity.ActionExecutionId;
+import io.github.kxyr0.echostoryengine.story.api.identity.CompiledStoryFingerprint;
+import io.github.kxyr0.echostoryengine.story.api.identity.ExecutionId;
 import io.github.kxyr0.echostoryengine.story.api.identity.NamespacedId;
+import io.github.kxyr0.echostoryengine.story.api.identity.NodeId;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Pure transition policy for one deterministic programmatic story definition.
+ * Pure transition policy for one deterministic compiled story definition.
  */
 public final class RuntimeTransitionPolicy {
     private final StoryDefinition definition;
@@ -47,6 +50,13 @@ public final class RuntimeTransitionPolicy {
                 : result(startIfReady(state));
         StoryRuntimeResult runtime = runIfPossible(completion.state(), occurredAt);
         return merge(input, completion, runtime);
+    }
+
+    /**
+     * Returns the deterministic compatibility fingerprint for this compiled definition.
+     */
+    public CompiledStoryFingerprint definitionFingerprint() {
+        return StoryDefinitionFingerprint.from(definition);
     }
 
     private StoryRuntimeResult acceptCompletion(
@@ -138,14 +148,15 @@ public final class RuntimeTransitionPolicy {
             return result(failed, List.of(), List.of(diag("ESE-ACTION-001", state, occurredAt,
                     Map.of("actionType", node.actionType().asString()))));
         }
-        ExternalCommand command = new ExternalCommand(node.actionType(), node.actionExecutionId(), Map.of());
-        StoryExecutionState waiting = state.waitingAt(node.id(), node.actionExecutionId());
+        ActionExecutionId actionId = actionExecutionId(state.executionId(), node.id());
+        ExternalCommand command = new ExternalCommand(node.actionType(), actionId, node.actionArguments());
+        StoryExecutionState waiting = state.waitingAt(node.id(), actionId);
         return result(waiting, List.of(command), List.of(diag("ESE-ACTION-002", waiting, occurredAt,
                 Map.of(
                         "actionType",
                         node.actionType().asString(),
                         "actionExecutionId",
-                        node.actionExecutionId().asString()))));
+                        actionId.asString()))));
     }
 
     private StoryExecutionState startIfReady(StoryExecutionState state) {
@@ -172,6 +183,12 @@ public final class RuntimeTransitionPolicy {
             List<ExternalCommand> commands,
             List<StoryDiagnostic> diagnostics) {
         return new StoryRuntimeResult(state.executionId(), state, commands, diagnostics);
+    }
+
+    private ActionExecutionId actionExecutionId(ExecutionId executionId, NodeId nodeId) {
+        String namespace = executionId.value().namespace();
+        String path = executionId.value().path() + "/" + nodeId.value();
+        return ActionExecutionId.of(namespace + ":" + path);
     }
 
     private StoryDiagnostic diag(

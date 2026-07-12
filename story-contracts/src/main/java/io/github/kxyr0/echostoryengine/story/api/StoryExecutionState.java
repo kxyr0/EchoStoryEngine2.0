@@ -5,10 +5,8 @@ import io.github.kxyr0.echostoryengine.story.api.identity.ActionExecutionId;
 import io.github.kxyr0.echostoryengine.story.api.identity.NodeId;
 import io.github.kxyr0.echostoryengine.story.api.identity.StoryId;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * Serializable execution position for the minimal runtime state machine.
@@ -23,7 +21,7 @@ public record StoryExecutionState(
         StoryExecutionPhase phase,
         Map<String, String> variables,
         String pendingActionExecutionId,
-        Set<String> completedActionExecutionIds,
+        String lastCompletedActionExecutionId,
         String failureCode,
         int revision) {
     public StoryExecutionState {
@@ -33,9 +31,9 @@ public record StoryExecutionState(
         phase = Objects.requireNonNull(phase, "phase");
         variables = Map.copyOf(Objects.requireNonNull(variables, "variables"));
         pendingActionExecutionId = Objects.requireNonNull(pendingActionExecutionId, "pendingActionExecutionId");
-        completedActionExecutionIds = Set.copyOf(Objects.requireNonNull(
-                completedActionExecutionIds,
-                "completedActionExecutionIds"));
+        lastCompletedActionExecutionId = Objects.requireNonNull(
+                lastCompletedActionExecutionId,
+                "lastCompletedActionExecutionId");
         failureCode = Objects.requireNonNull(failureCode, "failureCode");
         if (revision < 0) {
             throw new IllegalArgumentException("revision must be non-negative");
@@ -53,7 +51,7 @@ public record StoryExecutionState(
                 StoryExecutionPhase.READY,
                 Map.of(),
                 "",
-                Set.of(),
+                "",
                 "",
                 0);
     }
@@ -69,7 +67,7 @@ public record StoryExecutionState(
                 StoryExecutionPhase.RUNNING,
                 variables,
                 "",
-                completedActionExecutionIds,
+                lastCompletedActionExecutionId,
                 "",
                 revision + 1);
     }
@@ -87,7 +85,7 @@ public record StoryExecutionState(
                 StoryExecutionPhase.RUNNING,
                 nextVariables,
                 "",
-                completedActionExecutionIds,
+                lastCompletedActionExecutionId,
                 "",
                 revision + 1);
     }
@@ -103,7 +101,7 @@ public record StoryExecutionState(
                 StoryExecutionPhase.WAITING,
                 variables,
                 actionExecutionId.asString(),
-                completedActionExecutionIds,
+                lastCompletedActionExecutionId,
                 "",
                 revision + 1);
     }
@@ -112,8 +110,6 @@ public record StoryExecutionState(
      * Returns a running state after accepting the pending action completion.
      */
     public StoryExecutionState completedAction(ActionExecutionId actionExecutionId, NodeId nextNode) {
-        Set<String> completed = new HashSet<>(completedActionExecutionIds);
-        completed.add(actionExecutionId.asString());
         return new StoryExecutionState(
                 storyId,
                 executionId,
@@ -121,7 +117,7 @@ public record StoryExecutionState(
                 StoryExecutionPhase.RUNNING,
                 variables,
                 "",
-                completed,
+                actionExecutionId.asString(),
                 "",
                 revision + 1);
     }
@@ -130,8 +126,6 @@ public record StoryExecutionState(
      * Returns a failed state after accepting a terminal external action completion.
      */
     public StoryExecutionState failedAction(ActionExecutionId actionExecutionId, String code) {
-        Set<String> completed = new HashSet<>(completedActionExecutionIds);
-        completed.add(actionExecutionId.asString());
         return new StoryExecutionState(
                 storyId,
                 executionId,
@@ -139,7 +133,7 @@ public record StoryExecutionState(
                 StoryExecutionPhase.FAILED,
                 variables,
                 "",
-                completed,
+                actionExecutionId.asString(),
                 Objects.requireNonNull(code, "code"),
                 revision + 1);
     }
@@ -155,7 +149,7 @@ public record StoryExecutionState(
                 StoryExecutionPhase.FINISHED,
                 variables,
                 "",
-                completedActionExecutionIds,
+                lastCompletedActionExecutionId,
                 "",
                 revision + 1);
     }
@@ -171,7 +165,7 @@ public record StoryExecutionState(
                 StoryExecutionPhase.FAILED,
                 variables,
                 "",
-                completedActionExecutionIds,
+                lastCompletedActionExecutionId,
                 Objects.requireNonNull(code, "code"),
                 revision + 1);
     }
@@ -187,7 +181,7 @@ public record StoryExecutionState(
      * Returns whether completion for the supplied action id has already been accepted.
      */
     public boolean hasCompleted(ActionExecutionId actionExecutionId) {
-        return completedActionExecutionIds.contains(actionExecutionId.asString());
+        return lastCompletedActionExecutionId.equals(actionExecutionId.asString());
     }
 
     private static String requireText(String value, String name) {

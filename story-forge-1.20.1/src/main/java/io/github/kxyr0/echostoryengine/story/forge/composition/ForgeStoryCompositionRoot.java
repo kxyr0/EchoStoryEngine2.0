@@ -1,7 +1,6 @@
 package io.github.kxyr0.echostoryengine.story.forge.composition;
 
 import io.github.kxyr0.echostoryengine.story.api.StoryEngineApi;
-import io.github.kxyr0.echostoryengine.story.api.identity.ActionExecutionId;
 import io.github.kxyr0.echostoryengine.story.api.identity.NamespacedId;
 import io.github.kxyr0.echostoryengine.story.api.identity.NodeId;
 import io.github.kxyr0.echostoryengine.story.api.identity.StoryId;
@@ -74,7 +73,7 @@ public final class ForgeStoryCompositionRoot {
                         action, StoryNode.externalAction(
                                 action,
                                 NamespacedId.of("echo_story_engine:hello_action"),
-                                ActionExecutionId.of("echo_story_engine:hello-action-1"),
+                                Map.of(),
                                 finished),
                         finished, StoryNode.finish(finished)));
     }

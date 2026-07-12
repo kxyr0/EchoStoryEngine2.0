@@ -21,6 +21,10 @@ Contracts and core use `NamespacedId`, `StoryId`, `ExecutionId`, and `NodeId` in
 
 If the project moves to another Minecraft version or loader, adapters should change while contracts/core remain stable.
 
+`story-persistence` uses Java standard filesystem APIs behind the core repository port. The explicit root directory is
+provided by the caller; Forge world-directory selection is not part of M3. Core never receives `Path`, `File`, JSON,
+NBT, database, or Forge/Minecraft objects through persistence APIs.
+
 ## Forge Policy
 
 ForgeGradle is applied only in `story-forge-1.20.1`.

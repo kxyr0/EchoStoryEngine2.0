@@ -5,7 +5,8 @@
 Persistence is a port. Domain and application code must not know whether state is stored in NBT, SavedData, JSON,
 files, a database, or another backend.
 
-The current port is `ExecutionStateRepository` in `story-core`.
+The current port is `ExecutionStateRepository` in `story-core`. It stores `ExecutionCheckpoint` values and returns
+explicit load/save results.
 
 ## Versioning
 
@@ -13,7 +14,7 @@ Persistence design must account for:
 
 - save schema version;
 - story format version;
-- story revision;
+- exact compiled story fingerprint match;
 - stable node ids;
 - migration chain;
 - atomic write;
@@ -25,10 +26,51 @@ Persistence design must account for:
 
 Current version values are centralized in `gradle.properties`.
 
-## Current Scaffold
+## M3 Implementation
 
-`story-forge-1.20.1` provides `VolatileExecutionStateRepository`. It stores execution state for the server lifetime
-only and proves the boundary. It is not durable production persistence.
+`story-persistence` owns save schema V1, strict JSON encoding, a portable durable file repository, and recovery
+planning. `story-core` owns only the repository port, checkpoint payload, and save-before-dispatch ordering.
+
+Save-before-dispatch order:
+
+1. load checkpoint or create a new READY execution;
+2. compute the next runtime state, commands, and diagnostics;
+3. save the next checkpoint with an expected previous revision;
+4. expose commands only when save succeeds;
+5. on save failure or revision conflict, return no commands and keep the previous durable state authoritative.
+
+The file repository uses an explicit root directory, safe SHA-256-derived filenames, UTF-8 JSON, sibling temp file,
+atomic move when supported with a replace fallback, one backup file, corrupt primary fallback to backup, and stale temp
+ignore policy. It does not start background threads.
+
+WAITING recovery validates the saved fingerprint against a caller-supplied compiled definition, checks that the
+current node still exists, validates pending action type/arguments/id, keeps the execution WAITING, and returns one
+recovery command with the same `ActionExecutionId`. Recovery is at-least-once; adapters must be idempotent by action
+execution id.
+
+READY restores without auto-starting. FINISHED and FAILED restore as terminal with no command. RUNNING checkpoints
+are rejected during recovery because M1 synchronous transitions should settle before durable save.
+
+`story-forge-1.20.1` still provides `VolatileExecutionStateRepository` for server-lifetime state only. Forge
+world-directory binding and SavedData/NBT integration are M4 work.
+
+## Save Schema V1
+
+Schema V1 persists:
+
+- `saveSchemaVersion`;
+- story id and execution id;
+- compiled definition fingerprint and definition revision marker;
+- execution revision, phase, current node, variables, failure code;
+- pending action execution id, action type, and string arguments;
+- bounded duplicate-completion data as the last completed action id;
+- created/updated timestamps supplied by an injected clock.
+
+The schema does not persist Java object identity, lambdas, callbacks, threads, futures, handlers, loggers, stack
+traces, Forge/Minecraft types, source parser DTOs, raw JSON trees, caches, or service instances.
+
+Unknown fields, missing required fields, unsupported schema versions, invalid identifiers, invalid phases, and invalid
+timestamp metadata are rejected. Deterministic map ordering is used for saved variables and pending action arguments.
 
 ## Forbidden Coupling
 
@@ -36,3 +78,5 @@ only and proves the boundary. It is not durable production persistence.
 - Do not bind persisted models directly to public domain classes.
 - Do not add serialization annotations to domain objects.
 - Do not import NBT, Gson, Codec, SavedData, filesystem, or database APIs into contracts/core.
+- Do not use Java object serialization for checkpoints.
+- Do not pass `Path`, `File`, JSON, Gson, NBT, or database handles through core ports.

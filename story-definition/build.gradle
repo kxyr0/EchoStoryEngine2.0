@@ -1,0 +1,7 @@
+description = 'Java-only source parsing, validation, and compilation for Echo Story Engine.'
+
+dependencies {
+    api project(':story-core')
+    implementation "com.google.code.gson:gson:${gson_version}"
+    testImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+}

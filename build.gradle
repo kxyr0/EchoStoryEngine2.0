@@ -87,6 +87,8 @@ tasks.register('test') {
 tasks.register('architectureTest') {
     group = 'verification'
     description = 'Runs architecture tests.'
+    dependsOn ':story-definition:test'
+    dependsOn ':story-persistence:test'
     dependsOn ':story-forge-1.20.1:test'
 }
 

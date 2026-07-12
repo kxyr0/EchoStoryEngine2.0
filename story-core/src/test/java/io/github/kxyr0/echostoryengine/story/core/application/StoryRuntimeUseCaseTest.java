@@ -6,8 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.kxyr0.echostoryengine.story.api.StoryExecutionPhase;
 import io.github.kxyr0.echostoryengine.story.api.StoryRuntimeResult;
 import io.github.kxyr0.echostoryengine.story.api.command.ExternalActionResultCategory;
+import io.github.kxyr0.echostoryengine.story.api.diagnostic.DiagnosticSeverity;
+import io.github.kxyr0.echostoryengine.story.api.diagnostic.DiagnosticSubject;
+import io.github.kxyr0.echostoryengine.story.api.diagnostic.StoryDiagnostic;
 import io.github.kxyr0.echostoryengine.story.api.identity.ActionExecutionId;
 import io.github.kxyr0.echostoryengine.story.api.identity.ExecutionId;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -52,7 +56,7 @@ final class StoryRuntimeUseCaseTest {
         StoryRuntimeResult firstResult = useCase.advance(RuntimeTestFixture.successfulCompletion());
 
         assertEquals(StoryExecutionPhase.FINISHED, firstResult.state().phase());
-        assertEquals(StoryExecutionPhase.WAITING, repository.load(secondExecution).orElseThrow().phase());
+        assertEquals(StoryExecutionPhase.WAITING, repository.state(secondExecution).phase());
     }
 
     @Test
@@ -102,5 +106,64 @@ final class StoryRuntimeUseCaseTest {
         assertEquals("ESE-ACTION-001", result.state().failureCode());
         assertEquals("ESE-ACTION-001", result.diagnostics().get(0).code());
         assertEquals(0, result.commands().size());
+    }
+
+    @Test
+    void saveFailureSuppressesCommandDispatchAndKeepsPreviousState() {
+        RuntimeTestFixture.RecordingRepository repository = new RuntimeTestFixture.RecordingRepository();
+        StoryRuntimeUseCase useCase = RuntimeTestFixture.useCase(repository, new RuntimeTestFixture.RecordingSink());
+        repository.failNextSave(saveFailureDiagnostic());
+
+        StoryRuntimeResult result = useCase.advance(RuntimeTestFixture.startInput());
+
+        assertEquals(StoryExecutionPhase.READY, result.state().phase());
+        assertEquals(0, result.commands().size());
+        assertEquals("ESE-PERSISTENCE-001", result.diagnostics().get(0).code());
+        assertEquals("ESE-PERSISTENCE-015", result.diagnostics().get(1).code());
+    }
+
+    @Test
+    void revisionConflictSuppressesCommandDispatchAndKeepsPreviousState() {
+        RuntimeTestFixture.RecordingRepository repository = new RuntimeTestFixture.RecordingRepository();
+        StoryRuntimeUseCase useCase = RuntimeTestFixture.useCase(repository, new RuntimeTestFixture.RecordingSink());
+        repository.conflictNextSave();
+
+        StoryRuntimeResult result = useCase.advance(RuntimeTestFixture.startInput());
+
+        assertEquals(StoryExecutionPhase.READY, result.state().phase());
+        assertEquals(0, result.commands().size());
+        assertEquals("ESE-PERSISTENCE-010", result.diagnostics().get(0).code());
+        assertEquals("ESE-PERSISTENCE-015", result.diagnostics().get(1).code());
+    }
+
+    @Test
+    void waitingCheckpointStoresPendingActionRecoveryData() {
+        RuntimeTestFixture.RecordingRepository repository = new RuntimeTestFixture.RecordingRepository();
+        StoryRuntimeUseCase useCase = RuntimeTestFixture.useCase(repository, new RuntimeTestFixture.RecordingSink());
+
+        useCase.advance(RuntimeTestFixture.startInput());
+
+        assertTrue(repository.checkpoint(RuntimeTestFixture.EXECUTION_ID).pendingAction().isPresent());
+        assertEquals(RuntimeTestFixture.ACTION_TYPE, repository
+                .checkpoint(RuntimeTestFixture.EXECUTION_ID)
+                .pendingAction()
+                .orElseThrow()
+                .actionType());
+    }
+
+    private StoryDiagnostic saveFailureDiagnostic() {
+        return new StoryDiagnostic(
+                "ESE-PERSISTENCE-001",
+                DiagnosticSeverity.ERROR,
+                "persistence",
+                "Execution checkpoint save failed",
+                DiagnosticSubject.story(
+                        RuntimeTestFixture.STORY_ID,
+                        RuntimeTestFixture.EXECUTION_ID,
+                        RuntimeTestFixture.ACTION_NODE),
+                Map.of(),
+                "save-failed",
+                RuntimeTestFixture.FIXED_TIME,
+                "Retry when storage is healthy.");
     }
 }

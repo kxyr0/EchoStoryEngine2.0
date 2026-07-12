@@ -2,18 +2,21 @@ package io.github.kxyr0.echostoryengine.story.core.domain;
 
 import io.github.kxyr0.echostoryengine.story.api.identity.NodeId;
 import io.github.kxyr0.echostoryengine.story.api.identity.StoryId;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Programmatic story definition for the M1 deterministic runtime slice.
+ * Immutable compiled story definition consumed by the deterministic runtime.
  */
 public record StoryDefinition(StoryId storyId, NodeId startNode, Map<NodeId, StoryNode> nodes) {
     public StoryDefinition {
         storyId = Objects.requireNonNull(storyId, "storyId");
         startNode = Objects.requireNonNull(startNode, "startNode");
-        nodes = Map.copyOf(Objects.requireNonNull(nodes, "nodes"));
+        nodes = orderedNodes(Objects.requireNonNull(nodes, "nodes"));
         if (!nodes.containsKey(startNode)) {
             throw new IllegalArgumentException("story definition must contain start node");
         }
@@ -31,5 +34,13 @@ public record StoryDefinition(StoryId storyId, NodeId startNode, Map<NodeId, Sto
         if (!nodeId.equals(node.id())) {
             throw new IllegalArgumentException("story definition node key must match node id");
         }
+    }
+
+    private static Map<NodeId, StoryNode> orderedNodes(Map<NodeId, StoryNode> source) {
+        LinkedHashMap<NodeId, StoryNode> ordered = new LinkedHashMap<>();
+        source.entrySet().stream()
+                .sorted(Comparator.comparing(entry -> entry.getKey().value()))
+                .forEach(entry -> ordered.put(entry.getKey(), entry.getValue()));
+        return Collections.unmodifiableMap(ordered);
     }
 }

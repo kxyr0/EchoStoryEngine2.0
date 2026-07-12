@@ -10,5 +10,7 @@
 - `0008-code-size-quality-gates.md`
 - `0009-portability-platform-adapters.md`
 - `0010-persistence-versioning-boundaries.md`
+- `0011-story-source-pipeline-boundary.md`
+- `0012-durable-persistence-recovery.md`
 
 Accepted ADRs are not rewritten to change decisions. Create a new ADR and mark the old one superseded.

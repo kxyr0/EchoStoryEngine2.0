@@ -11,9 +11,10 @@ are external build/runtime artifacts and must not be committed.
 
 ## Current Implementation
 
-- Diagnostic code: `ESE-RUNTIME-001`
-- Severity: `INFO`
-- Subsystem: `runtime`
+- Runtime diagnostic code families: `ESE-RUNTIME-*`, `ESE-ACTION-*`
+- Source diagnostic code family: `ESE-SOURCE-*`
+- Persistence diagnostic code family: `ESE-PERSISTENCE-*`
+- Subsystems: `runtime`, `source`, `persistence`
 - Sink port: `DiagnosticSink`
 - Forge adapter: `ForgeDiagnosticSink`
 - Read model: `InMemoryDiagnosticBuffer`
@@ -51,3 +52,47 @@ log-and-rethrow, bound context values, and avoid dumping full story state or sen
 
 Text commands and visual diagnostics must read from the same structured model. The current bounded buffer is in-memory
 only and is not a second log stream.
+
+## Source Diagnostics
+
+M2 source processing emits structured diagnostics and returns them in explicit result values. It does not log
+directly and does not create source-specific log files.
+
+Current source codes:
+
+- `ESE-SOURCE-001`: malformed JSON syntax.
+- `ESE-SOURCE-002`: unsupported source format version.
+- `ESE-SOURCE-003`: missing required source field.
+- `ESE-SOURCE-004`: invalid story, node, or action identifier.
+- `ESE-SOURCE-005`: duplicate node id.
+- `ESE-SOURCE-006`: start node reference does not exist.
+- `ESE-SOURCE-007`: transition target does not exist.
+- `ESE-SOURCE-008`: unreachable node warning.
+- `ESE-SOURCE-009`: synchronous cycle.
+- `ESE-SOURCE-010`: unsupported node kind.
+- `ESE-SOURCE-011`: compilation invariant failure.
+- `ESE-SOURCE-012`: invalid field for the node kind or argument model.
+- `ESE-SOURCE-013`: no reachable finish node.
+
+## Persistence Diagnostics
+
+M3 persistence and recovery emit structured diagnostics through result values. Diagnostics must not include absolute
+paths, full snapshots, raw JSON documents, or stack traces.
+
+Current persistence codes:
+
+- `ESE-PERSISTENCE-001`: checkpoint save failed.
+- `ESE-PERSISTENCE-002`: checkpoint load failed.
+- `ESE-PERSISTENCE-003`: checkpoint not found.
+- `ESE-PERSISTENCE-004`: malformed checkpoint.
+- `ESE-PERSISTENCE-005`: unsupported save schema version.
+- `ESE-PERSISTENCE-006`: incompatible story definition fingerprint.
+- `ESE-PERSISTENCE-007`: missing story definition.
+- `ESE-PERSISTENCE-008`: missing current story node.
+- `ESE-PERSISTENCE-009`: invalid pending action checkpoint.
+- `ESE-PERSISTENCE-010`: optimistic revision conflict.
+- `ESE-PERSISTENCE-011`: backup fallback used.
+- `ESE-PERSISTENCE-012`: primary and backup checkpoints are corrupt.
+- `ESE-PERSISTENCE-013`: recovery request created.
+- `ESE-PERSISTENCE-014`: RUNNING checkpoint rejected during recovery.
+- `ESE-PERSISTENCE-015`: external command dispatch suppressed.
