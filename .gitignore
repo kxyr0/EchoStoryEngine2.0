@@ -18,6 +18,16 @@ build
 .gradle
 */build
 
+PLANS.md
+PROGRESS.md
+PROJECT_MAP.md
+AGENTS.md
+
+docs/architecture
+docs/decisions
+docs/development
+docs/plans
+docs/README.md
 # other
 eclipse
 run

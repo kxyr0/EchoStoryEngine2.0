@@ -26,7 +26,7 @@ Purpose: stable Java-friendly public API and data contracts.
 
 Layer: public contracts.
 
-Production type count: 12.
+Production type count: 15.
 
 Allowed dependencies: Java standard library only.
 
@@ -39,11 +39,13 @@ Public entrypoints and types:
 - `StoryRuntimeInput`
 - `StoryRuntimeResult`
 - `StoryExecutionState`
+- `StoryExecutionPhase`
 - `ExternalCommand`
+- `ExternalActionResultCategory`
 - `StoryDiagnostic`
 - `DiagnosticSubject`
 - `DiagnosticSeverity`
-- `StoryId`, `ExecutionId`, `NodeId`, `NamespacedId`
+- `StoryId`, `ExecutionId`, `ActionExecutionId`, `NodeId`, `NamespacedId`
 
 Threading model: contracts are immutable data or stateless interfaces.
 
@@ -51,17 +53,18 @@ Persistence responsibility: none; contracts are data boundaries only.
 
 Diagnostic responsibility: define structured diagnostic data.
 
-Status: implemented scaffold.
+Status: M1 deterministic hello story contracts implemented.
 
 Related ADR: 0001, 0002, 0005, 0006, 0007.
 
 ## `story-core`
 
-Purpose: story runtime use case, pure transition policy, ports, and diagnostic read model.
+Purpose: story runtime use case, pure transition policy, programmatic story definition model, ports,
+and diagnostic read model.
 
 Layer: domain, application, ports.
 
-Production type count: 6.
+Production type count: 10.
 
 Allowed dependencies: `story-contracts`, Java standard library, test libraries in test source set.
 
@@ -69,7 +72,8 @@ Forbidden dependencies: Forge, Minecraft, filesystem, networking, logging framew
 
 Important packages:
 
-- `..story.core.domain`: `RuntimeTransitionPolicy`
+- `..story.core.domain`: `StoryDefinition`, `StoryNode`, `StoryNodeKind`, `RuntimeTransitionPolicy`,
+  `RuntimeDiagnostics`
 - `..story.core.application`: `StoryRuntimeUseCase`
 - `..story.core.port`: `DiagnosticSink`, `StoryClock`, `ExecutionStateRepository`
 - `..story.core.diagnostic`: `InMemoryDiagnosticBuffer`
@@ -78,9 +82,10 @@ Threading model: application methods are called by the platform-owned authoritat
 
 Persistence responsibility: define `ExecutionStateRepository` port, not storage technology.
 
-Diagnostic responsibility: emit structured diagnostics and keep a bounded in-memory read model.
+Diagnostic responsibility: emit structured diagnostics for runtime transitions, external action failures,
+duplicate/unknown completions, and transition-budget failures; keep a bounded in-memory read model.
 
-Status: implemented scaffold.
+Status: M1 deterministic hello story runtime implemented.
 
 Related ADR: 0002, 0005, 0006, 0007, 0010.
 
@@ -111,6 +116,6 @@ Persistence responsibility: no durable persistence yet. The volatile adapter pro
 
 Diagnostic responsibility: one logical logger namespace, no application-owned subsystem log files.
 
-Status: implemented scaffold.
+Status: M1 composition wires the deterministic hello story and supported abstract action type.
 
 Related ADR: 0003, 0005, 0007, 0009, 0010.

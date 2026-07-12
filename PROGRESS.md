@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-Initial architecture foundation for Echo Story Engine.
+M1: Deterministic Hello Story.
 
 ## Completed
 
@@ -17,16 +17,21 @@ Initial architecture foundation for Echo Story Engine.
 - Generated Forge runtime logs from verification were removed and future `logs` artifacts are ignored.
 - Architecture acceptance audit completed:
   canonical identity applied, dependency graph verified, production type audit completed.
+- M1 deterministic hello story implemented:
+  start input -> variable write -> condition -> external action request -> Waiting -> completion -> Finished.
+- External action completion categories, duplicate completion protection, missing action diagnostics,
+  and transition budget failure are covered by story-core tests.
 
 ## In Progress
 
-- Final report.
+- None.
 
 ## Next
 
 - Decide whether to replace or remove inherited Forge `LICENSE.txt` and `CREDITS.txt` with project-specific
   legal/credit files. This audit did not change licensing.
 - Add a dedicated server smoke test once a minimal server scenario exists.
+- Decide the next milestone after M1 verification.
 
 ## Blockers
 
@@ -45,11 +50,13 @@ Initial architecture foundation for Echo Story Engine.
 - ForgeGradle may create local build/debug artifacts during verification; they must not be committed.
 - Current Forge repository adapter is volatile and proves the port only; durable persistence is intentionally deferred.
 - No durable persistence adapter exists yet; current repository adapter is intentionally volatile.
+- The M1 external action support list is explicit wiring, not a production adapter registry.
 
 ## Intentional Technical Debt
 
 - Durable SavedData/NBT persistence is not implemented in the initial scaffold.
 - No command, GUI, networking, GameTest, or dedicated server smoke test exists yet.
+- No production external action handler dispatch, timeout scheduler, or durable completion inbox exists yet.
 
 ## Verification Status
 
@@ -69,3 +76,12 @@ Initial architecture foundation for Echo Story Engine.
 - non-build log artifact scan: passed.
 - Dedicated server/GameTest: not run as a separate smoke test because no GameTest or server smoke scenario exists
   in the initial scaffold.
+- M1 `.\gradlew.bat test`: passed.
+- M1 `.\gradlew.bat architectureTest`: passed.
+- M1 `.\gradlew.bat check`: passed.
+- M1 `.\gradlew.bat build`: passed.
+- M1 `.\gradlew.bat checkWhitespace`: passed.
+- M1 `git diff --check`: passed.
+- M1 contracts/core forbidden import scan: passed.
+- M1 production type count after implementation: `story-contracts` 15, `story-core` 10,
+  `story-forge-1.20.1` 5.

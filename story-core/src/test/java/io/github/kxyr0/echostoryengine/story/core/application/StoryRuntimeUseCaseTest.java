@@ -1,107 +1,106 @@
 package io.github.kxyr0.echostoryengine.story.core.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.github.kxyr0.echostoryengine.story.api.StoryExecutionState;
-import io.github.kxyr0.echostoryengine.story.api.StoryRuntimeInput;
+import io.github.kxyr0.echostoryengine.story.api.StoryExecutionPhase;
 import io.github.kxyr0.echostoryengine.story.api.StoryRuntimeResult;
-import io.github.kxyr0.echostoryengine.story.api.diagnostic.StoryDiagnostic;
+import io.github.kxyr0.echostoryengine.story.api.command.ExternalActionResultCategory;
+import io.github.kxyr0.echostoryengine.story.api.identity.ActionExecutionId;
 import io.github.kxyr0.echostoryengine.story.api.identity.ExecutionId;
-import io.github.kxyr0.echostoryengine.story.api.identity.NamespacedId;
-import io.github.kxyr0.echostoryengine.story.api.identity.NodeId;
-import io.github.kxyr0.echostoryengine.story.api.identity.StoryId;
-import io.github.kxyr0.echostoryengine.story.core.domain.RuntimeTransitionPolicy;
-import io.github.kxyr0.echostoryengine.story.core.port.DiagnosticSink;
-import io.github.kxyr0.echostoryengine.story.core.port.ExecutionStateRepository;
-import io.github.kxyr0.echostoryengine.story.core.port.StoryClock;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 final class StoryRuntimeUseCaseTest {
-    private static final Instant FIXED_TIME = Instant.parse("2026-07-11T00:00:00Z");
-
     @Test
-    void createsInitialStateWhenExecutionIsUnknown() {
-        RecordingRepository repository = new RecordingRepository();
-        RecordingSink sink = new RecordingSink();
-        StoryRuntimeUseCase useCase = useCase(repository, sink);
+    void completeHappyPathStoryReachesFinished() {
+        RuntimeTestFixture.RecordingRepository repository = new RuntimeTestFixture.RecordingRepository();
+        StoryRuntimeUseCase useCase = RuntimeTestFixture.useCase(repository, new RuntimeTestFixture.RecordingSink());
 
-        StoryRuntimeResult result = useCase.advance(input());
+        useCase.advance(RuntimeTestFixture.startInput());
+        StoryRuntimeResult result = useCase.advance(RuntimeTestFixture.successfulCompletion());
 
-        assertEquals(NodeId.of("runtime.accepted"), result.state().currentNode());
-        assertEquals(1, result.state().revision());
-        assertEquals(result.state(), repository.load(result.executionId()).orElseThrow());
-        assertEquals(1, sink.diagnostics().size());
-        assertEquals(FIXED_TIME, result.diagnostics().get(0).occurredAt());
+        assertEquals(StoryExecutionPhase.FINISHED, result.state().phase());
+        assertEquals(RuntimeTestFixture.FINISH_NODE, result.state().currentNode());
+        assertEquals("ready", result.state().variables().get("hello.flag"));
+        assertTrue(result.state().hasCompleted(RuntimeTestFixture.ACTION_ID));
     }
 
     @Test
-    void advancesExistingStateWithoutCreatingPlatformCommands() {
-        RecordingRepository repository = new RecordingRepository();
-        StoryExecutionState existing = StoryExecutionState.start(StoryId.of("echo_story_engine:test"), executionId());
-        repository.save(existing);
-        StoryRuntimeUseCase useCase = useCase(repository, new RecordingSink());
+    void runtimeEntersWaitingBeforeCompletion() {
+        StoryRuntimeUseCase useCase = RuntimeTestFixture.useCase(
+                new RuntimeTestFixture.RecordingRepository(),
+                new RuntimeTestFixture.RecordingSink());
 
-        StoryRuntimeResult result = useCase.advance(input());
+        StoryRuntimeResult result = useCase.advance(RuntimeTestFixture.startInput());
 
-        assertEquals(1, result.state().revision());
-        assertEquals(NodeId.of("runtime.accepted"), result.state().currentNode());
-        assertFalse(result.commands().stream().anyMatch(command -> command.actionType().path().contains("minecraft")));
+        assertEquals(StoryExecutionPhase.WAITING, result.state().phase());
+        assertEquals(RuntimeTestFixture.ACTION_NODE, result.state().currentNode());
+        assertEquals(RuntimeTestFixture.ACTION_ID.asString(), result.state().pendingActionExecutionId());
+        assertEquals(RuntimeTestFixture.ACTION_TYPE, result.commands().get(0).actionType());
+        assertEquals(RuntimeTestFixture.ACTION_ID, result.commands().get(0).actionExecutionId());
     }
 
-    private static StoryRuntimeUseCase useCase(RecordingRepository repository, RecordingSink sink) {
-        return new StoryRuntimeUseCase(repository, sink, new FixedClock(), new RuntimeTransitionPolicy());
+    @Test
+    void successfulCompletionResumesTheCorrectExecution() {
+        RuntimeTestFixture.RecordingRepository repository = new RuntimeTestFixture.RecordingRepository();
+        StoryRuntimeUseCase useCase = RuntimeTestFixture.useCase(repository, new RuntimeTestFixture.RecordingSink());
+        ExecutionId secondExecution = ExecutionId.of("echo_story_engine:second-execution");
+
+        useCase.advance(RuntimeTestFixture.startInput());
+        useCase.advance(RuntimeTestFixture.startInput(secondExecution));
+        StoryRuntimeResult firstResult = useCase.advance(RuntimeTestFixture.successfulCompletion());
+
+        assertEquals(StoryExecutionPhase.FINISHED, firstResult.state().phase());
+        assertEquals(StoryExecutionPhase.WAITING, repository.load(secondExecution).orElseThrow().phase());
     }
 
-    private static StoryRuntimeInput input() {
-        return StoryRuntimeInput.of(
-                StoryId.of("echo_story_engine:test"),
-                executionId(),
-                NamespacedId.of("echo_story_engine:test_event"),
-                Map.of("source", "unit-test"));
+    @Test
+    void duplicateCompletionDoesNotExecuteTheNextStepTwice() {
+        StoryRuntimeUseCase useCase = RuntimeTestFixture.useCase(
+                new RuntimeTestFixture.RecordingRepository(),
+                new RuntimeTestFixture.RecordingSink());
+
+        useCase.advance(RuntimeTestFixture.startInput());
+        StoryRuntimeResult finished = useCase.advance(RuntimeTestFixture.successfulCompletion());
+        StoryRuntimeResult duplicate = useCase.advance(RuntimeTestFixture.successfulCompletion());
+
+        assertEquals(finished.state(), duplicate.state());
+        assertEquals(0, duplicate.commands().size());
+        assertEquals("ESE-ACTION-003", duplicate.diagnostics().get(0).code());
     }
 
-    private static ExecutionId executionId() {
-        return ExecutionId.of("echo_story_engine:test-execution");
+    @Test
+    void unknownCompletionIdIsHandledSafely() {
+        StoryRuntimeUseCase useCase = RuntimeTestFixture.useCase(
+                new RuntimeTestFixture.RecordingRepository(),
+                new RuntimeTestFixture.RecordingSink());
+        ActionExecutionId unknownId = ActionExecutionId.of("echo_story_engine:unknown-action");
+
+        StoryRuntimeResult waiting = useCase.advance(RuntimeTestFixture.startInput());
+        StoryRuntimeResult unknown = useCase.advance(RuntimeTestFixture.completion(
+                RuntimeTestFixture.EXECUTION_ID,
+                unknownId,
+                ExternalActionResultCategory.SUCCESS));
+
+        assertEquals(waiting.state(), unknown.state());
+        assertEquals("ESE-ACTION-004", unknown.diagnostics().get(0).code());
     }
 
-    private static final class FixedClock implements StoryClock {
-        @Override
-        public Instant now() {
-            return FIXED_TIME;
-        }
-    }
+    @Test
+    void missingActionSupportProducesDiagnosticAndFailsOnlyThatExecution() {
+        RuntimeTestFixture.RecordingRepository repository = new RuntimeTestFixture.RecordingRepository();
+        StoryRuntimeUseCase useCase = RuntimeTestFixture.useCase(
+                repository,
+                new RuntimeTestFixture.RecordingSink(),
+                RuntimeTestFixture.helloStory(),
+                Set.of());
 
-    private static final class RecordingSink implements DiagnosticSink {
-        private final List<StoryDiagnostic> diagnostics = new ArrayList<>();
+        StoryRuntimeResult result = useCase.advance(RuntimeTestFixture.startInput());
 
-        @Override
-        public void accept(StoryDiagnostic diagnostic) {
-            diagnostics.add(diagnostic);
-        }
-
-        List<StoryDiagnostic> diagnostics() {
-            return List.copyOf(diagnostics);
-        }
-    }
-
-    private static final class RecordingRepository implements ExecutionStateRepository {
-        private final Map<ExecutionId, StoryExecutionState> states = new HashMap<>();
-
-        @Override
-        public Optional<StoryExecutionState> load(ExecutionId executionId) {
-            return Optional.ofNullable(states.get(executionId));
-        }
-
-        @Override
-        public void save(StoryExecutionState state) {
-            states.put(state.executionId(), state);
-        }
+        assertEquals(StoryExecutionPhase.FAILED, result.state().phase());
+        assertEquals("ESE-ACTION-001", result.state().failureCode());
+        assertEquals("ESE-ACTION-001", result.diagnostics().get(0).code());
+        assertEquals(0, result.commands().size());
     }
 }
