@@ -3,8 +3,9 @@
 ## Current Test Types
 
 - Domain/application unit tests in `story-core`.
-- Parser, structural validation, semantic validation, compiler, pipeline, fixture, and architecture tests in
-  `story-definition`.
+- Structural validation, semantic validation, neutral compiler, fixture, and architecture tests in `story-definition`.
+- EchoScript StoryResource adapter, binding, fingerprint, runtime integration, recovery integration, and architecture
+  tests in `story-echoscript-adapter`.
 - Durable persistence, strict save schema, file repository, recovery, crash-window, and architecture tests in
   `story-persistence`.
 - Diagnostic buffer tests in `story-core`.
@@ -34,21 +35,31 @@ Coverage reports are generated, but no global percentage gate is used as a subst
 
 ## Source Pipeline Tests
 
-Source fixtures live under `story-definition/src/test/resources`. Production resources do not contain demo stories.
+EchoScript source fixtures live under `story-echoscript-adapter/src/test/resources`. Production resources do not
+contain demo stories.
 
-M2 tests cover:
+Story-definition tests cover:
 
-- valid strict JSON parsing;
-- malformed JSON syntax diagnostics;
 - structural validation success and required-field/version/id/node-kind failures;
 - semantic validation success, missing targets, missing start node, unreachable-node warnings, synchronous cycles,
   and invalid action type ids;
-- compilation into immutable `StoryDefinition`;
-- execution of compiled source through the deterministic runtime to `WAITING` and `FINISHED`;
-- deterministic compilation for identical source and reordered JSON fields;
+- neutral source compilation into immutable `StoryDefinition`;
 - defensive copying from source collections into compiled output;
 - invalid source producing no compiled story;
 - source diagnostics carrying source and node context where available.
+
+Story-echoscript-adapter tests cover:
+
+- valid `.es` StoryResource compilation into the runtime model;
+- syntax and language diagnostics adapted from EchoScript;
+- StoryResource binding failures for unsupported profiles, missing methods, invalid signatures, unsupported members,
+  unknown types, unknown intrinsics, and invalid arguments;
+- execution of compiled `.es` source through the deterministic runtime to `WAITING` and `FINISHED`;
+- fingerprint invariance for comments, line endings, source path, and independent declaration order;
+- fingerprint changes for semantic action and variable changes;
+- M3 recovery from a real file repository using compiled `.es` source and rejection of incompatible fingerprints;
+- architecture rules for EchoScript containment, no copied EchoScript source or jars, no JSON source frontend
+  leftovers, and no DialogueResource semantics in production code.
 
 ## Persistence Tests
 

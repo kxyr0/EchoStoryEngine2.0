@@ -5,16 +5,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.kxyr0.echostoryengine.story.api.diagnostic.StoryDiagnostic;
 import io.github.kxyr0.echostoryengine.story.definition.SourcePipelineFixture;
-import io.github.kxyr0.echostoryengine.story.definition.parse.JsonStorySourceParser;
+import io.github.kxyr0.echostoryengine.story.definition.source.SourceNode;
 import io.github.kxyr0.echostoryengine.story.definition.source.SourceStory;
-import io.github.kxyr0.echostoryengine.story.definition.source.StorySourceInput;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class StructuralStoryValidatorTest {
     @Test
     void validSourcePassesStructuralValidation() {
-        StoryValidationResult result = validate(validJson());
+        StoryValidationResult result = validate(SourcePipelineFixture.validSource());
 
         assertTrue(result.succeeded());
         assertTrue(result.diagnostics().isEmpty());
@@ -22,7 +22,8 @@ final class StructuralStoryValidatorTest {
 
     @Test
     void unsupportedFormatVersionIsRejected() {
-        StoryValidationResult result = validate(validJson().replace("\"formatVersion\": 1", "\"formatVersion\": 2"));
+        StoryValidationResult result = validate(source(Optional.of(2), Optional.of("sample:hello_story"),
+                Optional.of("start"), SourcePipelineFixture.validNodes()));
 
         assertFalse(result.succeeded());
         assertHasCode(result.diagnostics(), "ESE-SOURCE-002");
@@ -30,7 +31,8 @@ final class StructuralStoryValidatorTest {
 
     @Test
     void missingStoryIdIsRejected() {
-        StoryValidationResult result = validate(validJson().replace("  \"storyId\": \"sample:hello_story\",\n", ""));
+        StoryValidationResult result = validate(source(Optional.of(1), Optional.empty(), Optional.of("start"),
+                SourcePipelineFixture.validNodes()));
 
         assertFalse(result.succeeded());
         assertHasContext(result.diagnostics(), "ESE-SOURCE-003", "field", "storyId");
@@ -38,7 +40,8 @@ final class StructuralStoryValidatorTest {
 
     @Test
     void invalidNamespacedStoryIdIsRejected() {
-        StoryValidationResult result = validate(validJson().replace("sample:hello_story", "invalid story"));
+        StoryValidationResult result = validate(source(Optional.of(1), Optional.of("invalid story"),
+                Optional.of("start"), SourcePipelineFixture.validNodes()));
 
         assertFalse(result.succeeded());
         assertHasCode(result.diagnostics(), "ESE-SOURCE-004");
@@ -46,7 +49,8 @@ final class StructuralStoryValidatorTest {
 
     @Test
     void missingStartNodeFieldIsRejected() {
-        StoryValidationResult result = validate(validJson().replace("  \"startNode\": \"start\",\n", ""));
+        StoryValidationResult result = validate(source(Optional.of(1), Optional.of("sample:hello_story"),
+                Optional.empty(), SourcePipelineFixture.validNodes()));
 
         assertFalse(result.succeeded());
         assertHasContext(result.diagnostics(), "ESE-SOURCE-003", "field", "startNode");
@@ -54,7 +58,13 @@ final class StructuralStoryValidatorTest {
 
     @Test
     void duplicateNodeIdsAreRejected() {
-        StoryValidationResult result = validate(validJson().replace("\"id\": \"finish\"", "\"id\": \"confirm\""));
+        List<SourceNode> nodes = SourcePipelineFixture.validNodes().stream()
+                .map(node -> node.id().filter("finish"::equals).isPresent()
+                        ? SourcePipelineFixture.node("confirm", "finish", Optional.empty())
+                        : node)
+                .toList();
+        StoryValidationResult result = validate(source(Optional.of(1), Optional.of("sample:hello_story"),
+                Optional.of("start"), nodes));
 
         assertFalse(result.succeeded());
         assertHasCode(result.diagnostics(), "ESE-SOURCE-005");
@@ -62,7 +72,9 @@ final class StructuralStoryValidatorTest {
 
     @Test
     void invalidNodeKindIsRejected() {
-        StoryValidationResult result = validate(validJson().replace("\"kind\": \"finish\"", "\"kind\": \"unknown\""));
+        List<SourceNode> nodes = List.of(SourcePipelineFixture.node("start", "unknown", Optional.empty()));
+        StoryValidationResult result = validate(source(Optional.of(1), Optional.of("sample:hello_story"),
+                Optional.of("start"), nodes));
 
         assertFalse(result.succeeded());
         assertHasCode(result.diagnostics(), "ESE-SOURCE-010");
@@ -70,36 +82,45 @@ final class StructuralStoryValidatorTest {
 
     @Test
     void missingRequiredNodeFieldIsRejected() {
-        String invalid = validJson().replace(
-                "      \"kind\": \"start\",\n      \"next\": \"set_ready\"",
-                "      \"kind\": \"start\"");
-
-        StoryValidationResult result = validate(invalid);
+        List<SourceNode> nodes = List.of(SourcePipelineFixture.node("start", "start", Optional.empty()));
+        StoryValidationResult result = validate(source(Optional.of(1), Optional.of("sample:hello_story"),
+                Optional.of("start"), nodes));
 
         assertFalse(result.succeeded());
         assertHasContext(result.diagnostics(), "ESE-SOURCE-003", "field", "next");
     }
 
     @Test
-    void nonStringActionArgumentIsRejected() {
-        StoryValidationResult result = validate(validJson().replace("\"message\": \"ready\"", "\"message\": 7"));
+    void invalidActionArgumentIsRejected() {
+        SourceNode invalid = new SourceNode(
+                Optional.of("confirm"),
+                Optional.of("external_action"),
+                Optional.of("finish"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of("sample:confirm"),
+                java.util.Map.of(),
+                List.of("message"),
+                java.util.Set.of("id", "kind", "actionType", "arguments", "next"),
+                io.github.kxyr0.echostoryengine.story.definition.source.SourceLocation.unknown());
+        StoryValidationResult result = validate(source(Optional.of(1), Optional.of("sample:hello_story"),
+                Optional.of("confirm"), List.of(invalid)));
 
         assertFalse(result.succeeded());
         assertHasContext(result.diagnostics(), "ESE-SOURCE-012", "field", "arguments");
     }
 
-    private static StoryValidationResult validate(String content) {
-        SourceStory source = parse(content);
+    private static StoryValidationResult validate(SourceStory source) {
         return new StructuralStoryValidator().validate(source, SourcePipelineFixture.TIME);
     }
 
-    private static SourceStory parse(String content) {
-        StorySourceInput input = new StorySourceInput(SourcePipelineFixture.SOURCE_ID, content);
-        return new JsonStorySourceParser().parse(input, SourcePipelineFixture.TIME).source().orElseThrow();
-    }
-
-    private static String validJson() {
-        return SourcePipelineFixture.validInput().content();
+    private static SourceStory source(
+            Optional<Integer> formatVersion,
+            Optional<String> storyId,
+            Optional<String> startNode,
+            List<SourceNode> nodes) {
+        return SourcePipelineFixture.source(formatVersion, storyId, startNode, nodes);
     }
 
     private static void assertHasCode(List<StoryDiagnostic> diagnostics, String code) {

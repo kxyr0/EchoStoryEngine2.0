@@ -3,9 +3,9 @@
 Echo Story Engine is a story-only runtime scaffold for Minecraft Forge 1.20.1 on Java 17.
 
 The current repository contains architecture documentation, ADRs, automated guardrails, a deterministic runtime
-vertical slice, a minimal strict-JSON source pipeline, and a portable durable persistence adapter. It does not
-implement a custom DSL, gameplay systems, NPCs, combat, navigation, GUI, networking, Forge resource loading,
-or a Forge world-bound persistence host.
+vertical slice, a StoryResource `.es` source compiler backed by the external EchoScript language artifact, and a
+portable durable persistence adapter. It does not implement gameplay systems, NPCs, combat, navigation, GUI,
+networking, Forge resource loading, or a Forge world-bound persistence host.
 
 Canonical project identity:
 
@@ -19,6 +19,7 @@ Canonical project identity:
 
 ```text
 story-contracts <- story-core <- story-definition
+story-contracts <- story-core <- story-definition <- story-echoscript-adapter
 story-contracts <- story-core <- story-persistence
 story-contracts <- story-core <- story-forge-1.20.1
 story-contracts <- story-forge-1.20.1
@@ -26,8 +27,10 @@ story-contracts <- story-forge-1.20.1
 
 - `story-contracts`: Java-only public API/SPI contracts.
 - `story-core`: Java-only compiled story model, deterministic runtime, application use case, ports, and diagnostics.
-- `story-definition`: Java-only source DTOs, strict JSON parsing, structural validation, semantic validation,
+- `story-definition`: Java-only source DTOs, structural validation, semantic validation, compiler boundary,
   and compilation into the core compiled model.
+- `story-echoscript-adapter`: Java-only EchoScript `.es` StoryResource adapter that binds the supported source
+  profile into neutral source DTOs.
 - `story-persistence`: Java-only save schema V1, strict JSON checkpoint codec, durable file repository, and
   recovery planning.
 - `story-forge-1.20.1`: Forge entrypoint, composition root, and platform adapters.
@@ -35,9 +38,13 @@ story-contracts <- story-forge-1.20.1
 Implemented source format version: `1`.
 Implemented save schema version: `1`.
 
-The minimal source pipeline supports stable story ids, start node ids, start/set-variable/equality-condition/
-external-action/finish nodes, explicit transitions, and string-valued external action arguments. Runtime execution
-uses compiled immutable `StoryDefinition` objects, not raw JSON or source DTOs.
+The implemented StoryResource source profile supports stable story ids, start node ids, start/set-variable/
+equality-condition/external-action/finish nodes, explicit transitions, and string-valued external action arguments.
+Runtime execution uses compiled immutable `StoryDefinition` objects, not EchoScript syntax trees or source DTOs.
+
+Local development resolves EchoScript from Maven local as
+`io.github.kxyr0.echoscript:echo-script-language:0.1.0-SNAPSHOT`. CI and release builds need a reproducible Maven
+repository with the same coordinates.
 
 Durable runtime persistence uses save-before-dispatch ordering: the runtime computes the next state and abstract
 commands, saves the checkpoint, and exposes commands only after save success. Recovery is at-least-once and reissues

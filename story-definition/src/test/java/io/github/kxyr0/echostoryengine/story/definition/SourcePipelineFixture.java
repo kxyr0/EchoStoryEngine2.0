@@ -18,22 +18,21 @@ import io.github.kxyr0.echostoryengine.story.core.port.ExecutionLoadResult;
 import io.github.kxyr0.echostoryengine.story.core.port.ExecutionSaveResult;
 import io.github.kxyr0.echostoryengine.story.core.port.ExecutionStateRepository;
 import io.github.kxyr0.echostoryengine.story.core.port.StoryClock;
-import io.github.kxyr0.echostoryengine.story.definition.compile.StoryCompilationResult;
-import io.github.kxyr0.echostoryengine.story.definition.compile.StorySourcePipeline;
+import io.github.kxyr0.echostoryengine.story.definition.source.SourceLocation;
+import io.github.kxyr0.echostoryengine.story.definition.source.SourceNode;
+import io.github.kxyr0.echostoryengine.story.definition.source.SourceStory;
 import io.github.kxyr0.echostoryengine.story.definition.source.StorySourceInput;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public final class SourcePipelineFixture {
     public static final Instant TIME = Instant.parse("2026-07-12T00:00:00Z");
-    public static final String SOURCE_ID = "test:valid-story.json";
+    public static final String SOURCE_ID = "test:valid-story.es";
     public static final StoryId STORY_ID = StoryId.of("sample:hello_story");
     public static final ExecutionId EXECUTION_ID = ExecutionId.of("sample:execution");
     public static final NodeId CONFIRM_NODE = NodeId.of("confirm");
@@ -44,11 +43,99 @@ public final class SourcePipelineFixture {
     }
 
     public static StorySourceInput validInput() {
-        return new StorySourceInput(SOURCE_ID, resourceText("/source/valid-story.json"));
+        return new StorySourceInput(SOURCE_ID, "");
     }
 
-    public static StoryCompilationResult compile(String content) {
-        return new StorySourcePipeline().compile(new StorySourceInput(SOURCE_ID, content), TIME);
+    public static SourceStory validSource() {
+        return source(Optional.of(1), Optional.of(STORY_ID.asString()), Optional.of("start"), validNodes());
+    }
+
+    public static SourceStory source(
+            Optional<Integer> formatVersion,
+            Optional<String> storyId,
+            Optional<String> startNode,
+            List<SourceNode> nodes) {
+        return new SourceStory(
+                SOURCE_ID,
+                formatVersion,
+                storyId,
+                startNode,
+                nodes,
+                Set.of("formatVersion", "storyId", "startNode", "nodes"),
+                SourceLocation.unknown());
+    }
+
+    public static List<SourceNode> validNodes() {
+        return List.of(
+                node("start", "start", Optional.of("set_ready")),
+                setNode("set_ready", "sample.ready", "true", "check_ready"),
+                conditionNode("check_ready", "sample.ready", "true", "confirm"),
+                actionNode("confirm", "sample:confirm", "finish", Map.of()),
+                node("finish", "finish", Optional.empty()));
+    }
+
+    public static SourceNode node(String id, String kind, Optional<String> next) {
+        Set<String> fields = next.isPresent() ? Set.of("id", "kind", "next") : Set.of("id", "kind");
+        return new SourceNode(
+                Optional.of(id),
+                Optional.of(kind),
+                next,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Map.of(),
+                List.of(),
+                fields,
+                SourceLocation.unknown());
+    }
+
+    public static SourceNode setNode(String id, String variable, String value, String next) {
+        return new SourceNode(
+                Optional.of(id),
+                Optional.of("set_variable"),
+                Optional.of(next),
+                Optional.of(variable),
+                Optional.of(value),
+                Optional.empty(),
+                Optional.empty(),
+                Map.of(),
+                List.of(),
+                Set.of("id", "kind", "variable", "value", "next"),
+                SourceLocation.unknown());
+    }
+
+    public static SourceNode conditionNode(String id, String variable, String expected, String next) {
+        return new SourceNode(
+                Optional.of(id),
+                Optional.of("condition"),
+                Optional.of(next),
+                Optional.of(variable),
+                Optional.empty(),
+                Optional.of(expected),
+                Optional.empty(),
+                Map.of(),
+                List.of(),
+                Set.of("id", "kind", "variable", "expectedValue", "next"),
+                SourceLocation.unknown());
+    }
+
+    public static SourceNode actionNode(String id, String actionType, String next, Map<String, String> arguments) {
+        Set<String> fields = arguments.isEmpty()
+                ? Set.of("id", "kind", "actionType", "next")
+                : Set.of("id", "kind", "actionType", "arguments", "next");
+        return new SourceNode(
+                Optional.of(id),
+                Optional.of("external_action"),
+                Optional.of(next),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(actionType),
+                arguments,
+                List.of(),
+                fields,
+                SourceLocation.unknown());
     }
 
     public static StoryRuntimeInput startInput() {
@@ -66,14 +153,6 @@ public final class SourcePipelineFixture {
     public static StoryRuntimeUseCase useCase(StoryDefinition definition, RecordingRepository repository) {
         RuntimeTransitionPolicy policy = new RuntimeTransitionPolicy(definition, Set.of(ACTION_TYPE), 16);
         return new StoryRuntimeUseCase(repository, new RecordingSink(), new FixedClock(), policy);
-    }
-
-    private static String resourceText(String path) {
-        try (var stream = SourcePipelineFixture.class.getResourceAsStream(path)) {
-            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException exception) {
-            throw new UncheckedIOException(exception);
-        }
     }
 
     private static final class FixedClock implements StoryClock {

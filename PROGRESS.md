@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-M3: Durable Persistence & Recovery completed. Next milestone is M4 Forge persistence host integration.
+M3.6: Story-EchoScript Integration completed. Next milestone is M4 Forge persistence host integration.
 
 ## Completed
 
@@ -40,6 +40,25 @@ M3: Durable Persistence & Recovery completed. Next milestone is M4 Forge persist
   from compiled story definitions.
 - M3 tests cover file persistence success/failure paths, crash windows, recovery invariants, fingerprint stability,
   command dispatch suppression, and architecture boundaries.
+- Forge jar packaging now embeds `story-contracts` and `story-core` classes so the distributable mod jar contains
+  `StoryEngineApi`, `DiagnosticSink`, and other Java-only runtime classes needed at Forge load time.
+- ForgeGradle userdev runs now register `story-contracts` and `story-core` source sets as part of the mod source so
+  `runClient` does not load only `story-forge-1.20.1/build/resources/main`.
+- M3.6 execution plan created: `docs/plans/0006-m3-6-story-echoscript-integration.md`.
+- `story-echoscript-adapter` module added as the EchoScript `.es` StoryResource source frontend.
+- EchoScript is consumed as the published Maven artifact
+  `io.github.kxyr0.echoscript:echo-script-language:0.1.0-SNAPSHOT`; no EchoScript source or jars are copied into
+  this repository.
+- `story-definition` now owns neutral source DTOs, validators, diagnostics, compiler boundary, and
+  `SourceStoryCompiler`; the old strict JSON production frontend and Gson dependency were removed from this module.
+- `StorySourceCompiler` is now the frontend interface implemented by `EchoScriptStorySourceCompiler`.
+- The supported StoryResource profile binds `Story`, `Start`, `Set`, `Require`, `Action`, and `Finish` intrinsics into
+  the existing `StoryDefinition` model.
+- Adapter diagnostics map EchoScript syntax/language failures and StoryResource binding failures into `ESE-SOURCE-*`
+  diagnostics without logging or source-specific files.
+- M3.6 tests cover `.es` compilation, runtime execution, duplicate/unknown completion safety, fingerprint invariants,
+  real file-repository recovery, incompatible fingerprint rejection, EchoScript containment, JSON source removal, and
+  DialogueResource boundary rejection.
 
 ## In Progress
 
@@ -49,10 +68,11 @@ M3: Durable Persistence & Recovery completed. Next milestone is M4 Forge persist
 
 - M4 Forge persistence host integration: select a world-bound root, lifecycle wiring, and server-thread scheduling
   policy for durable saves.
+- Decide how CI/release builds will resolve the EchoScript snapshot or its promoted release coordinates from a
+  reproducible Maven repository.
 - Decide whether to replace or remove inherited Forge `LICENSE.txt` and `CREDITS.txt` with project-specific
   legal/credit files. This task did not change licensing.
 - Add a dedicated server smoke test once a minimal server scenario exists.
-- Decide the next milestone after M1 verification.
 
 ## Blockers
 
@@ -73,14 +93,15 @@ M3: Durable Persistence & Recovery completed. Next milestone is M4 Forge persist
   Forge yet.
 - M3 file persistence is synchronous and portable; M4 must decide where and how Forge schedules durable file work.
 - The M1 external action support list is explicit wiring, not a production adapter registry.
+- EchoScript currently resolves from Maven local for development; CI and release builds need the same coordinates in a
+  reproducible repository.
 
 ## Intentional Technical Debt
 
 - Durable SavedData/NBT persistence is not implemented in Forge.
 - No command, GUI, networking, GameTest, or dedicated server smoke test exists yet.
 - No production external action handler dispatch, timeout scheduler, or durable completion inbox exists yet.
-- Forge resource loading for source files is not implemented yet.
-- Forge resource loading for source files and Forge world-bound runtime persistence are not implemented yet.
+- Forge resource loading for `.es` source files and Forge world-bound runtime persistence are not implemented yet.
 
 ## Verification Status
 
@@ -162,3 +183,37 @@ M3: Durable Persistence & Recovery completed. Next milestone is M4 Forge persist
   `story-contracts`, and Gson; Forge depends on `story-core`, `story-contracts`, and Forge/Minecraft.
 - M3 production type count: `story-contracts` 16, `story-core` 19, `story-definition` 16,
   `story-forge-1.20.1` 5, `story-persistence` 19.
+- Forge jar runtime class packaging check: passed; `echo-story-engine-0.1.0.jar` contains `StoryEngineApi.class`
+  and `DiagnosticSink.class`.
+- ForgeGradle userdev source-set configuration check: passed through `:story-forge-1.20.1:compileJava`,
+  `:story-forge-1.20.1:processResources`, `:story-forge-1.20.1:jar`, and `forgeJarContainsRuntimeClasses`.
+- M3.6 focused `.\gradlew.bat :story-echoscript-adapter:compileJava :story-definition:compileJava`: passed.
+- M3.6 focused `.\gradlew.bat :story-echoscript-adapter:checkstyleMain
+  :story-echoscript-adapter:checkstyleTest :story-definition:checkstyleMain :story-definition:checkstyleTest`:
+  passed.
+- M3.6 focused `.\gradlew.bat :story-definition:test :story-echoscript-adapter:test`: passed.
+- M3.6 production type count: `story-contracts` 16, `story-core` 19, `story-definition` 14,
+  `story-echoscript-adapter` 12, `story-forge-1.20.1` 5, `story-persistence` 19.
+- M3.6 `.\gradlew.bat projects`: passed; root now contains `story-contracts`, `story-core`, `story-definition`,
+  `story-echoscript-adapter`, `story-forge-1.20.1`, and `story-persistence`.
+- M3.6 dependency reports passed: `story-echoscript-adapter` depends on `story-definition`, `story-core`,
+  `story-contracts`, and EchoScript `echo-script-language`/`echo-script-api`; `story-definition` depends only on
+  `story-core` and `story-contracts`; `story-persistence` depends on `story-core`, `story-contracts`, and Gson.
+- M3.6 `.\gradlew.bat test`: passed.
+- M3.6 `.\gradlew.bat architectureTest`: passed.
+- M3.6 `.\gradlew.bat check`: passed.
+- M3.6 `.\gradlew.bat build`: passed.
+- M3.6 `.\gradlew.bat checkWhitespace`: passed.
+- M3.6 `git diff --check`: passed with LF/CRLF conversion warnings only.
+- M3.6 `.\gradlew.bat sourceShapeCheck`: passed.
+- M3.6 forbidden platform import scan outside Forge production code: passed.
+- M3.6 EchoScript production leakage scan outside `story-echoscript-adapter`: passed.
+- M3.6 copied EchoScript package-source scan: passed.
+- M3.6 committed jar scan excluding build outputs and Gradle wrapper: passed.
+- M3.6 absolute Gradle path scan: passed.
+- M3.6 JSON source frontend production-leftover scan in `story-definition`: passed.
+- M3.6 Gson isolation scan outside persistence schema/module usage: passed.
+- M3.6 mutable static production field scan: passed.
+- M3.6 direct logging API scan outside Forge production code: passed.
+- M3.6 DialogueResource/Line/Alias production semantics scan: passed.
+- M3.6 TODO/FIXME scan excluding build/run artifacts: passed.

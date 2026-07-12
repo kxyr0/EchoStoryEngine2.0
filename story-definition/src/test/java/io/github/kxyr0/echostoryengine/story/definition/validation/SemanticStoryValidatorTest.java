@@ -6,16 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.kxyr0.echostoryengine.story.api.diagnostic.DiagnosticSeverity;
 import io.github.kxyr0.echostoryengine.story.api.diagnostic.StoryDiagnostic;
 import io.github.kxyr0.echostoryengine.story.definition.SourcePipelineFixture;
-import io.github.kxyr0.echostoryengine.story.definition.parse.JsonStorySourceParser;
+import io.github.kxyr0.echostoryengine.story.definition.source.SourceNode;
 import io.github.kxyr0.echostoryengine.story.definition.source.SourceStory;
-import io.github.kxyr0.echostoryengine.story.definition.source.StorySourceInput;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 final class SemanticStoryValidatorTest {
     @Test
     void validSourcePassesSemanticValidation() {
-        StoryValidationResult result = validate(validJson());
+        StoryValidationResult result = validate(SourcePipelineFixture.validSource());
 
         assertTrue(result.succeeded());
         assertTrue(result.diagnostics().isEmpty());
@@ -23,7 +24,12 @@ final class SemanticStoryValidatorTest {
 
     @Test
     void missingTransitionTargetIsRejected() {
-        StoryValidationResult result = validate(validJson().replace("\"next\": \"finish\"", "\"next\": \"missing\""));
+        List<SourceNode> nodes = SourcePipelineFixture.validNodes().stream()
+                .map(node -> node.id().filter("confirm"::equals).isPresent()
+                        ? SourcePipelineFixture.actionNode("confirm", "sample:confirm", "missing", java.util.Map.of())
+                        : node)
+                .toList();
+        StoryValidationResult result = validate(source("start", nodes));
 
         assertFalse(result.succeeded());
         assertHasCode(result.diagnostics(), "ESE-SOURCE-007");
@@ -31,7 +37,9 @@ final class SemanticStoryValidatorTest {
 
     @Test
     void unreachableNodeIsReportedAsWarning() {
-        StoryValidationResult result = validate(withUnusedNode());
+        List<SourceNode> nodes = new ArrayList<>(SourcePipelineFixture.validNodes());
+        nodes.add(SourcePipelineFixture.node("unused", "finish", Optional.empty()));
+        StoryValidationResult result = validate(source("start", nodes));
 
         assertTrue(result.succeeded());
         assertTrue(result.diagnostics().stream().anyMatch(diagnostic -> diagnostic.code().equals("ESE-SOURCE-008")
@@ -40,7 +48,12 @@ final class SemanticStoryValidatorTest {
 
     @Test
     void synchronousCycleIsRejected() {
-        StoryValidationResult result = validate(validJson().replace("\"next\": \"set_ready\"", "\"next\": \"start\""));
+        List<SourceNode> nodes = SourcePipelineFixture.validNodes().stream()
+                .map(node -> node.id().filter("start"::equals).isPresent()
+                        ? SourcePipelineFixture.node("start", "start", Optional.of("start"))
+                        : node)
+                .toList();
+        StoryValidationResult result = validate(source("start", nodes));
 
         assertFalse(result.succeeded());
         assertHasCode(result.diagnostics(), "ESE-SOURCE-009");
@@ -48,7 +61,12 @@ final class SemanticStoryValidatorTest {
 
     @Test
     void invalidActionTypeIsRejected() {
-        StoryValidationResult result = validate(validJson().replace("sample:confirm", "invalid action"));
+        List<SourceNode> nodes = SourcePipelineFixture.validNodes().stream()
+                .map(node -> node.id().filter("confirm"::equals).isPresent()
+                        ? SourcePipelineFixture.actionNode("confirm", "invalid action", "finish", java.util.Map.of())
+                        : node)
+                .toList();
+        StoryValidationResult result = validate(source("start", nodes));
 
         assertFalse(result.succeeded());
         assertHasCode(result.diagnostics(), "ESE-SOURCE-004");
@@ -56,32 +74,22 @@ final class SemanticStoryValidatorTest {
 
     @Test
     void missingStartNodeReferenceIsRejected() {
-        StoryValidationResult result = validate(validJson()
-                .replace("\"startNode\": \"start\"", "\"startNode\": \"absent\""));
+        StoryValidationResult result = validate(source("absent", SourcePipelineFixture.validNodes()));
 
         assertFalse(result.succeeded());
         assertHasCode(result.diagnostics(), "ESE-SOURCE-006");
     }
 
-    private static StoryValidationResult validate(String content) {
-        SourceStory source = parse(content);
+    private static StoryValidationResult validate(SourceStory source) {
         return new SemanticStoryValidator().validate(source, SourcePipelineFixture.TIME);
     }
 
-    private static SourceStory parse(String content) {
-        StorySourceInput input = new StorySourceInput(SourcePipelineFixture.SOURCE_ID, content);
-        return new JsonStorySourceParser().parse(input, SourcePipelineFixture.TIME).source().orElseThrow();
-    }
-
-    private static String withUnusedNode() {
-        return validJson().replace(
-                "    {\n      \"id\": \"finish\",\n      \"kind\": \"finish\"\n    }\n",
-                "    {\n      \"id\": \"finish\",\n      \"kind\": \"finish\"\n    },\n"
-                        + "    {\n      \"id\": \"unused\",\n      \"kind\": \"finish\"\n    }\n");
-    }
-
-    private static String validJson() {
-        return SourcePipelineFixture.validInput().content();
+    private static SourceStory source(String startNode, List<SourceNode> nodes) {
+        return SourcePipelineFixture.source(
+                Optional.of(1),
+                Optional.of("sample:hello_story"),
+                Optional.of(startNode),
+                nodes);
     }
 
     private static void assertHasCode(List<StoryDiagnostic> diagnostics, String code) {

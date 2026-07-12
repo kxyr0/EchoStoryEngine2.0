@@ -5,6 +5,8 @@ plugins {
 
 description = 'Forge 1.20.1 platform adapter for Echo Story Engine.'
 
+def embeddedStoryProjects = [project(':story-contracts'), project(':story-core')]
+
 base {
     archivesName = artifact_name
 }
@@ -21,6 +23,9 @@ minecraft {
             mods {
                 "${mod_id}" {
                     source sourceSets.main
+                    embeddedStoryProjects.each { storyProject ->
+                        source storyProject.sourceSets.main
+                    }
                 }
             }
         }
@@ -70,6 +75,12 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 tasks.named('jar', Jar).configure {
+    dependsOn embeddedStoryProjects.collect { "${it.path}:classes" }
+    embeddedStoryProjects.each { storyProject ->
+        from(storyProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
     manifest {
         attributes([
                 'Specification-Title'     : mod_id,
@@ -83,6 +94,34 @@ tasks.named('jar', Jar).configure {
     }
 
     finalizedBy 'reobfJar'
+}
+
+tasks.register('forgeJarContainsRuntimeClasses') {
+    group = 'verification'
+    description = 'Checks that the distributable Forge jar contains Java-only runtime modules.'
+    dependsOn tasks.named('jar')
+
+    doLast {
+        def requiredEntries = [
+                'io/github/kxyr0/echostoryengine/story/api/StoryEngineApi.class',
+                'io/github/kxyr0/echostoryengine/story/core/port/DiagnosticSink.class'
+        ]
+        def missing = []
+        new java.util.jar.JarFile(tasks.named('jar', Jar).get().archiveFile.get().asFile).withCloseable { jarFile ->
+            requiredEntries.each { entry ->
+                if (jarFile.getEntry(entry) == null) {
+                    missing << entry
+                }
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Forge jar is missing runtime classes:\n" + missing.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('forgeJarContainsRuntimeClasses')
 }
 
 publishing {

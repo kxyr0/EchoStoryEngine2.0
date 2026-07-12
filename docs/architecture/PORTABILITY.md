@@ -25,6 +25,15 @@ If the project moves to another Minecraft version or loader, adapters should cha
 provided by the caller; Forge world-directory selection is not part of M3. Core never receives `Path`, `File`, JSON,
 NBT, database, or Forge/Minecraft objects through persistence APIs.
 
+## Source Frontend Boundary
+
+`story-definition` owns neutral source DTOs, validation, diagnostics, and compilation into `StoryDefinition`.
+Concrete source frontends are replaceable adapters. In M3.6, `story-echoscript-adapter` is the only production
+frontend and all EchoScript parser types stay inside that module.
+
+Runtime, persistence, and public contracts use compiled `StoryDefinition` values and `CompiledStoryFingerprint`, not
+EchoScript syntax trees, `.es` source text, parser DTOs, or frontend-specific diagnostics.
+
 ## Forge Policy
 
 ForgeGradle is applied only in `story-forge-1.20.1`.

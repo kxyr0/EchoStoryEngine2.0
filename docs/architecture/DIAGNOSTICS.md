@@ -55,13 +55,14 @@ only and is not a second log stream.
 
 ## Source Diagnostics
 
-M2 source processing emits structured diagnostics and returns them in explicit result values. It does not log
-directly and does not create source-specific log files.
+Source processing emits structured diagnostics and returns them in explicit result values. It does not log directly
+and does not create source-specific log files. M3.6 adapts EchoScript syntax/language diagnostics into the Story
+diagnostic shape and emits Story-owned semantic binding diagnostics for the supported `StoryResource` profile.
 
 Current source codes:
 
-- `ESE-SOURCE-001`: malformed JSON syntax.
-- `ESE-SOURCE-002`: unsupported source format version.
+- `ESE-SOURCE-001`: malformed source syntax.
+- `ESE-SOURCE-002`: unsupported source language or format version.
 - `ESE-SOURCE-003`: missing required source field.
 - `ESE-SOURCE-004`: invalid story, node, or action identifier.
 - `ESE-SOURCE-005`: duplicate node id.
@@ -73,6 +74,18 @@ Current source codes:
 - `ESE-SOURCE-011`: compilation invariant failure.
 - `ESE-SOURCE-012`: invalid field for the node kind or argument model.
 - `ESE-SOURCE-013`: no reachable finish node.
+- `ESE-SOURCE-014`: unsupported resource profile.
+- `ESE-SOURCE-015`: missing resource class.
+- `ESE-SOURCE-016`: duplicate resource class.
+- `ESE-SOURCE-017`: missing Build method.
+- `ESE-SOURCE-018`: invalid Build signature.
+- `ESE-SOURCE-019`: unsupported member.
+- `ESE-SOURCE-020`: unknown type.
+- `ESE-SOURCE-021`: unknown intrinsic.
+- `ESE-SOURCE-022`: invalid argument count.
+- `ESE-SOURCE-023`: unknown named argument.
+- `ESE-SOURCE-024`: invalid argument type.
+- `ESE-SOURCE-025`: missing required lifecycle method.
 
 ## Persistence Diagnostics
 

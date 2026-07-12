@@ -30,12 +30,12 @@ final class SourcePipelineArchitectureTest {
             .resideInAnyPackage("..story.definition..");
 
     @ArchTest
-    static final ArchRule core_does_not_depend_on_json_parser_types = noClasses()
+    static final ArchRule core_does_not_depend_on_source_frontend_types = noClasses()
             .that()
             .resideInAnyPackage("..story.core..")
             .should()
             .dependOnClassesThat()
-            .resideInAnyPackage("com.google.gson..");
+            .resideInAnyPackage("com.google.gson..", "io.github.kxyr0.echoscript..", "..story.echoscript..");
 
     @ArchTest
     static final ArchRule source_dtos_do_not_appear_in_runtime_state = noClasses()
@@ -46,12 +46,19 @@ final class SourcePipelineArchitectureTest {
             .resideInAnyPackage("..story.definition.source..");
 
     @ArchTest
-    static final ArchRule definition_depends_only_on_contracts_core_and_json = noClasses()
+    static final ArchRule definition_has_no_frontend_platform_or_logging_dependencies = noClasses()
             .that()
             .resideInAnyPackage("..story.definition..")
             .should()
             .dependOnClassesThat()
-            .resideInAnyPackage("..story.forge..", "net.minecraft..", "net.minecraftforge..", "org.slf4j..");
+            .resideInAnyPackage(
+                    "..story.forge..",
+                    "..story.echoscript..",
+                    "io.github.kxyr0.echoscript..",
+                    "com.google.gson..",
+                    "net.minecraft..",
+                    "net.minecraftforge..",
+                    "org.slf4j..");
 
     @ArchTest
     static final ArchRule core_domain_has_no_json_annotations = noClasses()

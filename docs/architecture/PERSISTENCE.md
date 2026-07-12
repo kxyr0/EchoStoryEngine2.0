@@ -48,6 +48,10 @@ current node still exists, validates pending action type/arguments/id, keeps the
 recovery command with the same `ActionExecutionId`. Recovery is at-least-once; adapters must be idempotent by action
 execution id.
 
+M3.6 does not change save schema V1. EchoScript `.es` source is compiled before runtime starts, and checkpoints store
+only execution state plus the compiled story fingerprint. They do not store EchoScript source text, syntax trees,
+semantic binding objects, source DTO collections, or frontend-specific parser state.
+
 READY restores without auto-starting. FINISHED and FAILED restore as terminal with no command. RUNNING checkpoints
 are rejected during recovery because M1 synchronous transitions should settle before durable save.
 
@@ -67,7 +71,8 @@ Schema V1 persists:
 - created/updated timestamps supplied by an injected clock.
 
 The schema does not persist Java object identity, lambdas, callbacks, threads, futures, handlers, loggers, stack
-traces, Forge/Minecraft types, source parser DTOs, raw JSON trees, caches, or service instances.
+traces, Forge/Minecraft types, source parser DTOs, EchoScript AST objects, raw JSON trees, caches, or service
+instances.
 
 Unknown fields, missing required fields, unsupported schema versions, invalid identifiers, invalid phases, and invalid
 timestamp metadata are rejected. Deterministic map ordering is used for saved variables and pending action arguments.

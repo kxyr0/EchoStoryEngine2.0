@@ -11,6 +11,7 @@ These names are not folder names by themselves. A package exists only when it ha
 
 ```text
 story-contracts <- story-core <- story-definition
+story-contracts <- story-core <- story-definition <- story-echoscript-adapter
 story-contracts <- story-core <- story-persistence
 story-contracts <- story-core <- story-forge-1.20.1
 story-contracts <- story-forge-1.20.1
@@ -24,9 +25,13 @@ command data. `CompiledStoryFingerprint` is the neutral compatibility token used
 story definition model, pure transition policy, ports, and bounded diagnostic read model. It has no Minecraft, Forge,
 logging framework, filesystem, networking, JSON, or GUI dependency.
 
-`story-definition` is a Java 17 source-processing module. It contains source input/data records, a strict JSON source
-adapter, structural validation, semantic graph validation, source diagnostics, and compilation into `StoryDefinition`.
-Gson is scoped to this module's JSON adapter and does not appear in runtime or public contracts.
+`story-definition` is a Java 17 source-processing module. It contains source input/data records, structural
+validation, semantic graph validation, source diagnostics, a source compiler interface, and compilation into
+`StoryDefinition`. It has no concrete frontend parser dependency.
+
+`story-echoscript-adapter` is a Java 17 source frontend module. It consumes the published EchoScript language artifact,
+parses `.es` source, binds the supported `StoryResource` profile into neutral source DTOs, adapts diagnostics, and
+then delegates validation and compilation to `story-definition`.
 
 `story-persistence` is a Java 17 persistence module. It owns save schema V1, strict JSON checkpoint encoding,
 portable file persistence, backup/temp handling, optimistic revision checks, and recovery planning. Gson is scoped to
@@ -79,29 +84,32 @@ that id as the idempotency key.
 
 ## Source Pipeline
 
-M2 implements this source pipeline:
+M3.6 implements this source pipeline:
 
 ```text
 StorySourceInput
-  -> JsonStorySourceParser
+  -> EchoScript V1 parser
+  -> StoryResource profile binder
   -> StructuralStoryValidator
   -> SemanticStoryValidator
-  -> StorySourceCompiler
+  -> SourceStoryCompiler
   -> StoryDefinition
   -> RuntimeTransitionPolicy
 ```
 
-The parser converts strict JSON into immutable source DTOs and reports malformed syntax. Structural validation checks
-required fields, supported source format version, identifiers, node kind shape, duplicate nodes, required node fields,
-and invalid node field combinations. Semantic validation checks start-node existence, transition targets, reachable
-finish, unreachable nodes, synchronous cycles, and action type identifier syntax.
+The EchoScript adapter converts allowlisted `StoryResource` declarations into immutable neutral source DTOs and reports
+syntax, language, and binding diagnostics. Structural validation checks required fields, supported source format
+version, identifiers, node kind shape, duplicate nodes, required node fields, and invalid node field combinations.
+Semantic validation checks start-node existence, transition targets, reachable finish, unreachable nodes, synchronous
+cycles, and action type identifier syntax.
 
 Compilation runs only after structural and semantic validation have no `ERROR` diagnostics. It produces the existing
-core `StoryDefinition` and does not retain JSON objects, parser DTOs, source collections, or runtime execution state.
+core `StoryDefinition` and does not retain EchoScript AST objects, parser DTOs, source collections, or runtime
+execution state.
 
 ## Layers
 
-- Source processing: strict JSON adapter, source DTOs, validators, compiler.
+- Source processing: EchoScript frontend adapter, source DTOs, validators, compiler.
 - Domain: compiled story model and deterministic transition policy.
 - Application: state loading, transition coordination, state saving, diagnostic publication.
 - Ports: persistence, diagnostics, time.
@@ -112,5 +120,5 @@ core `StoryDefinition` and does not retain JSON objects, parser DTOs, source col
 
 ## Non-goals
 
-No custom DSL, editor, networking protocol, Forge world persistence host, Forge resource loading, GUI, concrete game
-logic, third-party mod integration, mixins, reflection registration, or plugin discovery is part of this scaffold.
+No editor, networking protocol, Forge world persistence host, Forge resource loading, GUI, concrete game logic,
+third-party mod integration, mixins, reflection registration, or plugin discovery is part of this scaffold.
