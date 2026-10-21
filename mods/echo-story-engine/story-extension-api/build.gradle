@@ -1,0 +1,5 @@
+description = 'Loader-neutral public extension API for Echo Story Engine.'
+
+dependencies {
+    api project(':story-contracts')
+}

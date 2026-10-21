@@ -1,0 +1,15 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Forge 1.20.1 public registration bridge for Echo Story Engine extensions.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':story-contracts')
+    api project(':story-extension-api')
+}

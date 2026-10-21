@@ -1,0 +1,15 @@
+package io.github.kxyr0.echonpcinteraction.api.result;
+
+public enum NpcInteractionConsequenceKind {
+    BLOCK_STATE_CHANGED,
+    BLOCK_ENTITY_CHANGED,
+    NEARBY_BLOCK_STATE_CHANGED,
+    WORLD_EVENT_CONFIRMED,
+    ENTITY_SPAWNED,
+    PROXY_STARTED_RIDING,
+    PROXY_RECEIVED_ITEM,
+    PROXY_STATE_ONLY,
+    MENU_OPENED,
+    NO_OBSERVABLE_EFFECT,
+    MULTIPLE_EFFECTS
+}

@@ -1,0 +1,622 @@
+{
+  "StoryResource": {
+    "prefix": "StoryResource",
+    "description": "New Echo Story graph resource.",
+    "body": [
+      "namespace JDH.${1:Chapter};",
+      "",
+      "class ${2:ExampleStory} : StoryResource",
+      "{",
+      "    public override StoryResourceDef Build()",
+      "    {",
+      "        return Story(\"${3:jdh:example_story}\", start: \"${4:start}\");",
+      "    }",
+      "",
+      "    private void Nodes()",
+      "    {",
+      "        Start(\"${4:start}\", next: \"${5:play_dialogue}\");",
+      "        Action(",
+      "            \"${5:play_dialogue}\",",
+      "            type: \"echo_dialogue:play\",",
+      "            dialogueId: \"${6:jdh:example_dialogue}\",",
+      "            audienceId: \"${7:jdh:local_author}\",",
+      "            output: \"${8:outcome}\",",
+      "            next: \"${9:finish}\");",
+      "        Finish(\"${9:finish}\");",
+      "    }",
+      "}"
+    ]
+  },
+  "Story Action: dialogue": {
+    "prefix": "StoryActionDialogue",
+    "description": "Story graph action that starts an Echo Dialogue resource.",
+    "body": [
+      "Action(",
+      "    \"${1:play_dialogue}\",",
+      "    type: \"echo_dialogue:play\",",
+      "    dialogueId: \"${2:jdh:dialogue_id}\",",
+      "    audienceId: \"${3:jdh:local_author}\",",
+      "    output: \"${4:outcome}\",",
+      "    next: \"${5:next_node}\");"
+    ]
+  },
+  "Story Action: NPC spawn": {
+    "prefix": "StoryActionNpcSpawn",
+    "description": "Story graph action that spawns an Echo NPC actor.",
+    "body": [
+      "Action(",
+      "    \"${1:spawn_actor}\",",
+      "    type: \"echo_npc:spawn\",",
+      "    actorId: \"${2:jdh:actor_id}\",",
+      "    definitionId: \"${3:jdh:npc_definition}\",",
+      "    worldId: \"minecraft:overworld\",",
+      "    x: \"${4:0}\",",
+      "    y: \"${5:64}\",",
+      "    z: \"${6:0}\",",
+      "    yaw: \"${7:0}\",",
+      "    pitch: \"${8:0}\",",
+      "    output: \"${9:result}\",",
+      "    next: \"${10:next_node}\");"
+    ]
+  },
+  "Story Set node": {
+    "prefix": "StorySet",
+    "description": "Story graph state write node.",
+    "body": [
+      "Set(",
+      "    \"${1:set_state}\",",
+      "    variable: \"${2:jdh.chapter.state_key}\",",
+      "    value: ${3:true},",
+      "    next: \"${4:next_node}\");"
+    ]
+  },
+  "DialogueResource": {
+    "prefix": "DialogueResource",
+    "description": "Minimal high-level Echo Dialogue resource; id comes from the resource filename.",
+    "body": [
+      "class ${1:ExampleDialogue} : DialogueResource",
+      "{",
+      "    Node ${2:FirstMeeting}()",
+      "    {",
+      "        Line(\"${3:john}\", \"${4:Line text}\", thought: ${5:false});",
+      "    }",
+      "}"
+    ]
+  },
+  "DialogueResource (multi-node)": {
+    "prefix": "DialogueResourceMulti",
+    "description": "High-level dialogue graph with an explicit start Node and symbolic GoTo.",
+    "body": [
+      "class ${1:ExampleDialogue} : DialogueResource",
+      "{",
+      "    start Node ${2:Opening}()",
+      "    {",
+      "        Line(\"${3:john}\", \"${4:Opening line}\");",
+      "        GoTo(${5:Continue});",
+      "    }",
+      "",
+      "    Node ${5:Continue}()",
+      "    {",
+      "        Line(\"${3:john}\", \"${6:Final line}\");",
+      "    }",
+      "}"
+    ]
+  },
+  "NpcResource": {
+    "prefix": "NpcResource",
+    "description": "New Echo NPC definition resource.",
+    "body": [
+      "namespace JDH.${1:Chapter};",
+      "",
+      "class ${2:ExampleNpc} : NpcResource",
+      "{",
+      "    public override NpcResourceDef Build()",
+      "    {",
+      "        return Npc(",
+      "            id: \"${3:jdh:example_npc}\",",
+      "            display: \"${4:Character}\",",
+      "            skin: Skin(\"${3:jdh:example_npc}\"),",
+      "            defaultForm: DefaultForm(\"${5:jdh:example_npc/default}\")",
+      "        );",
+      "    }",
+      "}"
+    ]
+  },
+  "NpcFormResource": {
+    "prefix": "NpcFormResource",
+    "description": "Echo NPC authored form resource.",
+    "body": [
+      "namespace JDH.NpcForms.${1:Chapter};",
+      "",
+      "class ${2:ExampleNpcForm} : NpcFormResource",
+      "{",
+      "    public override NpcFormResourceDef Build()",
+      "    {",
+      "        return Form(",
+      "            id: \"${3:jdh:example_npc/default}\",",
+      "            skin: Skin(\"${4:jdh:example_npc}\"),",
+      "            model: \"${5:default}\",",
+      "            dimensions: Dimensions(${6:0.6}, ${7:1.8}, ${8:1.62}),",
+      "            bodyScale: ${9:1.0},",
+      "            parts: [Part(\"${10:head}\", scale: ${11:1.0})],",
+      "            anchors: [Anchor(\"${12:dialogue}\", x: ${13:0}, y: ${14:1.8}, z: ${15:0})],",
+      "            animationGraph: \"${16:jdh:standard_humanoid}\",",
+      "            faceProfile: \"${17:jdh:example_face}\",",
+      "            portrait: Portrait(\"${4:jdh:example_npc}\"),",
+      "            tags: [\"${18:story}\"]",
+      "        );",
+      "    }",
+      "}"
+    ]
+  },
+  "EnvironmentResource": {
+    "prefix": "EnvironmentResource",
+    "description": "Echo Story environment resource with block-change states.",
+    "body": [
+      "namespace JDH.Environment.${1:Chapter};",
+      "",
+      "class ${2:ExampleEnvironment} : EnvironmentResource",
+      "{",
+      "    private DimensionId World = \"minecraft:overworld\";",
+      "",
+      "    public override EnvironmentResourceDef Build()",
+      "    {",
+      "        var states = [",
+      "            ${3:Morning}()",
+      "        ];",
+      "",
+      "        return Environment(\"${4:jdh:example_environment}\", World, states);",
+      "    }",
+      "",
+      "    private EnvironmentStateDef ${3:Morning}()",
+      "    {",
+      "        return State(\"${5:morning}\", [",
+      "            ClearBlock(Position(${6:x}, ${7:y}, ${8:z})),",
+      "            SetBlock(Position(${9:x}, ${10:y}, ${11:z}), \"${12:minecraft:oak_planks}\", Properties(Property(\"${13:facing}\", \"${14:north}\")))",
+      "        ]);",
+      "    }",
+      "}"
+    ]
+  },
+  "NpcAnimationBindingResource": {
+    "prefix": "NpcAnimationBindingResource",
+    "description": "Echo NPC to Echo Animation profile binding resource.",
+    "body": [
+      "namespace JDH.NpcAnimation.${1:Chapter};",
+      "",
+      "class ${2:ExampleNpcAnimationBinding} : NpcAnimationBindingResource",
+      "{",
+      "    public override NpcAnimationBindingDef Build()",
+      "    {",
+      "        return NpcAnimationBinding(\"${3:jdh:example_npc_standard_humanoid}\",",
+      "            npc: \"${4:jdh:example_npc}\",",
+      "            profile: \"${5:jdh:standard_humanoid}\"",
+      "        );",
+      "    }",
+      "}"
+    ]
+  },
+  "AnimationResource": {
+    "prefix": "AnimationResource",
+    "description": "High-level Echo Animation lifecycle resource.",
+    "body": [
+      "namespace JDH.Animation.${1:Chapter};",
+      "",
+      "class ${2:ExampleAnimation} : AnimationResource",
+      "{",
+      "    public override AnimationDef Build()",
+      "    {",
+      "        return Animation(\"${3:jdh:example_animation}\",",
+      "            channels: [Channel(\"${4:body}\")],",
+      "            sources: [Source(\"${4:body}/idle\")],",
+      "            entries: [Entry(\"${4:body}/idle\", clip: \"${5:jdh:example_enter}\", durationTicks: ${6:6})],",
+      "            main: Main(clip: \"${7:jdh:example_loop}\", mode: \"LOOP_UNTIL_STOP\", durationTicks: ${8:24},",
+      "                exitPoints: [ExitPoint(\"${9:neutral}\", progress: \"0.0\")]),",
+      "            exits: [Exit(\"${9:neutral}\", clip: \"${10:jdh:example_exit}\", durationTicks: ${11:6})],",
+      "            target: \"${4:body}/idle\",",
+      "            recovery: Recovery(\"BOUNDED\", checkpointIntervalTicks: ${12:8}),",
+      "            replay: \"REJECT_IF_RUNNING\");",
+      "    }",
+      "}"
+    ]
+  },
+  "AnimationProfileResource": {
+    "prefix": "AnimationProfileResource",
+    "description": "Echo Animation subject profile resource.",
+    "body": [
+      "namespace JDH.Animation.${1:Chapter};",
+      "",
+      "class ${2:ExampleAnimationProfile} : AnimationProfileResource",
+      "{",
+      "    public override AnimationProfileDef Build()",
+      "    {",
+      "        return AnimationProfile(\"${3:jdh:standard_humanoid}\",",
+      "            rig: \"${4:jdh:humanoid}\",",
+      "            graph: \"${4:jdh:humanoid}\",",
+      "            render: \"SEGMENTED_HUMANOID\",",
+      "            initialStates: [InitialState(\"${5:body}\", state: \"${5:body}/idle\")],",
+      "            requiredChannels: [Channel(\"${5:body}\")]",
+      "        );",
+      "    }",
+      "}"
+    ]
+  },
+  "AnimationRigResource": {
+    "prefix": "AnimationRigResource",
+    "description": "Echo Animation body rig resource.",
+    "body": [
+      "namespace JDH.Animation.${1:Chapter};",
+      "",
+      "class ${2:ExampleAnimationRig} : AnimationRigResource",
+      "{",
+      "    public override AnimationRigDef Build()",
+      "    {",
+      "        return AnimationRig(\"${3:jdh:humanoid}\", kind: \"SEGMENTED_HUMANOID\", skin: \"CLASSIC\");",
+      "    }",
+      "}"
+    ]
+  },
+  "AnimationClipResource": {
+    "prefix": "AnimationClipResource",
+    "description": "Echo Animation normalized body clip resource.",
+    "body": [
+      "namespace JDH.Animation.${1:Chapter};",
+      "",
+      "class ${2:ExampleAnimationClip} : AnimationClipResource",
+      "{",
+      "    public override AnimationClipDef Build()",
+      "    {",
+      "        return AnimationClip(\"${3:jdh:example_clip}\", rig: \"${4:jdh:humanoid}\",",
+      "            tracks: [",
+      "                Track(\"${5:right_forearm}\", frames: [",
+      "                    Frame(\"0.0\").Rotation(0, 0, \"0.0\"),",
+      "                    Frame(\"1.0\").Rotation(0, 0, \"0.0\")",
+      "                ])",
+      "            ]);",
+      "    }",
+      "}"
+    ]
+  },
+  "FaceRigResource": {
+    "prefix": "FaceRigResource",
+    "description": "High-level Echo Animation face rig DSL resource.",
+    "body": [
+      "namespace JDH.Animation.${1:Chapter};",
+      "",
+      "face ${2:ExampleFace}(\"${3:jdh:example_face}\")",
+      "{",
+      "    Eyes",
+      "    {",
+      "        Sclera Left  { Position(-0.125, 0, 0); }",
+      "        Sclera Right { Position( 0.125, 0, 0); }",
+      "        Pupil Left   { Position(-0.09, 0, 0.01); }",
+      "        Pupil Right  { Position( 0.09, 0, 0.01); }",
+      "    }",
+      "",
+      "    Blink \"${4:eye_closure}\"",
+      "    {",
+      "        Travel(35, -35);",
+      "        Idle(true);",
+      "    }",
+      "}"
+    ]
+  },
+  "FacePoseResource": {
+    "prefix": "FacePoseResource",
+    "description": "Echo Animation face pose resource.",
+    "body": [
+      "namespace JDH.Animation.${1:Chapter};",
+      "",
+      "class ${2:ExampleFacePose} : FacePoseResource",
+      "{",
+      "    public override FacePoseDef Build()",
+      "    {",
+      "        return FacePose(\"${3:jdh:example_face/neutral}\", rig: \"${4:jdh:example_face}\",",
+      "            bones: [BoneDelta(\"${5:face_root}\")],",
+      "            controls: [ControlDelta(\"${6:eye_closure}\", value: ${7:0})]",
+      "        );",
+      "    }",
+      "}"
+    ]
+  },
+  "FacialAnimationResource": {
+    "prefix": "FacialAnimationResource",
+    "description": "Echo Animation facial animation resource.",
+    "body": [
+      "namespace JDH.Animation.${1:Chapter};",
+      "",
+      "class ${2:ExampleFacialAnimation} : FacialAnimationResource",
+      "{",
+      "    public override FacialAnimationDef Build()",
+      "    {",
+      "        return FacialAnimation(\"${3:jdh:example_face/look_left}\", rig: \"${4:jdh:example_face}\", surfaces: [World, Portrait]);",
+      "    }",
+      "}",
+      "",
+      "class World : FacialAnimationSurface3d",
+      "{",
+      "    private PhaseDef Enter()",
+      "    {",
+      "        return Phase(durationTicks: ${5:6}, tracks: [",
+      "            Track(\"${6:left_pupil}\", frames: [Frame(0).Position(0, 0, 0), Frame(${5:6}).Position(\"-0.031\", 0, 0)])",
+      "        ]);",
+      "    }",
+      "}",
+      "",
+      "class Portrait : FacialAnimationSurfacePortrait",
+      "{",
+      "    private PhaseDef Enter()",
+      "    {",
+      "        return Phase(durationTicks: ${7:6}, tracks: [",
+      "            Track(\"${8:left_pupil}\", frames: [Frame(0).Position(0, 0, 0), Frame(${7:6}).Position(\"-0.031\", 0, 0)])",
+      "        ]);",
+      "    }",
+      "}"
+    ]
+  },
+  "dialogueNodes": {
+    "prefix": "DialogueNode",
+    "description": "High-level dialogue Node declaration.",
+    "body": [
+      "Node ${1:NextNode}()",
+      "{",
+      "    Line(\"${2:john}\", \"${3:Text}\");",
+      "}"
+    ]
+  },
+  "Alias": {
+    "prefix": "Alias",
+    "description": "Dialogue local alias declaration.",
+    "body": [
+      "Alias(\"${1:speaker}\", \"${2:jdh:speaker_id}\", display: \"${3:Speaker}\", visual: Portrait(\"${2:jdh:speaker_id}\"));"
+    ]
+  },
+  "Line": {
+    "prefix": "Line",
+    "description": "Dialogue line using a local alias.",
+    "body": [
+      "Line(\"${1:speaker}\", \"${2:Text}.\");"
+    ]
+  },
+  "LineAfterMove": {
+    "prefix": "LineAfterMove",
+    "description": "Dialogue line that waits for the matching Npc.Move arrival.",
+    "body": [
+      "LineAfterMove(\"${1:speaker}\", \"${2:Text}.\");"
+    ]
+  },
+  "Choice": {
+    "prefix": "Choice",
+    "description": "Dialogue choice with next node.",
+    "body": [
+      "Choice(\"${1:choice_id}\", \"${2:Choice text}.\", next: \"${3:next_node}\");"
+    ]
+  },
+  "Complete": {
+    "prefix": "Complete",
+    "description": "Dialogue completion outcome.",
+    "body": [
+      "Complete(\"${1:jdh:outcome_id}\");"
+    ]
+  },
+  "StateRef": {
+    "prefix": "StateRef",
+    "description": "Local runtime story state reference.",
+    "body": [
+      "private StateRef ${1:stateName} = State.Memory(\"${2:chapter.state_key}\");"
+    ]
+  },
+  "Set": {
+    "prefix": "Set",
+    "description": "Runtime state write effect.",
+    "body": [
+      "Set(${1:stateName}, ${2:true});"
+    ]
+  },
+  "Npc.Spawn": {
+    "prefix": "Npc.Spawn",
+    "description": "Typed NPC spawn helper for legacy effect contexts.",
+    "body": [
+      "Npc.Spawn(${1:NpcRef}, ${2:Overworld}, ${3:x}, ${4:y}, ${5:z});"
+    ]
+  },
+  "Environment.Set": {
+    "prefix": "Environment.Set",
+    "description": "Apply an EnvironmentResource state.",
+    "body": [
+      "Environment.Set(${1:Environments.Environment}, \"${2:state_id}\");"
+    ]
+  },
+  "Dialogue.Load": {
+    "prefix": "Dialogue.Load",
+    "description": "Load a modular dialogue action.",
+    "body": [
+      "Dialogue.Load(${1:Dialogues.Dialogue}, audienceId: \"${2:player}\");"
+    ]
+  },
+  "Story.Load": {
+    "prefix": "Story.Load",
+    "description": "Start another StoryResource.",
+    "body": [
+      "Story.Load(${1:Stories.Story});"
+    ]
+  },
+  "Screen.SetBlack": {
+    "prefix": "Screen.SetBlack",
+    "description": "Drive the black-screen overlay.",
+    "body": [
+      "Screen.SetBlack(\"${1:default}\", alpha: ${2:1.0}, durationMillis: ${3:500});"
+    ]
+  },
+  "Player.SpawnAt": {
+    "prefix": "Player.SpawnAt",
+    "description": "Move the player spawn/action position.",
+    "body": [
+      "Player.SpawnAt(${1:x}, ${2:y}, ${3:z}, yaw: ${4:0}, pitch: ${5:0});"
+    ]
+  },
+  "Npc.SpawnAt": {
+    "prefix": "Npc.SpawnAt",
+    "description": "Spawn an NPC through the new external action intrinsic.",
+    "body": [
+      "Npc.SpawnAt(${1:NpcRef}, ${2:x}, ${3:y}, ${4:z}, yaw: ${5:0}, pitch: ${6:0});"
+    ]
+  },
+  "Sleep.EnterDream": {
+    "prefix": "Sleep.EnterDream",
+    "description": "Enter a sleep dream target.",
+    "body": [
+      "Sleep.EnterDream(target: \"${1:chapter_1_dream}\", x: ${2:x}, y: ${3:y}, z: ${4:z}, yaw: ${5:0}, pitch: ${6:0});"
+    ]
+  },
+  "Blackspace.Create": {
+    "prefix": "Blackspace.Create",
+    "description": "Create a blackspace instance.",
+    "body": [
+      "Blackspace.Create(instanceId: \"${1:chapter_1_blackspace}\", playerName: \"${2:player}\");"
+    ]
+  },
+  "Player.Teleport": {
+    "prefix": "Player.Teleport",
+    "description": "Teleport the player through blackspace routing.",
+    "body": [
+      "Player.Teleport(instanceId: \"${1:chapter_1_blackspace}\", target: \"${2:entry}\");"
+    ]
+  },
+  "TriggerResource": {
+    "prefix": "TriggerResource",
+    "description": "New Echo TriggerResource.",
+    "body": [
+      "namespace JDH.Triggers.${1:Chapter};",
+      "",
+      "class ${2:ExampleTrigger} : TriggerResource",
+      "{",
+      "    private Area ${3:HomeDoor} = Area(\"minecraft:overworld\", ${4:x}, ${5:y}, ${6:z}, ${7:sx}, ${8:sy}, ${9:sz});",
+      "",
+      "    private void Init()",
+      "    {",
+      "        Id(\"${10:jdh:example_trigger}\");",
+      "        Scope(PLAYER);",
+      "        Mode(REPEAT);",
+      "        Start(${11:Sequence});",
+      "    }",
+      "",
+      "    private void ${11:Sequence}()",
+      "    {",
+      "        Wait(PlayerEnter(${3:HomeDoor}));",
+      "        StartStory(\"${12:jdh:example_story}\");",
+      "    }",
+      "}"
+    ]
+  },
+  "PlayerProfileTemplate": {
+    "prefix": "PlayerProfileTemplate",
+    "description": "Echo Content Player profile template resource.",
+    "body": [
+      "namespace EchoContentPlayer.${1:Jdh};",
+      "",
+      "class ${2:DefaultPlayerProfile} : PlayerProfileTemplate",
+      "{",
+      "    public override PlayerProfile Build()",
+      "    {",
+      "        return PlayerProfile(",
+      "            id: \"${3:jdh:player/default}\",",
+      "            nameMode: ${4:ACCOUNT},",
+      "            spark: ${5:100},",
+      "            maxSpark: ${6:100},",
+      "            skinMode: ${7:ACCOUNT}",
+      "        );",
+      "    }",
+      "}"
+    ]
+  },
+  "WeaponResource": {
+    "prefix": "WeaponResource",
+    "description": "Echo Item Pack weapon definition resource.",
+    "body": [
+      "namespace EchoItemPack.${1:Jdh}.Items.Weapons;",
+      "",
+      "class ${2:ExampleWeapon} : WeaponResource",
+      "{",
+      "    public override WeaponDefinition Build()",
+      "    {",
+      "        return Weapon(",
+      "            id: \"${3:jdh:example_weapon}\",",
+      "            name: \"${4:Example Weapon}\",",
+      "            texture: \"${5:jdh:item/example_weapon}\",",
+      "            damage: ${6:7},",
+      "            attacksPerSecond: ${7:1.6},",
+      "            durability: ${8:250},",
+      "            rarity: ${9:COMMON}",
+      "        );",
+      "    }",
+      "}"
+    ]
+  },
+  "PlayerSleep.Confirmed": {
+    "prefix": "PlayerSleep.Confirmed",
+    "description": "Trigger selector for confirmed player sleep.",
+    "body": [
+      "PlayerSleep.Confirmed(\"${1:scenario}\", sleepCountAtLeast: ${2:1})"
+    ]
+  },
+  "Trigger Wait PlayerEnter": {
+    "prefix": "TriggerWaitPlayerEnter",
+    "description": "Wait for player entering a trigger area.",
+    "body": [
+      "Wait(PlayerEnter(${1:AreaRef}));"
+    ]
+  },
+  "Npc.MoveTo": {
+    "prefix": "Npc.MoveTo",
+    "description": "Typed NPC movement helper for legacy effect contexts.",
+    "body": [
+      "Npc.MoveTo(",
+      "    ${1:NpcRef},",
+      "    new Vector3(${2:x}, ${3:y}, ${4:z}),",
+      "    speed: ${5:1.15},",
+      "    completionDistance: ${6:0.7},",
+      "    openDoors: ${7:true}",
+      ")"
+    ]
+  },
+  "Vehicle.Trip": {
+    "prefix": "Vehicle.Trip",
+    "description": "Vehicle trip effect helper.",
+    "body": [
+      "Vehicle.Trip(",
+      "    ${1:NpcRef},",
+      "    \"${2:vehicle_spawn}\",",
+      "    \"${3:from_segment}\",",
+      "    \"${4:to_segment}\",",
+      "    tripId: \"${5:trip_id}\",",
+      "    backend: \"native_preferred\"",
+      ");"
+    ]
+  },
+  "Navigation.SetTarget": {
+    "prefix": "Navigation.SetTarget",
+    "description": "Navigation target helper.",
+    "body": [
+      "Navigation.SetTarget(",
+      "    \"${1:quest.main_gate}\",",
+      "    x: ${2:x},",
+      "    y: ${3:y},",
+      "    z: ${4:z},",
+      "    label: \"${5:Main Gate}\",",
+      "    dimensionId: \"minecraft:overworld\",",
+      "    profile: \"prefer_roads\"",
+      ");"
+    ]
+  },
+  "Inline event reaction": {
+    "prefix": "when-event",
+    "body": [
+      "When(Dialogue.Completed(\"${1:jdh:father}\"), id: \"${2:after_father}\")",
+      "{",
+      "\tScene.Play(\"${3:jdh:father_leaves}\");",
+      "}"
+    ],
+    "description": "Реакция на событие в DialogueResource, StoryResource или TriggerResource"
+  }
+}

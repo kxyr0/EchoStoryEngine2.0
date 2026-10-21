@@ -1,0 +1,9 @@
+base { archivesName = 'magic-script-adapter-1.20.1' }
+description = 'EchoScript semantic adapter for SpellResource and Magic calls.'
+dependencies {
+    api project(':magic-contracts')
+    implementation project(':magic-core')
+    compileOnly project(':magic-forge-api-1.20.1')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    testImplementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}

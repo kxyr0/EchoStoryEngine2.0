@@ -1,0 +1,69 @@
+---
+title: "NPC-навигация"
+description: "Как Echo NPC получает движение через Echo Navigation и отдельный adapter."
+section: "Adapters"
+pageKind: "architecture"
+status: "review"
+since: "N1"
+updated: "2026-07-27"
+relatedIds: ["ActorId", "NavigationSubjectId", "NavigationMoveId", "NavigationBackendId"]
+relatedPages: ["npc/materialization", "platform/dependency-rules", "adapters/story-npc"]
+sourceRepositories: ["echo-navigation", "echo-npc", "echo-npc-navigation-adapter", "echo-story-engine"]
+sourcePaths: ["D:/JDHSeason/mods/echo-navigation", "D:/JDHSeason/mods/echo-npc-navigation-adapter"]
+visualIdentity: "state-lines"
+interactiveModules: []
+searchKeywords: ["NPC-навигация", "Npc.Move", "Echo Navigation", "PathNavigation", "ActorId"]
+---
+
+# NPC-навигация
+
+N1 добавляет отдельный `echo-navigation` и отдельный `echo-npc-navigation-adapter`. Echo Navigation владеет
+движением, backend selection, arrival, stuck detection и diagnostics. Echo NPC владеет durable actor и
+materialization. Adapter связывает их через публичные API.
+
+## Граница
+
+- `echo-navigation` не импортирует implementation Echo NPC.
+- `echo-npc` не импортирует implementation Echo Navigation.
+- Adapter читает `NpcNavigationBody` из публичного Echo NPC API и отдаёт `NavigationAgentHandle` в Echo Navigation.
+- Первый backend: `echo_navigation:vanilla`, поверх Minecraft `PathNavigation`.
+
+## Authoring status
+
+Целевой синтаксис:
+
+```csharp
+Npc.Move(Father, 200, 64, 180);
+Npc.Stop(Father);
+Npc.IsMoving(Father);
+```
+
+Реализованный сейчас Story bridge использует существующий parser/binder Story:
+
+```csharp
+// Dialogue starts movement, then normal Line can be shown while the NPC is walking.
+Line("father", "Check the gate.");
+Npc.Move(father, 200, 64, 180);
+Line("father", "I will keep talking while I walk.");
+LineAfterMove("father", "I am there.");
+
+// Trigger callback starts movement fire-and-forget.
+Npc.Move("jdh:john_father", 200, 64, 180);
+
+// Story uses an explicit graph node id and next node.
+Npc.Move("father_move_gate", "jdh:john_father", 200, 64, 180, next: "after_father_arrived");
+Npc.Move("father_move_gate_wait", "jdh:john_father", 200, 64, 180, wait: true, next: "after_father_arrived");
+```
+
+Dialogue `Npc.Move(...)` starts a durable movement and immediately resumes normal lines. Use
+`LineAfterMove(...)` for the first line that must wait for `ARRIVED`. Story `Npc.Move(...)` also resumes after durable
+movement start by default; use `wait: true` or `await: "ARRIVED"` when the next Story node must wait for arrival.
+Trigger callbacks publish `Npc.Move(...)` as fire-and-forget movement because Trigger does not own a blocking script
+wait.
+
+## Проверки
+
+- `/echo_navigation backend` показывает доступный vanilla backend.
+- `/echo_navigation settings` показывает выбранный backend и параметры progress/stuck.
+- `/echo_navigation diagnostics` показывает typed movement failures.
+- Перемещение не считается успешным до `ARRIVED`; `PathNavigation.isDone()` не является достаточным доказательством.

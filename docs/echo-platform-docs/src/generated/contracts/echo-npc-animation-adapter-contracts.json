@@ -1,0 +1,47 @@
+{
+    "repository": "echo-npc-animation-adapter",
+    "publicIds": [
+        "NpcAnimationBindingId",
+        "NpcAnimationBindingDefinition",
+        "AnimationSubjectLifecycleOwnerId:echo_npc_animation:actor"
+    ],
+    "commands": [
+        "/echo_npc_animation health",
+        "/echo_npc_animation bindings",
+        "/echo_animation play_animation <animation_id> <npc_id>"
+    ],
+    "diagnostics": [
+        "EANIM-A4-UNBOUND",
+        "EANIM-A4-PROVENANCE",
+        "EANIM-A4-PROFILE-NOT-FOUND",
+        "EANIM-A4-SERVICE"
+    ],
+    "contentPaths": {
+        "packagedBindings": "data/<namespace>/echo_npc_animation/bindings/",
+        "externalBindings": "<gameDir>/story/content-pack/<namespace>/echo_npc_animation/bindings/"
+    },
+    "echoScript": {
+        "bindingIntrinsic": "NpcAnimationBinding",
+        "bindingExtension": ".npc-animation-binding.es",
+        "variants": [
+            "npc: NpcDefinitionId",
+            "actor: ActorId"
+        ],
+        "precedence": [
+            "actor override",
+            "definition binding",
+            "UNBOUND"
+        ]
+    },
+    "reconciliation": {
+        "maxRecordsPerTick": 64,
+        "maxActorSnapshot": 200,
+        "owner": "echo_npc_animation:actor",
+        "orphanRule": "retire only adapter-owned subjects when snapshot is not truncated"
+    },
+    "architectureConstraints": [
+        "Adapter imports public Echo NPC API and public Echo Animation API only.",
+        "Events are optimization; durable snapshots remain the source of truth.",
+        "UNBOUND actors keep default NPC rendering and do not auto-create subjects."
+    ]
+}

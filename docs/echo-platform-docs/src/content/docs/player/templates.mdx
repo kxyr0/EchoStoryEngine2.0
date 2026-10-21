@@ -1,0 +1,32 @@
+---
+title: "Шаблоны профилей"
+description: ".player.es через EchoScript parser и player binder."
+section: "Player"
+pageKind: "syntax"
+status: "review"
+since: "P1"
+updated: "2026-07-25"
+relatedIds: ["PlayerProfileTemplateId", "PlayerProfileTemplate"]
+relatedPages: ["player/profile"]
+sourceRepositories: ["echo-content-player", "echo-script"]
+sourcePaths: ["D:/JDHSeason/mods/echo-content-player/player-core", "D:/JDHSeason/mods/echo-script"]
+visualIdentity: "player-template"
+interactiveModules: []
+searchKeywords: ["EchoScript", "player.es", "template", "binder"]
+---
+
+# Шаблоны профилей
+
+Шаблон проходит реальный EchoScript parser и затем semantic binder. Он не исполняется как runtime code.
+
+```csharp
+class DefaultPlayerProfile : PlayerProfileTemplate
+{
+    public override PlayerProfile Build()
+    {
+        return PlayerProfile(id: "jdh:player/default", spark: 100, maxSpark: 100);
+    }
+}
+```
+
+Default template применяется только при первом создании профиля. Existing profiles не перезаписываются hot reload-ом.

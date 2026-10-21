@@ -1,0 +1,20 @@
+pluginManagement { repositories { gradlePluginPortal(); mavenCentral(); maven { url = 'https://maven.minecraftforge.net/' } } }
+rootProject.name = 'echo-events-integration'
+includeBuild '../echo-events'
+includeBuild '../echo-trigger'
+includeBuild '../echo-dialogue'
+includeBuild '../echo-scene'
+includeBuild '../echo-cutscene'
+includeBuild '../echo-observation'
+includeBuild '../echo-animation'
+includeBuild '../echo-npc'
+includeBuild '../echo-navigation'
+includeBuild '../echo-story-engine'
+
+includeBuild '../echo-content-doctor'
+includeBuild '../echo-npc-animation-adapter'
+includeBuild '../echo-story-dialogue-adapter'
+
+includeBuild '../echo-save-migration'
+
+includeBuild '../echo-background-npc'

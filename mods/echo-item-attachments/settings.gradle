@@ -1,0 +1,29 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-item-attachments'
+
+include 'item-attachments-contracts'
+include 'item-attachments-core'
+include 'item-attachments-forge-api-1.20.1'
+include 'item-attachments-forge-1.20.1'
+include 'item-attachments-npc-adapter-1.20.1'
+include 'item-attachments-player-adapter-1.20.1'
+include 'item-attachments-animation-adapter-1.20.1'
+include 'item-attachments-script-adapter-1.20.1'
+include 'item-attachments-testmod-1.20.1'
+
+includeBuild '../echo-npc'
+includeBuild '../echo-player-actor'
+includeBuild '../echo-animation'
+includeBuild '../echo-script'
+includeBuild '../echo-story-engine'

@@ -1,0 +1,142 @@
+plugins {
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'java-library'
+    id 'checkstyle'
+    id 'pmd'
+    id 'jacoco'
+}
+
+version = mod_version
+group = mod_group_id
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    withSourcesJar()
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly "io.github.kxyr0.echotrigger:trigger-contracts:${echo_trigger_version}"
+    compileOnly "io.github.kxyr0.echotrigger:trigger-forge-api-1.20.1:${echo_trigger_version}"
+    compileOnly "io.github.kxyr0.echoplayersleep:player-sleep-contracts:${echo_player_sleep_version}"
+    compileOnly "io.github.kxyr0.echoplayersleep:player-sleep-forge-api-1.20.1:${echo_player_sleep_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-contracts:${echo_story_engine_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:${echo_story_engine_version}"
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+configurations {
+    testImplementation.extendsFrom compileOnly
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+checkstyle {
+    toolVersion = checkstyle_version
+    configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+}
+
+pmd {
+    toolVersion = pmd_version
+    ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+    ruleSets = []
+    consoleOutput = true
+}
+
+tasks.withType(Pmd).configureEach {
+    classpath = files()
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version_range: minecraft_version_range,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks adapter source shape and package limits.'
+    doLast {
+        def violations = []
+        def javaCounts = [:].withDefault { 0 }
+        fileTree(rootDir) {
+            include 'src/main/java/**/*.java'
+            exclude '**/build/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            javaCounts[file.parentFile.toPath()] = javaCounts[file.parentFile.toPath()] + 1
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            if ((text =~ /(?m)\bstatic\s+(?!final\b)(?:[^;{=()]+)[;=]/).find()) {
+                violations << "${relative}: mutable static field candidate"
+            }
+            if (relative =~ /(?i)(^|[\\\/])(misc|helpers?|more|part1|part2|sleep2|events2|subscriptions2|adapter2|services2|internal2)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 200) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 200"
+            }
+        }
+        javaCounts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+        println 'Source shape: Java classes > 200 logical LOC = 0'
+        println 'Source shape: leaf Java packages > 7 files = 0'
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('sourceShapeCheck')
+}

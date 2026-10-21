@@ -1,0 +1,38 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+allprojects {
+    group = 'io.github.kxyr0.echoevents'
+    version = rootProject.mod_version
+    repositories { mavenCentral(); maven { url = 'https://maven.minecraftforge.net/' } }
+    apply plugin: 'java-library'
+    java { toolchain { languageVersion = JavaLanguageVersion.of(17) }; withSourcesJar() }
+    dependencies {
+        testImplementation platform('org.junit:junit-bom:5.10.3')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+    tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+    tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+}
+publishing { publications { mavenJava(MavenPublication) { from components.java } } }
+tasks.register('sourceShapeCheck') {
+    doLast {
+        def counts = [:].withDefault { 0 }
+        fileTree(rootDir).matching {
+            include '**/src/main/java/**/*.java', '**/src/main/resources/**/*.es'
+            exclude '**/build/**'
+        }.each { source ->
+            counts[source.parent]++
+            def logical = source.readLines('UTF-8').count { it.trim() && !it.trim().startsWith('//') && !it.trim().startsWith('*') }
+            if (logical > 180) throw new GradleException("${source}: ${logical} logical lines; max 180")
+        }
+        if (counts.any { it.value > 7 }) throw new GradleException("Leaf source limit exceeded: ${counts}")
+        println 'Java/EchoScript >180 logical LOC=0; leaf folders >7 files=0'
+    }
+}
+tasks.named('check') { dependsOn 'sourceShapeCheck', ':events-forge-1.20.1:test' }
+tasks.named('build') { dependsOn ':events-forge-1.20.1:build' }

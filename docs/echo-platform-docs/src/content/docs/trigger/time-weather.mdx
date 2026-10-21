@@ -1,0 +1,23 @@
+---
+title: "Время и погода"
+description: "World day time, day index and weather transition triggers."
+section: "Trigger"
+pageKind: "reference"
+status: "review"
+since: "T2"
+updated: "2026-07-24"
+relatedIds: ["TriggerWeather"]
+relatedPages: ["trigger/world-mode", "trigger/t2-reference"]
+sourceRepositories: ["echo-trigger"]
+sourcePaths: ["D:/JDHSeason/mods/echo-trigger/docs/authoring/TRIGGER_WORLD_STATE.md"]
+visualIdentity: "trigger-time-weather"
+interactiveModules: []
+searchKeywords: ["TimeReached", "TimeBetween", "DayReached", "WeatherChanged"]
+---
+
+# Время и погода
+
+`TimeBetween(startTick, endTick)` использует vanilla day time `0..23999` и поддерживает переход через полночь.
+`TimeReached(dayTime)` реагирует на обычный tick, `/time set`, `/time add`, sleep skip и большие скачки.
+
+Weather values: `CLEAR`, `RAIN`, `THUNDER`.

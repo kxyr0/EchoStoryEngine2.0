@@ -1,0 +1,36 @@
+{
+  "formatVersion": 2,
+  "bones": [
+    {
+      "name": "upper_arm",
+      "parent": -1,
+      "bindLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+      "inverseBind": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    },
+    {
+      "name": "forearm",
+      "parent": 0,
+      "bindLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 4, 0, 1],
+      "inverseBind": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -4, 0, 1]
+    }
+  ],
+  "meshes": [
+    {
+      "name": "elbow",
+      "vertices": [
+        {"position": [-1, 0, 0], "normal": [0, 0, 1], "uv": [0, 0], "boneIndices": [0], "boneWeights": [1]},
+        {"position": [1, 0, 0], "normal": [0, 0, 1], "uv": [1, 0], "boneIndices": [0], "boneWeights": [1]},
+        {"position": [-1, 2, 0], "normal": [0, 0, 1], "uv": [0, 0.25], "boneIndices": [0, 1], "boneWeights": [0.75, 0.25]},
+        {"position": [1, 2, 0], "normal": [0, 0, 1], "uv": [1, 0.25], "boneIndices": [0, 1], "boneWeights": [0.75, 0.25]},
+        {"position": [-1, 4, 0], "normal": [0, 0, 1], "uv": [0, 0.5], "boneIndices": [0, 1], "boneWeights": [0.5, 0.5]},
+        {"position": [1, 4, 0], "normal": [0, 0, 1], "uv": [1, 0.5], "boneIndices": [0, 1], "boneWeights": [0.5, 0.5]},
+        {"position": [-1, 6, 0], "normal": [0, 0, 1], "uv": [0, 0.75], "boneIndices": [0, 1], "boneWeights": [0.25, 0.75]},
+        {"position": [1, 6, 0], "normal": [0, 0, 1], "uv": [1, 0.75], "boneIndices": [0, 1], "boneWeights": [0.25, 0.75]},
+        {"position": [-1, 8, 0], "normal": [0, 0, 1], "uv": [0, 1], "boneIndices": [1], "boneWeights": [1]},
+        {"position": [1, 8, 0], "normal": [0, 0, 1], "uv": [1, 1], "boneIndices": [1], "boneWeights": [1]}
+      ],
+      "triangles": [0, 1, 2, 1, 3, 2, 2, 3, 4, 3, 5, 4, 4, 5, 6, 5, 7, 6, 6, 7, 8, 7, 9, 8]
+    }
+  ],
+  "testAnimation": {"bone": "forearm", "zDegrees": [0, 120]}
+}

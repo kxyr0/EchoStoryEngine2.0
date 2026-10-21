@@ -1,0 +1,7 @@
+{
+  "command.echo_spark_magic.enabled": "След магии искры включён для %1$s. Он появляется только во время движения.",
+  "command.echo_spark_magic.disabled": "След магии искры выключен для %1$s.",
+  "command.echo_spark_magic.status.enabled": "След магии искры для %1$s: включён.",
+  "command.echo_spark_magic.status.disabled": "След магии искры для %1$s: выключен."
+}
+

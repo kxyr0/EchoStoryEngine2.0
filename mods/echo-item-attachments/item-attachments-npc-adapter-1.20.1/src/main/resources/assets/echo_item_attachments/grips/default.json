@@ -1,0 +1,12 @@
+{
+  "left_hand": {
+    "translate": [0.0, 0.62, 0.0],
+    "rotate_degrees": [-90.0, 0.0, 0.0],
+    "scale": 1.0
+  },
+  "right_hand": {
+    "translate": [0.0, 0.62, 0.0],
+    "rotate_degrees": [-90.0, 0.0, 0.0],
+    "scale": 1.0
+  }
+}

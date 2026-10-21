@@ -1,0 +1,9 @@
+.git/**
+.gitignore
+.github/**
+.vscode/**
+node_modules/.cache/**
+scripts/**
+*.vsix
+npm-debug.log
+AGENTS.MD

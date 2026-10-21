@@ -1,0 +1,71 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+    id 'java-library'
+}
+
+group = rootProject.group
+version = rootProject.version
+repositories {
+    mavenCentral()
+    maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+}
+java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+minecraft { mappings channel: mapping_channel, version: mapping_version }
+jarJar.enable()
+
+dependencies {
+    jarJar(group: 'io.github.kxyr0.echoaudio', name: 'echo-audio', version: '[0.1,0.2)') {
+        jarJar.pin(it, '0.1.0')
+        transitive = false
+    }
+    compileOnly 'io.github.kxyr0.echoaudio:audio-forge-1.20.1:0.1.0'
+    compileOnly 'io.github.kxyr0.echoaudio:echo-audio:0.1.0'
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':')
+    compileOnly 'io.github.kxyr0.echotime:time-contracts:0.2.0'
+    compileOnly 'io.github.kxyr0.echotime:time-forge-api-1.20.1:0.2.0'
+    compileOnly 'io.github.kxyr0.echodialogue:dialogue-contracts:0.14.0'
+    compileOnly 'io.github.kxyr0.echodialogue:dialogue-forge-api-1.20.1:0.14.0'
+    compileOnly 'io.github.kxyr0.echonavigation:navigation-contracts:0.4.0'
+    compileOnly 'io.github.kxyr0.echonavigation:navigation-forge-api-1.20.1:0.4.0'
+    compileOnly 'io.github.kxyr0.echoplayeractor:player-actor-contracts:0.2.0'
+    compileOnly 'io.github.kxyr0.echoplayeractor:player-actor-forge-api-1.20.1:0.2.0'
+    compileOnly 'io.github.kxyr0.echoanimation:animation-contracts:0.8.4-SNAPSHOT'
+    compileOnly 'io.github.kxyr0.echoanimation:animation-forge-api-1.20.1:0.8.4-SNAPSHOT'
+    compileOnly 'io.github.kxyr0.echocutscene:cutscene-contracts:0.2.3'
+    compileOnly 'io.github.kxyr0.echocutscene:cutscene-forge-api-1.20.1:0.2.3'
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-api',
+            version: '[0.5.0-SNAPSHOT,)') {
+        jarJar.pin(it, '0.5.0-SNAPSHOT')
+    }
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-language',
+            version: '[0.5.0-SNAPSHOT,)') {
+        jarJar.pin(it, '0.5.0-SNAPSHOT')
+    }
+}
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+tasks.named('processResources', ProcessResources).configure {
+    def values = [loader_version_range: loader_version_range, mod_license: mod_license,
+                  scene_version: scene_version, mod_name: mod_name, mod_authors: mod_authors,
+                  mod_description: mod_description, minecraft_version_range: minecraft_version_range,
+                  forge_version_range: forge_version_range]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand values }
+}
+tasks.named('jar', Jar).configure {
+    archiveBaseName = 'echo-scene'
+    from(rootProject.sourceSets.main.output)
+    finalizedBy 'reobfJar'
+}
+tasks.named('jarJar', Jar).configure {
+    archiveBaseName = 'echo-scene'
+    from(rootProject.sourceSets.main.output)
+    finalizedBy 'reobfJarJar'
+}
+
+dependencies {
+    compileOnly 'io.github.kxyr0.echoevents:echo-events:0.1.0'
+    compileOnly 'io.github.kxyr0.echoevents:events-forge-1.20.1:0.1.0'
+}

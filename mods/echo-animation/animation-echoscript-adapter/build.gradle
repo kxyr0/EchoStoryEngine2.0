@@ -1,0 +1,7 @@
+description = 'EchoScript semantic adapter for Echo Animation resources.'
+
+dependencies {
+    api project(':animation-definition')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}
+

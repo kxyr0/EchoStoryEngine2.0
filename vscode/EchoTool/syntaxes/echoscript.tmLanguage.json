@@ -1,0 +1,212 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "EchoScript",
+  "scopeName": "source.echoscript",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#attributes"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#symbols"
+    },
+    {
+      "include": "#functions"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.echoscript",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.echoscript",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.echoscript",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.echoscript",
+              "match": "\\\\(?:[\"'\\\\/bfnrtv]|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|\\r?\\n)"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.echoscript",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.echoscript",
+              "match": "\\\\(?:[\"'\\\\/bfnrtv]|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|\\r?\\n)"
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.echoscript",
+          "match": "(?<![\\w$])-?\\d+(?:\\.\\d+)?(?![\\w$])"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.echoscript",
+          "match": "\\b(?:true|false|null|This|Npc|Player|World|Navigation|Quest|Story|Environment|Dialogue|Scene|Screen|Sleep|PlayerSleep|Blackspace|Monologue|Fog|BlackScreen|Video|State|Vehicle|Animation|AnimationProfile|AnimationRig|AnimationClip|FacialAnimation|FacePose|NpcAnimationBinding|Form|DefaultForm|PlayerProfile|Weapon|TriggerResource|ACCOUNT|CUSTOM|RESOURCE|CLASSIC|SLIM|GLOBAL|SERVER|PLAYER|DIALOGUE_SESSION|ONCE|REPEAT|SKIP_WHILE_RUNNING|QUEUE_ONE|COMMON|UNCOMMON|RARE|EPIC|HEAD|CHEST|LEGS|FEET)\\b"
+        }
+      ]
+    },
+    "attributes": {
+      "patterns": [
+        {
+          "name": "meta.attribute.echoscript",
+          "begin": "\\[",
+          "end": "\\]",
+          "patterns": [
+            {
+              "include": "#strings"
+            },
+            {
+              "include": "#functions"
+            }
+          ]
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "match": "\\b(start)(\\s+)(Node)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.start.echoscript"
+            },
+            "3": {
+              "name": "keyword.declaration.node.echoscript"
+            }
+          }
+        },
+        {
+          "name": "keyword.declaration.node.echoscript",
+          "match": "\\bNode\\b(?=\\s+[A-Za-z_][A-Za-z0-9_]*\\s*\\()"
+        },
+        {
+          "name": "keyword.control.branch.echoscript",
+          "match": "\\b(?:if|else|Choices)\\b"
+        },
+        {
+          "name": "keyword.declaration.echoscript",
+          "match": "\\b(?:namespace|using|class|return|public|private|static|override|start|var|new|story|environment|dialogue|event|character|speaker|npc|npc_form|player_profile|player_profile_template|weapon|trigger|scene|animation|animation_profile|animation_rig|animation_clip|face|face_pose|facial_animation|face_animation|npc_animation_binding|camera_path|localization|story_index)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "match": "(\\bclass\\s+)([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.echoscript"
+            },
+            "2": {
+              "name": "entity.name.type.class.echoscript"
+            }
+          }
+        },
+        {
+          "match": "(:\\s*)([A-Za-z_][A-Za-z0-9_.]*(?:Resource|Def|Ref)?\\b)",
+          "captures": {
+            "1": {
+              "name": "punctuation.separator.echoscript"
+            },
+            "2": {
+              "name": "entity.other.inherited-class.echoscript"
+            }
+          }
+        },
+        {
+          "name": "support.type.echoscript",
+          "match": "\\b(?:int|float|bool|string|Vector3|Position|EnvironmentState|EnvironmentChange|EventBuilder|[A-Za-z_][A-Za-z0-9_.]*(?:Resource|Def|Ref|Id|Effect|Action|Behavior|Speaker|Npc|NpcForm|Form|Event|Story|Environment|Dialogue|Scene|Animation|AnimationProfile|AnimationRig|AnimationClip|FaceAnimation|FacialAnimation|FacePose|CameraPath|Localization|StoryIndex|QuestMarker|Timer))\\b"
+        }
+      ]
+    },
+    "symbols": {
+      "patterns": [
+        {
+          "name": "support.class.symbols.echoscript",
+          "match": "\\b(?:Items|Weapons|Speakers|Stories|Environments|Dialogues|NpcForms|PlayerProfileTemplates|Triggers|Animations|AnimationProfiles|AnimationRigs|AnimationClips|FaceAnimations|FaceRigs|FacePoses|Skins|Scenes|CameraPaths|States|OldFriend|QuestStatus|Layer|Hand|Portraits|CommonStates|Vehicle|Navigation|HomeEnter|HomeRoom|HomeRelaxExit|StreetDone|HomeDone|RoomDone|JohnAskNoProblem|JohnAskSheHaveProblems|Overworld|JohnFather|Sasha|Marlo|Jdh|Lololoshka|Unknown|Chapter1RoomToHomeRelax)\\b"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.echoscript",
+          "match": "\\b(?:Build|BuildEvent|BuildDialogue|BuildAnimation|BuildQuest|BuildCharacter|Story|Environment|State|Position|SetBlock|ClearBlock|Properties|Property|Form|Dimensions|Part|Anchor|DefaultForm|PlayerProfile|Weapon|Action|Start|Finish|Line|LineAfterMove|Choice|NextNode|GoTo|Choices|StartEffects|CompleteEffects|AbortEffects|EnterEffects|Do|Say|Wait|WaitChunks|CameraPathCue|CameraSample|InventoryHasItem|InventoryMissing|MobKilled|Timer|TimeReached|PlayerJoin|PlayerRespawn|DimensionEnter|Manual|ActionPerformed|AreaEnter|AreaEnterDelayed|AreaExit|Id|Speaker|Formerly|NodeId|Scope|Mode|Subscribe|StartStory|StartDialogue|DialogueStart|AllowManualFire|Cooldown|Dimension|Bind|FireOnlyOnce|EnterOnlyOnce|ExitOnlyOnce|StayOnlyOnce|FireCount|StayInterval|StayPolicy|Ticks|Area|Vector3|BoxArea|SphereArea|CylinderArea|CircleArea|PolygonArea|Any|All|Not|PlayerInside|HasItem|ItemCountAtLeast|ItemCountAtMost|ItemCountExactly|HasEmptyInventorySlot|Holding|HoldingMainHand|HoldingOffHand|Wearing|HasAnyArmor|HasFullArmorSet|HealthAtMost|HealthAtLeast|FoodAtMost|FoodAtLeast|IsSneaking|IsSprinting|IsSwimming|IsSleeping|IsOnGround|IsBurning|HasEffect|EffectAmplifierAtLeast|EffectDurationAtLeast|AdvancementCompleted|ExperienceLevelAtLeast|InDimension|GameModeIs|TimeBetween|DayAtLeast|WeatherIs|PlayerEnter|PlayerExit|PlayerStay|ItemAdded|ItemRemoved|ItemPickedUp|ItemDropped|ItemUsed|ItemConsumed|InventoryBecameFull|InventorySlotFreed|HeldItemChanged|MainHandChanged|OffHandChanged|EquipmentChanged|EquipmentEquipped|EquipmentUnequipped|PlayerDamaged|PlayerHealed|PlayerDied|PlayerRespawned|PlayerJumped|SneakStarted|SneakStopped|SprintStarted|SprintStopped|SwimmingStarted|SwimmingStopped|SleepStarted|SleepFinished|PlayerStartedBurning|PlayerStoppedBurning|EffectAdded|EffectRemoved|EffectAmplifierChanged|ExperienceLevelReached|AdvancementGranted|DimensionChanged|DimensionEntered|DimensionLeft|GameModeChanged|BlockInteracted|BlockBroken|BlockPlaced|ContainerOpened|BedEntered|BedLeft|DayReached|WeatherChanged|Effect|Condition|If|Elif|Else|Set|Vec|Point|Field|Obj|Money|Frame|Track|Channel|Source|Entry|Main|Exit|ExitPoint|Recovery|InitialState|Meta|AnimationProfile|AnimationRig|AnimationClip|Animation|FacialAnimation|FacePose|BoneDelta|ControlDelta|NpcAnimationBinding|Skin|SkinHead|Portrait|QuestMarker|NpcPath)\\b(?=\\s*(?:\\(|\\{))"
+        },
+        {
+          "name": "entity.name.function.member.echoscript",
+          "match": "\\b(?:Story\\.(?:Set|Load)|Environment\\.Set|Dialogue\\.Load|Scene\\.Start|Screen\\.SetBlack|Sleep\\.(?:Arm|Disarm|CloseEyes|WaitUntilClosed|EnterDream|OpenEyes|WaitUntilOpen|Wait|WaitSeconds|ReturnToBed|CompleteNight|Complete|Cancel|IsActive|IsArmed|IsEyesClosed)|PlayerSleep\\.(?:Confirmed|EnteredDream|Returned|Completed|Failed)|Blackspace\\.Create|Npc\\.Spawn|Npc\\.SpawnAt|Npc\\.SleepAt|Npc\\.Stop|Npc\\.Interact|Npc\\.StopInteraction|Npc\\.StandUp|Npc\\.Despawn|Npc\\.SpawnNearPlayer|Npc\\.Stay|Npc\\.Path|Npc\\.Move|Npc\\.ApproachPlayer|Npc\\.HoldItem|Npc\\.ClearHeldItem|Npc\\.PlayAnimation|Npc\\.StopAnimation|Npc\\.EnterVehicle|Npc\\.EnterNearestVehicle|Npc\\.EnterVehicleAt|Npc\\.LeaveVehicle|Vehicle\\.EnsureSpawn|Vehicle\\.Trip|Vehicle\\.Sequence|Navigation\\.SetTarget|Navigation\\.ClearTarget|Dialogue\\.Start|Debug\\.Mark|State\\.(?:Memory|Ref|Set|Remove|Clear|Add|Adjust|Increment|Decrement)|BlackScreen\\.Show|BlackScreen\\.Hide|Fog\\.Show|Fog\\.Hide|Video\\.Play|Monologue\\.Show|Quest\\.Update|World\\.TeleportPlayer|World\\.RemovePlayerItem|World\\.SetNavigationTarget|World\\.ClearNavigationTarget|Player\\.SpawnAt|Player\\.SetHotbarItem|Player\\.SelectHotbarSlot|Player\\.SitAt|Player\\.Teleport|Player\\.GiveItem|Player\\.Pose|This\\.HoldItem|This\\.ClearHeldItem|This\\.PlayAnimation|This\\.StopAnimation)\\b"
+        },
+        {
+          "name": "entity.name.function.echoscript",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"
+        },
+        {
+          "name": "variable.parameter.named.echoscript",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*:)"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "keyword.operator.logical.echoscript",
+          "match": "&&|\\|\\||!|==|!="
+        },
+        {
+          "name": "punctuation.separator.echoscript",
+          "match": "[,.;:]"
+        },
+        {
+          "name": "punctuation.definition.structure.echoscript",
+          "match": "[{}\\[\\]()]"
+        }
+      ]
+    }
+  }
+}

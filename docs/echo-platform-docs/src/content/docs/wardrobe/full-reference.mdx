@@ -1,0 +1,43 @@
+---
+title: "Wardrobe W2 Reference"
+description: "Contracts, content paths, commands, diagnostics and dependency rules for exact outfit resolution."
+section: "Wardrobe"
+pageKind: "reference"
+status: "review"
+since: "W2"
+updated: "2026-07-27"
+relatedIds: ["WardrobeProfileDefinition", "WearableDefinition", "OutfitVariantDefinition", "OutfitKey"]
+relatedPages: ["wardrobe/overview", "wardrobe/hot-reload", "wardrobe/slots"]
+sourceRepositories: ["echo-wardrobe"]
+sourcePaths: ["D:/JDHSeason/mods/echo-wardrobe/docs/architecture/WARDROBE_PROJECT_MAP.md", "D:/JDHSeason/mods/echo-wardrobe/docs/diagnostics/WARDROBE_DIAGNOSTICS.md"]
+visualIdentity: "wardrobe-full-reference"
+interactiveModules: ["OutfitResolverLab", "GlassesPortraitLab", "OutfitCoverageLab"]
+searchKeywords: ["Wardrobe reference", "diagnostics", "commands", "exact outfit"]
+---
+
+import { GlassesPortraitLab, OutfitCoverageLab, OutfitResolverLab } from "../../../components/WardrobeLabs";
+
+# Wardrobe W2 Reference
+
+Canonical content paths:
+
+- `<gameDir>/story/content-pack/<namespace>/echo_wardrobe/profiles/`
+- `<gameDir>/story/content-pack/<namespace>/echo_wardrobe/wearables/`
+- `<gameDir>/story/content-pack/<namespace>/echo_wardrobe/outfits/`
+- `assets/<namespace>/textures/echo_wardrobe/skins/...`
+
+Core commands:
+
+- `/echo_wardrobe status`
+- `/echo_wardrobe inspect <player>`
+- `/echo_wardrobe list_wearables`
+- `/echo_wardrobe list_outfits [profile]`
+- `/echo_wardrobe coverage`
+- `/echo_wardrobe missing`
+- `/echo_wardrobe diagnostics`
+
+<OutfitResolverLab client:load />
+<GlassesPortraitLab client:load />
+<OutfitCoverageLab client:load />
+
+Production Wardrobe does not depend on Echo Item Pack, Echo Dialogue, Echo Animation, Story Engine, Echo NPC, or Echo Trigger implementations.

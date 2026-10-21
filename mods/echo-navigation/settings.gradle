@@ -1,0 +1,23 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-navigation'
+
+include 'navigation-contracts'
+include 'navigation-core'
+include 'navigation-forge-api-1.20.1'
+include 'navigation-vanilla-1.20.1'
+include 'navigation-forge-1.20.1'
+include 'navigation-testmod-1.20.1'

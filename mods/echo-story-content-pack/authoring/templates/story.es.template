@@ -1,0 +1,21 @@
+namespace JDH.Template;
+
+class ExampleStory : StoryResource
+{
+    // Для example_story.es StoryId автоматически равен jdh:example_story.
+    OnStart()
+    {
+        // Generic Action используется, когда для adapter-а ещё нет короткого ES2 intrinsic.
+        Action(
+            type: "echo_npc:spawn",
+            actorId: "jdh:example_actor",
+            definitionId: "jdh:example_npc",
+            worldId: "minecraft:overworld",
+            x: "0",
+            y: "64",
+            z: "0",
+            yaw: "0",
+            pitch: "0",
+            output: "result");
+    }
+}

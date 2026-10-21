@@ -1,0 +1,18 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Public Forge-facing API for Echo Player Vitals.'
+
+base {
+    archivesName = 'player-vitals-forge-api-1.20.1'
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':player-vitals-contracts')
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}

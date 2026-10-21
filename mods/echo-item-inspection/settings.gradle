@@ -1,0 +1,11 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+plugins { id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0' }
+rootProject.name = 'echo-item-inspection'
+include 'inspection-core', 'inspection-forge-1.20.1', 'inspection-testmod-1.20.1'
+includeBuild '../echo-script'

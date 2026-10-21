@@ -1,0 +1,6 @@
+{
+  "command.echo_air_magic.setup.unavailable": "Echo Magic service is unavailable.",
+  "command.echo_air_magic.setup.not_loaded": "Air Bolt was not loaded.",
+  "command.echo_air_magic.setup.success": "Air Bolt selected for %1$s. Use the configured \"%2$s\" control."
+}
+

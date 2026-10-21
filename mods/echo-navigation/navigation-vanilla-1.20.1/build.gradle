@@ -1,0 +1,16 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Vanilla PathNavigation backend provider for Echo Navigation.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':navigation-contracts')
+    implementation project(':navigation-core')
+    implementation project(':navigation-forge-api-1.20.1')
+}

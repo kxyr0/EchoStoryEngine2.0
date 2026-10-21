@@ -1,0 +1,6 @@
+.gradle/
+build/
+**/build/
+**/run/
+*.log
+*.log.gz

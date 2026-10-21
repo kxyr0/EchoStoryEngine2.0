@@ -1,0 +1,9 @@
+description = 'EchoScript binder for VisibilityWatchResource definitions.'
+
+dependencies {
+    api project(':visibility-contracts')
+    implementation project(':visibility-core')
+    implementation "io.github.kxyr0.echoscript:echo-script-api:${echo_script_version}"
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    testImplementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}

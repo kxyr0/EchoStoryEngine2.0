@@ -1,0 +1,17 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="echo_trigger_testmod"
+version="${mod_version}"
+displayName="Echo Trigger Testmod"
+authors="${mod_authors}"
+description='''Development-only Echo Trigger test mod.'''
+
+[[dependencies.echo_trigger_testmod]]
+modId="forge"
+mandatory=true
+versionRange="${forge_version_range}"
+ordering="NONE"
+side="BOTH"

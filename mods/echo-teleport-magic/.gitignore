@@ -1,0 +1,14 @@
+.gradle/
+**/build/
+out/
+**/run/
+**/run-*/
+logs/
+*.log
+.idea/
+*.iml
+.vscode/
+bin/
+generated/
+local.properties
+__pycache__/

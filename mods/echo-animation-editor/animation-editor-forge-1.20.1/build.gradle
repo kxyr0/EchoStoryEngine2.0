@@ -1,0 +1,119 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Forge 1.20.1 client implementation for Echo Animator Editor.'
+
+def embeddedEditorProjects = [
+        project(':animation-editor-contracts'),
+        project(':animation-editor-core'),
+        project(':animation-editor-animation-adapter-1.20.1'),
+        project(':animation-editor-npc-adapter-1.20.1')
+]
+
+base {
+    archivesName = artifact_name
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    embeddedEditorProjects.each { editorProject -> source editorProject.sourceSets.main }
+                }
+            }
+        }
+        client {
+            args '--username', 'EchoAnimatorEditor'
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':animation-editor-contracts')
+    implementation project(':animation-editor-core')
+    implementation project(':animation-editor-animation-adapter-1.20.1')
+    implementation project(':animation-editor-npc-adapter-1.20.1')
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedEditorProjects.collect { "${it.path}:classes" }
+    manifest {
+        attributes('Automatic-Module-Name': mod_id)
+    }
+    embeddedEditorProjects.each { editorProject -> from(editorProject.sourceSets.main.output) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('verifyEditorJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Verifies final Echo Animator Editor JAR contents.'
+    dependsOn tasks.named('reobfJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile
+        if (!jarFile.isFile()) {
+            throw new GradleException("Editor JAR was not created: ${jarFile}")
+        }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def required = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echoanimationeditor/forge/EchoAnimationEditorMod.class',
+                'io/github/kxyr0/echoanimationeditor/core/layout/AnimatorResponsiveLayout.class',
+                'io/github/kxyr0/echoanimationeditor/api/session/AnimatorEditorSessionId.class'
+        ]
+        def missing = required.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echoanimation/')
+                    || entry.startsWith('io/github/kxyr0/echoanimationauthoring/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/')
+                    || entry.startsWith('net/minecraft/')
+                    || entry.startsWith('net/minecraftforge/')
+                    || entry.startsWith('org/junit/')
+                    || entry.endsWith('.java')
+        }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            throw new GradleException("Editor JAR verification failed."
+                    + "\nmissing entries:\n" + missing.join('\n')
+                    + "\nforbidden entries:\n" + forbidden.take(60).join('\n'))
+        }
+        println "Echo Animator Editor JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyEditorJarContents')
+}

@@ -1,0 +1,19 @@
+[
+  {"predicate":"Dialogue.Started","kind":"echo:dialogue/started","durable":false,"scope":"PLAYER","filters":["resource"]},
+  {"predicate":"Dialogue.Choice","kind":"echo:dialogue/choice","durable":true,"scope":"PLAYER","filters":["resource","choice"]},
+  {"predicate":"Dialogue.Completed","kind":"echo:dialogue/completed","durable":true,"scope":"PLAYER","filters":["resource"]},
+  {"predicate":"Dialogue.Cancelled","kind":"echo:dialogue/cancelled","durable":true,"scope":"PLAYER","filters":["resource"]},
+  {"predicate":"Dialogue.Failed","kind":"echo:dialogue/failed","durable":true,"scope":"PLAYER","filters":["resource"]},
+  {"predicate":"Scene.Started","kind":"echo:scene/started","durable":false,"scope":"PLAYER","filters":["resource"]},
+  {"predicate":"Scene.Completed","kind":"echo:scene/completed","durable":true,"scope":"PLAYER","filters":["resource"]},
+  {"predicate":"Scene.Cancelled","kind":"echo:scene/cancelled","durable":true,"scope":"PLAYER","filters":["resource"]},
+  {"predicate":"Scene.Failed","kind":"echo:scene/failed","durable":true,"scope":"PLAYER","filters":["resource"]},
+  {"predicate":"Cutscene.Started","kind":"echo:cutscene/started","durable":false,"scope":"PLAYER","filters":["resource"]},
+  {"predicate":"Cutscene.Completed","kind":"echo:cutscene/completed","durable":true,"scope":"PLAYER","filters":["resource"]},
+  {"predicate":"Cutscene.Cancelled","kind":"echo:cutscene/cancelled","durable":true,"scope":"PLAYER","filters":["resource"]},
+  {"predicate":"Observation.Completed","kind":"echo:observation/completed","durable":true,"scope":"PLAYER","filters":["resource"]},
+  {"predicate":"Npc.Arrived","kind":"echo:npc/arrived","durable":false,"scope":"EXECUTION","filters":["actor","destination"]},
+  {"predicate":"Npc.Died","kind":"echo:npc/died","durable":true,"scope":"WORLD","filters":["resource"]},
+  {"predicate":"Animation.Marker","kind":"echo:animation/marker","durable":false,"scope":"EXECUTION","filters":["subject","resource","marker"]},
+  {"predicate":"Animation.Completed","kind":"echo:animation/completed","durable":false,"scope":"EXECUTION","filters":["subject","resource"]}
+]

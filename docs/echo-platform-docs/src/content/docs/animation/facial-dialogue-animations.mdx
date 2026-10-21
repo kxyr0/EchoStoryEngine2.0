@@ -1,0 +1,916 @@
+---
+title: "Лицо в диалогах"
+description: "Face rig, portrait overlay, FacialAnimation surfaces, SetAnimationFace, StopFaceAnimation и SetAnimationFaceClear."
+section: "Animation"
+pageKind: "syntax"
+status: "review"
+since: "current"
+updated: "2026-07-26"
+relatedIds: ["FaceRigId", "FacialAnimationId", "FaceAnimationId", "SpeakerId", "DialogueId"]
+relatedPages: ["platform/dialogue-authoring", "animation/rig-and-bones", "animation/hot-reload", "platform/content-workspace"]
+sourceRepositories: ["echo-animation", "echo-dialogue", "echo-story-content-pack"]
+sourcePaths: ["D:/JDHSeason/mods/echo-animation", "D:/JDHSeason/mods/echo-dialogue", "D:/JDHSeason/mods/echo-story-content-pack"]
+visualIdentity: "state-lines"
+interactiveModules: []
+searchKeywords: ["FacialAnimation", "Surface", "Phase", "SetAnimationFace", "StopFaceAnimation", "SetAnimationFaceClear", "PortraitOverlay", "Blink", "durationTicks", "face rig", "портрет"]
+---
+
+# Лицо в диалогах
+
+Эта страница про кодовую связку лица персонажа в мире и лица в портрете диалога. Цель простая: один face rig на персонажа, один универсальный ID face-анимации, отдельные настройки под `3d` и `portrait` внутри этого ID, и короткий вызов из реплики через `.SetAnimationFace(...)`.
+
+## Коротко
+
+Рабочая схема:
+
+1. Face rig описывает, какие слои лица есть у визуала: глаза, зрачки, веки, брови.
+2. Portrait overlay настраивает, как эти слои должны лечь поверх портрета в диалоге.
+3. FacialAnimation двигает кости rig-а по тикам.
+4. Внутри FacialAnimation можно разделить surface-классы `World` и `Portrait`, потому что координаты мира и портрета отличаются.
+5. Dialogue line запускает `enter -> stay` через `.SetAnimationFace(...)`.
+6. `.StopFaceAnimation()` вызывает `exit` текущей explicit face-анимации.
+7. `.SetAnimationFaceClear()` мгновенно очищает explicit face-анимации. Idle blink остается включенным, если он включен в rig или portrait overlay.
+
+Не нужно делать отдельный файл анимации под каждого персонажа, если анимация двигает стандартные кости. Универсальная анимация просто не указывает `rig:`.
+
+## Где лежат файлы
+
+Source content pack:
+
+```text
+D:/JDHSeason/mods/echo-story-content-pack/src/main/resources/data/jdh/echo_animation/face_rigs/**/*.face-rig.es
+D:/JDHSeason/mods/echo-story-content-pack/src/main/resources/data/jdh/echo_animation/face_animations/**/*.face-animation.es
+D:/JDHSeason/mods/echo-story-content-pack/src/main/resources/story/configs/jdh/echo_animation/portrait_overlays/**/*.portrait-overlay.es
+D:/JDHSeason/mods/echo-story-content-pack/src/main/resources/assets/jdh/textures/echo_animation/faces/<folder>/*.png
+```
+
+Рабочие face-анимации лучше раскладывать по персонажам:
+
+```text
+face_animations/chapter_1/family/john_father/*.face-animation.es
+face_animations/chapter_1/player/*.face-animation.es
+face_animations/shared/*.face-animation.es
+face_animations/tests/*.face-animation.es
+```
+
+`shared` держит действительно общие clips вроде blink. `tests` остается песочницей. Персонажные каталоги держат rig-specific ID: например `jdh:john_father/look_left` и `jdh:player/look_left`.
+
+Live content pack в Prism:
+
+```text
+C:/Users/kxyr0/AppData/Roaming/PrismLauncher/instances/Форма Мысли/minecraft/story/content-pack/jdh/data/jdh/echo_animation/face_rigs/**/*.face-rig.es
+C:/Users/kxyr0/AppData/Roaming/PrismLauncher/instances/Форма Мысли/minecraft/story/content-pack/jdh/data/jdh/echo_animation/face_animations/**/*.face-animation.es
+C:/Users/kxyr0/AppData/Roaming/PrismLauncher/instances/Форма Мысли/minecraft/story/configs/jdh/echo_animation/portrait_overlays/**/*.portrait-overlay.es
+C:/Users/kxyr0/AppData/Roaming/PrismLauncher/instances/Форма Мысли/minecraft/story/content-pack/jdh/assets/jdh/textures/echo_animation/faces/<folder>/*.png
+```
+
+После правки `.es` файлов обычно достаточно `/reload`. После правки PNG слоев нужен `F3 + T`. После правки Java-кода или jar нужен перезапуск игры.
+
+## Face rig
+
+Face rig привязан к visual ID. Для отца это `jdh:john_father`, для игрока сейчас используется `echo_content_player:player/base`.
+
+Минимальный высокий синтаксис:
+
+```echoscript
+namespace JDH.Animation.Chapter1.Family;
+
+face JohnFather("jdh:john_father")
+{
+    Eyes
+    {
+        Sclera Left  { Position(-0.125, 0, 0); }
+        Sclera Right { Position( 0.125, 0, 0); }
+
+        Pupil Left   { Position(-0.09, 0, 0.01); }
+        Pupil Right  { Position( 0.09, 0, 0.01); }
+
+        Eyelid Upper { Position(0, -0.035, 0.02); TextureArea(8, 13, 8, 1); }
+        Eyelid Lower { Position(0, 0.09, 0.02); TextureArea(8, 12, 8, 1); }
+    }
+
+    Brows
+    {
+        Pivot(-62, 0);
+        Left  { Position(-0.125, -0.032, 0.03); }
+        Right { Position( 0.124, -0.032, 0.03); }
+    }
+
+    Blink "eye_closure"
+    {
+        Travel(35, -35);
+        Gaze(1, 1);
+        Idle(true);
+        PeriodTicks(30);
+        CloseTicks(2);
+        HoldTicks(2);
+        OpenTicks(2);
+    }
+}
+```
+
+Что здесь важно:
+
+- `face JohnFather("jdh:john_father")` задает `FaceRigId`. Он должен совпадать с visual ID портрета или skin-head визуала.
+- `Textures("...")` можно добавить, если слои лежат не в дефолтном месте.
+- `Position(x, y, z)` задает нейтральное положение кости.
+- `TextureArea(x, y, w, h)` выбирает кусок из PNG-текстуры слоя.
+- `Pivot(-62, 0)` для бровей задает pivot в texture milli-единицах. `-62` означает `-0.062`.
+- `Blink "eye_closure"` создает idle-control. Он применяется отдельно от explicit animation.
+
+Высокий синтаксис создает стандартные bone IDs:
+
+| Часть | Bone ID для анимации |
+| --- | --- |
+| Верхние веки вместе | `upper_eyelids` |
+| Нижние веки вместе | `lower_eyelids` |
+| Левый зрачок | `left_pupil` |
+| Правый зрачок | `right_pupil` |
+| Левая бровь | `brows_left` |
+| Правая бровь | `brows_right` |
+
+Layer IDs, которые настраиваются в portrait overlay, немного другие:
+
+```text
+sclera_left
+sclera_right
+pupil_left
+pupil_right
+upper_eyelid_left
+upper_eyelid_right
+lower_eyelid_left
+lower_eyelid_right
+brow_left
+brow_right
+```
+
+Это нормально: анимация двигает кости, а renderer уже рисует layer-ы, привязанные к этим костям.
+
+## Frame transform
+
+Рекомендованный синтаксис для новых face animations — chained frame modifiers:
+
+```echoscript
+Frame(5).Position(0.020, 0.018, 0).Rotation(0, 0, 18)
+```
+
+`Frame(tick).Position(x, y, z)` задает смещение позиции кости относительно нейтрали face rig. Это не поворот.
+
+Для поворота используй `Frame(tick).Rotation(x, y, z)`. Для face layer сейчас применяется только `z`, поэтому пиши `Rotation(0, 0, angleDegrees)`.
+
+```echoscript
+Track("brows_left", frames: [
+    Frame(0).Position(0, 0, 0).Rotation(0, 0, 0),
+    Frame(5).Position(0.020, 0.018, 0).Rotation(0, 0, 18)
+])
+```
+
+Что важно:
+
+- `x`, `y`, `z` — translation delta. Они сдвигают кость/слой.
+- `Rotation(0, 0, z)` — поворот в градусах вокруг pivot кости.
+- `scaleX`, `scaleY`, `scaleZ` — изменение масштаба.
+- `Scale(x, y, z)` — читаемый chained-вариант для масштаба кадра.
+- `Track("brows_left")` и `Track("brows_right")` — это bone ids из high-level `Brows`.
+- `Layer("brow_left")` и `Layer("brow_right")` в portrait overlay — это layer ids, не track ids.
+- Для бровей нормальная эмоция обычно использует и `Position`, и `Rotation`: `Position` ставит бровь в нужную точку, `Rotation` делает наклон.
+
+Старый компактный вид остается рабочим: `Frame(5, x: "0.020", y: "0.018", rotationZ: "18.0")`. Но для новых анимаций лучше использовать chained-вид, потому что в нем сразу видно, где позиция, а где поворот. Отрицательные decimal-числа теперь можно писать без строк: `Position(-0.020, 0.018, 0)`.
+
+Единицы `x/y/z` такие же, как в face rig. Для 3D один skin-пиксель примерно равен `0.0625`, поэтому `0.010` — это небольшой, но видимый сдвиг. В портрете значения часто меньше, потому что overlay уже масштабируется через `facePixels`, `scaleX` и `scaleY`.
+
+Пример angry brows с разными настройками для мира и портрета:
+
+```echoscript
+class World : FacialAnimationSurface3d
+{
+    private PhaseDef Enter()
+    {
+        return Phase(durationTicks: 5, tracks: [
+            Track("brows_left", frames: [Frame(0).Position(0, 0, 0).Rotation(0, 0, 0), Frame(5).Position(0.020, 0.018, 0).Rotation(0, 0, 18)]),
+            Track("brows_right", frames: [Frame(0).Position(0, 0, 0).Rotation(0, 0, 0), Frame(5).Position(-0.020, 0.018, 0).Rotation(0, 0, -18)])
+        ]);
+    }
+}
+
+class Portrait : FacialAnimationSurfacePortrait
+{
+    private PhaseDef Enter()
+    {
+        return Phase(durationTicks: 5, tracks: [
+            Track("brows_left", frames: [Frame(0).Position(0, 0, 0).Rotation(0, 0, 0), Frame(5).Position(0.010, 0.008, 0).Rotation(0, 0, 10)]),
+            Track("brows_right", frames: [Frame(0).Position(0, 0, 0).Rotation(0, 0, 0), Frame(5).Position(-0.010, 0.008, 0).Rotation(0, 0, -10)])
+        ]);
+    }
+}
+```
+
+## Portrait overlay
+
+Face rig отвечает за мир и базовую структуру. Portrait overlay отвечает только за проекцию на портрет диалога: центр, масштаб, поправки слоев и отдельную калибровку idle blink для портрета.
+
+Пример:
+
+```echoscript
+namespace JDH.Configs.EchoAnimation;
+
+class JohnFatherPortraitOverlay : PortraitOverlayConfig
+{
+    public override PortraitOverlayDef Build()
+    {
+        return PortraitOverlay("jdh:john_father",
+            centerX: "0.50",
+            centerY: "0.49",
+            offsetX: 0,
+            offsetY: 0,
+            facePixels: "4",
+            layers: [
+                Layer("sclera_left", placeX: "-0.062", placeY: "0.002", scaleX: "0.50", scaleY: "0.50"),
+                Layer("sclera_right", placeX: "0.062", placeY: "0.002", scaleX: "0.50", scaleY: "0.50"),
+                Layer("pupil_left", placeX: "-0.062", placeY: "0.002", scaleX: "0.50", scaleY: "0.50"),
+                Layer("pupil_right", placeX: "0.0309", placeY: "0.002", scaleX: "0.50", scaleY: "0.50"),
+                Layer("upper_eyelid_left", placeX: "-0.062", placeY: "-0.034", scaleX: "0.50", scaleY: "0.50"),
+                Layer("upper_eyelid_right", placeX: "0.062", placeY: "-0.034", scaleX: "0.50", scaleY: "0.50"),
+                Layer("lower_eyelid_left", placeX: "-0.062", placeY: "0.034", scaleX: "0.50", scaleY: "0.50"),
+                Layer("lower_eyelid_right", placeX: "0.062", placeY: "0.034", scaleX: "0.50", scaleY: "0.50"),
+                Layer("brow_left", placeX: "-0.062", placeY: "-0.029", scaleX: "0.50", scaleY: "0.50"),
+                Layer("brow_right", placeX: "0.062", placeY: "-0.029", scaleX: "0.50", scaleY: "0.50")
+            ],
+            idle: [
+                Blink "eye_closure"
+                {
+                    Travel(20, -20);
+                    Gaze(1, 1);
+                    Idle(true);
+                    PeriodTicks(50);
+                    CloseTicks(2);
+                    HoldTicks(2);
+                    OpenTicks(2);
+                }
+            ]
+        );
+    }
+}
+```
+
+Как читать настройки:
+
+| Поле | Что делает |
+| --- | --- |
+| `centerX`, `centerY` | Точка лица внутри прямоугольника портрета. `0.50` это центр. |
+| `offsetX`, `offsetY` | Пиксельный сдвиг всего лица в портрете. |
+| `facePixels` | База масштаба. Чем меньше число, тем крупнее overlay. |
+| `placeX`, `placeY` | Переопределение нейтральной позиции конкретного слоя в портрете. |
+| `scaleX`, `scaleY` | Множитель размера конкретного слоя в портрете. |
+| `w`, `h` | Явная ширина/высота слоя, если надо перебить размер из `TextureArea`. |
+| `visible` | Можно временно выключить слой без удаления. |
+
+Если размер века в portrait overlay не меняется от правки face rig, это ожидаемо. В портрете итоговый размер слоя идет через `TextureArea` из rig плюс `scaleX`, `scaleY`, `w`, `h` из overlay. Поэтому для портрета размер проще править именно в `Layer("upper_eyelid_left", scaleX: ..., scaleY: ...)`.
+
+## Idle blink
+
+Idle blink не является `.SetAnimationFace(...)`. Он применяется renderer-ом каждый кадр поверх текущей позы.
+
+```echoscript
+Blink "eye_closure"
+{
+    Travel(35, -35);
+    Gaze(1, 1);
+    Idle(true);
+    PeriodTicks(30);
+    CloseTicks(2);
+    HoldTicks(2);
+    OpenTicks(2);
+}
+```
+
+Что делает каждая строка:
+
+| Вызов | Смысл |
+| --- | --- |
+| `Travel(35, -35)` | Насколько верхние и нижние веки двигаются при закрытии. Числа в milli-единицах: `35` это `0.035`. |
+| `Gaze(1, 1)` | Зарезервированная калибровка взгляда. Сейчас оставляется как `1, 1`. |
+| `Idle(true)` | Включает автоматическое моргание. |
+| `PeriodTicks(30)` | Период цикла в игровых тиках. `30` тиков это 1.5 секунды. |
+| `CloseTicks(2)` | Сколько тиков глаз закрывается. |
+| `HoldTicks(2)` | Сколько тиков глаз полностью закрыт. |
+| `OpenTicks(2)` | Сколько тиков глаз открывается. |
+
+`SetAnimationFaceClear()` не выключает этот blink. Он очищает только explicit face animation state.
+
+## Универсальная face-анимация
+
+Универсальная анимация не указывает top-level `rig:`. Она подойдет любому лицу, где есть такие же bone IDs. Чтобы не делать отдельный файл под каждого персонажа, пишите один `FacialAnimationId`, а различия координат кладите в соседние surface-классы `World` и `Portrait`.
+
+```echoscript
+namespace JDH.Animation.Tests.Face;
+
+class FaceTestLookLeftAnimation : FacialAnimationResource
+{
+    public override FacialAnimationDef Build()
+    {
+        return FacialAnimation("jdh:face_test/look_left", surfaces: [World, Portrait]);
+    }
+}
+
+class World : FacialAnimationSurface3d
+{
+    private PhaseDef Enter()
+    {
+        return Phase(durationTicks: 6, tracks: [
+            Track("left_pupil", frames: [Frame(0, x: 0), Frame(6, x: "-0.031")]),
+            Track("right_pupil", frames: [Frame(0, x: 0), Frame(6, x: 0)])
+        ]);
+    }
+
+    private PhaseDef Stay()
+    {
+        return Phase(durationTicks: 12, end: "HOLD", tracks: [
+            Track("left_pupil", frames: [Frame(0, x: "-0.031"), Frame(12, x: "-0.031")]),
+            Track("right_pupil", frames: [Frame(0, x: 0), Frame(12, x: 0)])
+        ]);
+    }
+
+    private PhaseDef Exit()
+    {
+        return Phase(durationTicks: 6, tracks: [
+            Track("left_pupil", frames: [Frame(0, x: "-0.031"), Frame(6, x: 0)]),
+            Track("right_pupil", frames: [Frame(0, x: 0), Frame(6, x: 0)])
+        ]);
+    }
+}
+
+class Portrait : FacialAnimationSurfacePortrait
+{
+    private PhaseDef Enter()
+    {
+        return Phase(durationTicks: 6, tracks: [
+            Track("left_pupil", frames: [Frame(0, x: 0), Frame(6, x: "-0.020")]),
+            Track("right_pupil", frames: [Frame(0, x: 0), Frame(6, x: 0)])
+        ]);
+    }
+
+    private PhaseDef Stay()
+    {
+        return Phase(durationTicks: 12, end: "HOLD", tracks: [
+            Track("left_pupil", frames: [Frame(0, x: "-0.020"), Frame(12, x: "-0.020")]),
+            Track("right_pupil", frames: [Frame(0, x: 0), Frame(12, x: 0)])
+        ]);
+    }
+
+    private PhaseDef Exit()
+    {
+        return Phase(durationTicks: 6, tracks: [
+            Track("left_pupil", frames: [Frame(0, x: "-0.020"), Frame(6, x: 0)]),
+            Track("right_pupil", frames: [Frame(0, x: 0), Frame(6, x: 0)])
+        ]);
+    }
+}
+```
+
+Как это читается:
+
+- `World : FacialAnimationSurface3d` используется рендером лица на модели в мире.
+- `Portrait : FacialAnimationSurfacePortrait` используется рендером слоев поверх портрета диалога.
+- `enter` проигрывается сразу после `.SetAnimationFace(...)`.
+- `stay` держится после конца `enter`.
+- `exit` запускается только через `.StopFaceAnimation()`.
+- В примере `3d` двигает зрачок на `-0.031`, а `portrait` на `-0.020`. Это и есть место для поправки разных координатных систем.
+
+Если в анимации нет `surfaces`, старый `tracks:` формат продолжает работать. Runtime воспринимает его как legacy `stay` для любой поверхности. Но для диалогов лучше новый формат, потому что у него есть явный `exit`.
+
+## Surface-классы внутри одного файла
+
+В `.face-animation.es` можно держать несколько top-level классов. Первый класс остается resource-классом и задает `FacialAnimationId`. Остальные классы могут описывать surface-части той же анимации.
+
+Канонический стиль для диалогового лица: resource-класс вызывает `surfaces: [World, Portrait]`, а каждый surface-класс содержит ровно три метода `Enter`, `Stay`, `Exit`:
+
+```echoscript
+class LookLeftAnimation : FacialAnimationResource
+{
+    public override FacialAnimationDef Build()
+    {
+        return FacialAnimation("jdh:face/look_left", surfaces: [World, Portrait]);
+    }
+}
+
+class World : FacialAnimationSurface3d
+{
+    private PhaseDef Enter() { return Phase(durationTicks: 6, tracks: [...]); }
+    private PhaseDef Stay() { return Phase(durationTicks: 12, end: "HOLD", tracks: [...]); }
+    private PhaseDef Exit() { return Phase(durationTicks: 6, tracks: [...]); }
+}
+
+class Portrait : FacialAnimationSurfacePortrait
+{
+    private PhaseDef Enter() { return Phase(durationTicks: 6, tracks: [...]); }
+    private PhaseDef Stay() { return Phase(durationTicks: 12, end: "HOLD", tracks: [...]); }
+    private PhaseDef Exit() { return Phase(durationTicks: 6, tracks: [...]); }
+}
+```
+
+Правила простые:
+
+- первый class в файле должен быть `FacialAnimationResource`;
+- `surfaces: [World, Portrait]` ссылается на соседние классы в этом же `.es`;
+- `World : FacialAnimationSurface3d` компилируется в runtime `Surface("3d", ...)`;
+- `Portrait : FacialAnimationSurfacePortrait` компилируется в runtime `Surface("portrait", ...)`;
+- каждый surface-класс обязан иметь `Enter()`, `Stay()`, `Exit()`;
+- `Enter/Stay/Exit` не принимают параметры и возвращают `Phase(...)`;
+- внутри `Phase(...)` пишутся обычные `tracks`;
+- имена `World` и `Portrait` не магические: важен base type класса.
+
+Удобная схема имен:
+
+```text
+Main Build()  -> FacialAnimation("id", surfaces: [World, Portrait])
+World.Enter() -> Phase(... tracks под 3D ...)
+Portrait.Enter() -> Phase(... tracks под портрет ...)
+Stay()        -> обычно `end: "HOLD"`
+Exit()        -> плавный возврат в нейтральную позу
+```
+
+Так файл остается одним универсальным ID анимации, но `3d` и `portrait` разделены по классам, и в каждом классе только три основных метода.
+
+## Почему тики лучше миллисекунд
+
+Для face-анимаций пишите тики:
+
+```echoscript
+private PhaseDef Enter()
+{
+    return Phase(durationTicks: 6, tracks: [
+    Track("left_pupil", frames: [Frame(0, x: 0), Frame(6, x: "-0.031")])
+    ]);
+}
+```
+
+Когда есть `durationTicks`, первый аргумент каждого `Frame(...)` тоже считается тиками. В Java это переводится в секунды как `ticks / 20.0`.
+
+Старый вариант еще поддерживается:
+
+```echoscript
+durationMillis: 900
+Frame(450, x: "-0.031")
+```
+
+Но смешивать нельзя:
+
+```echoscript
+FacialAnimation("jdh:bad",
+    durationTicks: 24,
+    durationMillis: 900,
+    end: "HOLD",
+    tracks: []);
+```
+
+Такой файл должен быть исправлен. Выберите один формат времени.
+
+## Surface и Phase
+
+Полный шаблон под эмоцию:
+
+```echoscript
+namespace JDH.Animation.Tests.Face;
+
+class FaceTestBrowsRaiseAnimation : FacialAnimationResource
+{
+    public override FacialAnimationDef Build()
+    {
+        return FacialAnimation("jdh:face_test/brows_raise", surfaces: [World, Portrait]);
+    }
+}
+
+class World : FacialAnimationSurface3d
+{
+    private PhaseDef Enter()
+    {
+        return Phase(durationTicks: 5, tracks: [
+            Track("brows_left", frames: [Frame(0, y: 0), Frame(5, y: "-0.018")]),
+            Track("brows_right", frames: [Frame(0, y: 0), Frame(5, y: "-0.018")])
+        ]);
+    }
+
+    private PhaseDef Stay()
+    {
+        return Phase(durationTicks: 12, end: "HOLD", tracks: [
+            Track("brows_left", frames: [Frame(0, y: "-0.018"), Frame(12, y: "-0.018")]),
+            Track("brows_right", frames: [Frame(0, y: "-0.018"), Frame(12, y: "-0.018")])
+        ]);
+    }
+
+    private PhaseDef Exit()
+    {
+        return Phase(durationTicks: 7, tracks: [
+            Track("brows_left", frames: [Frame(0, y: "-0.018"), Frame(7, y: 0)]),
+            Track("brows_right", frames: [Frame(0, y: "-0.018"), Frame(7, y: 0)])
+        ]);
+    }
+}
+
+class Portrait : FacialAnimationSurfacePortrait
+{
+    private PhaseDef Enter()
+    {
+        return Phase(durationTicks: 5, tracks: [
+            Track("brows_left", frames: [Frame(0, y: 0), Frame(5, y: "-0.010")]),
+            Track("brows_right", frames: [Frame(0, y: 0), Frame(5, y: "-0.010")])
+        ]);
+    }
+
+    private PhaseDef Stay()
+    {
+        return Phase(durationTicks: 12, end: "HOLD", tracks: [
+            Track("brows_left", frames: [Frame(0, y: "-0.010"), Frame(12, y: "-0.010")]),
+            Track("brows_right", frames: [Frame(0, y: "-0.010"), Frame(12, y: "-0.010")])
+        ]);
+    }
+
+    private PhaseDef Exit()
+    {
+        return Phase(durationTicks: 7, tracks: [
+            Track("brows_left", frames: [Frame(0, y: "-0.010"), Frame(7, y: 0)]),
+            Track("brows_right", frames: [Frame(0, y: "-0.010"), Frame(7, y: 0)])
+        ]);
+    }
+}
+```
+
+Старый низкоуровневый вид тоже остается рабочим:
+
+```echoscript
+return FacialAnimation("jdh:face_test/brows_raise",
+    surfaces: [
+        Surface("3d",
+            enter: Phase(durationTicks: 5, tracks: [
+                Track("brows_left", frames: [Frame(0, y: 0), Frame(5, y: "-0.018")]),
+                Track("brows_right", frames: [Frame(0, y: 0), Frame(5, y: "-0.018")])
+            ]),
+            stay: Phase(durationTicks: 12, end: "HOLD", tracks: [
+                Track("brows_left", frames: [Frame(0, y: "-0.018"), Frame(12, y: "-0.018")]),
+                Track("brows_right", frames: [Frame(0, y: "-0.018"), Frame(12, y: "-0.018")])
+            ]),
+            exit: Phase(durationTicks: 7, tracks: [
+                Track("brows_left", frames: [Frame(0, y: "-0.018"), Frame(7, y: 0)]),
+                Track("brows_right", frames: [Frame(0, y: "-0.018"), Frame(7, y: 0)])
+            ])),
+        Surface("portrait",
+            enter: Phase(durationTicks: 5, tracks: [
+                Track("brows_left", frames: [Frame(0, y: 0), Frame(5, y: "-0.010")]),
+                Track("brows_right", frames: [Frame(0, y: 0), Frame(5, y: "-0.010")])
+            ]),
+            stay: Phase(durationTicks: 12, end: "HOLD", tracks: [
+                Track("brows_left", frames: [Frame(0, y: "-0.010"), Frame(12, y: "-0.010")]),
+                Track("brows_right", frames: [Frame(0, y: "-0.010"), Frame(12, y: "-0.010")])
+            ]),
+            exit: Phase(durationTicks: 7, tracks: [
+                Track("brows_left", frames: [Frame(0, y: "-0.010"), Frame(7, y: 0)]),
+                Track("brows_right", frames: [Frame(0, y: "-0.010"), Frame(7, y: 0)])
+            ]))
+    ]);
+```
+
+Практическая формула фаз:
+
+```text
+enter  4-7 ticks   neutral -> expression
+stay   8-20 ticks  expression -> expression
+exit   4-8 ticks   expression -> neutral
+```
+
+`stay` обычно содержит два одинаковых кадра и `end: "HOLD"`. Это не ошибка: так sampler держит выражение сколько угодно, пока диалог не пришлет `.StopFaceAnimation()` или `.SetAnimationFaceClear()`.
+
+`rig` не ставится на последний кадр и вообще не пишется внутри `Frame(...)`. Кадр описывает только transform кости в конкретный tick: `Position(x, y, z)`, `Rotation(0, 0, z)`, `Scale(x, y, z)` или старые поля `x`, `y`, `z`, `rotationZ`, `scaleX`, `scaleY`, `scaleZ`. `rig` отвечает за применимость анимации к лицу и ставится уровнем выше.
+
+Если весь файл анимации должен применяться только к одному rig, добавьте `rig:` в основной `FacialAnimation(...)`:
+
+```echoscript
+return FacialAnimation("jdh:father/brows_raise", rig: "jdh:john_father", surfaces: [World, Portrait]);
+```
+
+Если только одна surface должна быть rig-specific, добавьте метод `Rig()` прямо в surface-класс:
+
+```echoscript
+class FatherWorld : FacialAnimationSurface3d
+{
+    private FaceRigId Rig() { return FaceRig("jdh:john_father"); }
+    private PhaseDef Enter() { return Phase(durationTicks: 5, tracks: [...]); }
+    private PhaseDef Stay() { return Phase(durationTicks: 12, end: "HOLD", tracks: [...]); }
+    private PhaseDef Exit() { return Phase(durationTicks: 7, tracks: [...]); }
+}
+```
+
+В `Exit()` последний кадр обычно возвращает кости в нейтраль:
+
+```echoscript
+Track("brows_left", frames: [Frame(0, y: "-0.018"), Frame(7, y: 0)])
+```
+
+Это не указание rig-а. Это только плавный выход из выражения обратно в базовую позу.
+
+Runtime выбирает surface так:
+
+1. сначала `Surface(surfaceName, rig: currentRig)`;
+2. потом universal `Surface(surfaceName)` без `rig:`;
+3. потом старый top-level `tracks:`.
+
+Это значит, что можно держать одну общую анимацию для всех, но точечно переопределить только портрет отца или только 3D игрока.
+
+## Когда использовать StopFaceAnimation
+
+`StopFaceAnimation()` нужен для плавного выхода из текущей explicit face-анимации:
+
+```echoscript
+Line("father", "Ты поздно вернулся.").SetAnimationFace(AngryBrows);
+Line("father", "Я ждал почти весь вечер.").StopFaceAnimation();
+```
+
+Он компилируется в cue:
+
+```text
+faceAnimationStop = true
+```
+
+Что он делает:
+
+- находит текущую face-анимацию у visual/speaker текущей реплики;
+- сбрасывает ее внутренний таймер на текущий game tick;
+- вместо `stay` начинает сэмплить `exit`;
+- после конца `exit` удаляет explicit state;
+- idle blink при этом продолжает работать.
+
+Если `exit` не описан, `StopFaceAnimation()` уберет explicit state сразу. Поэтому для диалоговых эмоций добавляйте `exit` явно.
+
+## Когда использовать SetAnimationFaceClear
+
+`SetAnimationFaceClear()` нужен как короткий сброс текущих explicit face-анимаций:
+
+```echoscript
+Line("john", "Я могу объяснить.").SetAnimationFaceClear();
+```
+
+Он компилируется в cue:
+
+```text
+faceAnimationClear = true
+```
+
+Что он делает:
+
+- очищает `DialoguePortraitAnimationState`;
+- убирает текущие explicit face animation state для портрета и 3D;
+- не трогает idle blink;
+- не меняет body animation;
+- не меняет сам face rig;
+- не меняет PNG слои.
+
+Что он не делает:
+
+- не вызывает фазу `exit`;
+- не выключает `Blink "eye_closure"`;
+- не чинит неверный `placeX`, `placeY`, `scaleX`, `scaleY` в portrait overlay.
+
+Если нужна плавность, используйте `.StopFaceAnimation()`. Clear нужен, когда надо быстро гарантированно убрать explicit state без ожидания exit.
+
+## Вызов из диалога
+
+В `.dialogue.es` ID лучше вынести в поля:
+
+```echoscript
+private FaceAnimationId PlayerLookLeft = "jdh:player/look_left";
+private FaceAnimationId PlayerBrowsRaise = "jdh:player/brows_raise";
+private FaceAnimationId FatherAngryBrows = "jdh:john_father/angry_brows";
+private FaceAnimationId FatherBrowsRaise = "jdh:john_father/brows_raise";
+private FaceAnimationId FatherFullFaceHold = "jdh:john_father/full_face_hold";
+```
+
+Потом чередовать прямо на репликах:
+
+```echoscript
+private void Greeting()
+{
+    var node = new Node("greeting");
+    Line("father", "Ты поздно вернулся.").SetAnimationFace(FatherAngryBrows);
+    Line("father", "Я ждал почти весь вечер.").StopFaceAnimation();
+    Line("john", "Я знаю.").SetAnimationFace(PlayerLookLeft);
+    Line("john", "Я не хотел будить дом.").StopFaceAnimation();
+    Line("father", "Скажи прямо, где ты был?").SetAnimationFace(FatherBrowsRaise);
+    Line("father", "Без красивых историй.").StopFaceAnimation();
+    Line("john", "Я могу объяснить.").SetAnimationFaceClear();
+    Choice("tell_truth", "Сказать правду.", next: "told_truth");
+    Choice("lie", "Солгать.", next: "lied");
+    return node;
+}
+```
+
+Это лучше, чем story action для каждого моргания или взгляда:
+
+```echoscript
+Line("father", "Скажи прямо, где ты был?")
+    .SetAnimationFace(BrowsRaise);
+```
+
+Story `Action(type: "echo_animation:play_animation", ...)` оставляйте для body-анимаций или сложных сцен, где действительно нужно ждать `STARTED`, `COMPLETED` или писать output.
+
+## Визуал говорящего
+
+Чтобы у реплики был портрет с rig-слоями, alias должен передать visual:
+
+```echoscript
+private void Init()
+{
+    Id("jdh:chapter_1_home_arrival");
+    Start("greeting");
+
+    Alias("father", "jdh:john_father",
+        display: "Отец",
+        visual: Portrait("jdh:john_father"));
+
+    Alias("john", "jdh:john",
+        display: "Лололошка",
+        visual: SkinHead("echo_content_player:player/base"));
+}
+```
+
+`Portrait("jdh:john_father")` ищет portrait texture и face rig по `jdh:john_father`.
+
+`SkinHead("echo_content_player:player/base")` использует skin-head visual игрока. Для него нужен face rig с таким же ID:
+
+```echoscript
+face PlayerBase("echo_content_player:player/base")
+{
+    Textures("jdh:echo_animation/faces/player");
+    ...
+}
+```
+
+Если ID в alias и ID в face rig отличаются, портрет может быть, но слои лица не наложатся.
+
+## Rig-specific анимация
+
+Иногда только одна surface должна отличаться под конкретный rig. Тогда не создавайте новый файл анимации: добавьте отдельный surface-класс и метод `Rig()` внутри него.
+
+```echoscript
+class GlassesTwitchAnimation : FacialAnimationResource
+{
+    public override FacialAnimationDef Build()
+    {
+        return FacialAnimation("jdh:father/specific_glasses_twitch", surfaces: [FatherWorld]);
+    }
+}
+
+class FatherWorld : FacialAnimationSurface3d
+{
+    private FaceRigId Rig()
+    {
+        return FaceRig("jdh:john_father");
+    }
+
+    private PhaseDef Enter()
+    {
+        return Phase(durationTicks: 4, tracks: [
+            Track("glasses", frames: [Frame(0, x: 0), Frame(4, x: "0.004")])
+        ]);
+    }
+
+    private PhaseDef Stay()
+    {
+        return Phase(durationTicks: 8, end: "HOLD", tracks: [
+            Track("glasses", frames: [Frame(0, x: "0.004"), Frame(8, x: "0.004")])
+        ]);
+    }
+
+    private PhaseDef Exit()
+    {
+        return Phase(durationTicks: 4, tracks: [
+            Track("glasses", frames: [Frame(0, x: "0.004"), Frame(4, x: 0)])
+        ]);
+    }
+}
+```
+
+Такой surface не применится к `echo_content_player:player/base`, даже если вызвать этот `FacialAnimationId` из реплики игрока. Это защита от случайного применения трека к rig-у, где нужной кости нет. В тот же `FacialAnimation(...)` можно добавить universal `Surface("portrait")` или отдельный `Surface("3d", rig: "echo_content_player:player/base")`.
+
+Низкоуровневый вариант `Surface("3d", rig: "...", enter: Phase(...))` остается рабочим, если нужно собрать surface без отдельного класса. Для новых диалоговых анимаций удобнее surface-классы: код читается по блокам `World.Enter/Stay/Exit` и `Portrait.Enter/Stay/Exit`.
+
+## End behavior
+
+`FacialAnimation(...)` поддерживает три поведения конца:
+
+| Значение | Что делает sampler |
+| --- | --- |
+| `HOLD` | После конца держит последний кадр. Лучший вариант для clips, где последний кадр уже нейтральный. |
+| `RETURN_TO_BASE` | После конца возвращает время сэмпла к `0`. Хорошо, если первый кадр нейтральный и нужно авто-сбросить. |
+| `LOOP` | Зацикливает время по duration. Подходит для повторяющихся выражений, но для диалогового лица использовать осторожно. |
+
+В новом surface-формате `end` обычно важен только у `stay`. У `enter` и `exit` время ограничено фазой: `enter` закончился, дальше включается `stay`; `exit` закончился, explicit state удаляется.
+
+## Как это устроено в Java
+
+Минимальная карта кода:
+
+```text
+echo-dialogue/e.../NodeLineReader.java
+  Line(...).SetAnimationFace(id)      -> cue "faceAnimation"
+  Line(...).StopFaceAnimation()       -> cue "faceAnimationStop"
+  Line(...).SetAnimationFaceClear()   -> cue "faceAnimationClear"
+
+echo-dialogue/forge/.../DialogueOpenMessage.java
+  передает speakerId до visual/cues
+
+echo-animation/e.../ClipCallReader.java
+  FacialAnimation(..., surfaces: [World, Portrait]) -> class-surface authoring
+  World : FacialAnimationSurface3d      -> runtime Surface("3d", ...)
+  Portrait : FacialAnimationSurfacePortrait -> runtime Surface("portrait", ...)
+  World.Rig() / Portrait.Rig()          -> optional rig для одной surface
+  Enter()/Stay()/Exit()                 -> Phase(...)
+  Surface("3d"/"portrait", enter/stay/exit) -> старый низкоуровневый формат
+  helper methods                        -> no-arg calls раскрываются до intrinsic
+  Frame(tick, ...)                      -> frame time = tick / 20.0
+
+echo-animation/forge/.../DialogueVisualFaceLayerBridge.java
+  слушает DialogueOpenEvent
+  читает speakerId + visual + cues
+  SetAnimationFace  -> playPortrait + playSubject
+  StopFaceAnimation -> stopPortrait + stopSubject
+  Clear             -> clear()
+
+echo-animation/forge/.../DialoguePortraitAnimationState.java
+  хранит active animation по visualId для portrait
+  хранит active animation по speakerId/visualId для 3D
+  play              -> enter, потом stay
+  stop              -> exit, потом remove
+  clear             -> мгновенный remove explicit state
+
+echo-animation/forge/.../DialogueVisualFaceLayerRenderer.java
+  берет explicit pose
+  поверх нее применяет IdleBlinkPose
+  рисует layers по portrait overlay
+
+echo-animation/forge/.../AnimationClientFaceRenderService.java
+  берет обычную face pose 3D
+  добавляет dialogue-driven 3D pose через merge(...)
+  поверх результата применяет IdleBlinkPose
+```
+
+Главная причина, почему `SetAnimationFaceClear()` не убивает blink: blink вообще не хранится в `DialoguePortraitAnimationState`. Он каждый кадр добавляется отдельно через `IdleBlinkPose`.
+
+## Частые ошибки
+
+Ошибка: сделать universal animation с bone ID, которого нет у части персонажей.
+
+```echoscript
+Track("glasses", frames: [Frame(0, x: 0), Frame(5, x: "0.01")])
+```
+
+Если у игрока нет `Bone Glasses`, эта часть не даст ожидаемого результата. Для общих эмоций используйте стандартные кости глаз, век и бровей.
+
+Ошибка: ждать, что следующая реплика сама сбросит лицо.
+
+```echoscript
+Line("father", "Я зол.").SetAnimationFace(AngryBrows);
+Line("father", "Продолжаю говорить.");
+```
+
+Строка без face cue теперь не сбрасывает explicit state. Это нужно, чтобы `stay` не дергался между строками. Если нужен плавный сброс, добавьте `.StopFaceAnimation()`. Если нужен мгновенный сброс, добавьте `.SetAnimationFaceClear()`.
+
+Ошибка: делать резкий clip без входа и выхода.
+
+```echoscript
+Frame(0, x: "-0.031")
+Frame(24, x: "-0.031")
+```
+
+Такой clip мгновенно телепортирует зрачок. Нужны фазы `enter -> stay -> exit` или хотя бы кадры `0 -> expression -> neutral` в legacy `tracks:`.
+
+Ошибка: править только face rig, когда проблема видна только в portrait.
+
+```echoscript
+Eyelid Lower { Position(0, 0.09, 0.02); }
+```
+
+В мире это может выглядеть нормально, а в портрете слой всё равно будет не там, если в `PortraitOverlay(...)` стоит другой `placeY`. Для портрета проверяйте overlay layer.
+
+## Проверка
+
+После изменения `.face-animation.es`:
+
+```text
+/reload
+/echo_animation diagnostics 20
+```
+
+После изменения `.dialogue.es`:
+
+```text
+/reload
+/echo_dialogue diagnostics 20
+```
+
+После изменения PNG:
+
+```text
+F3 + T
+```
+
+Если менялся Java-код или jar в `mods`, нужен перезапуск Minecraft. Hot reload не заменяет классы из jar.

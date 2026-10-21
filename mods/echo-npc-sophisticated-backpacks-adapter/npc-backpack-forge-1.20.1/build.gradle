@@ -1,0 +1,111 @@
+plugins { id 'net.minecraftforge.gradle' }
+
+description = 'Forge 1.20.1 Sophisticated Backpacks integration for Echo NPC.'
+base { archivesName = artifact_name }
+
+def defaultModsDir = new File(System.getenv('APPDATA'),
+        'PrismLauncher/instances/Форма Мысли/minecraft/mods')
+def sophisticatedModsDir = providers.gradleProperty('sophisticated_mods_dir')
+        .map { file(it) }.getOrElse(defaultModsDir)
+repositories {
+    flatDir {
+        dirs sophisticatedModsDir
+        dirs new File(rootDir, '../echo-npc/npc-forge-1.20.1/build/libs')
+        dirs new File(rootDir, '../echo-navigation/navigation-forge-1.20.1/build/libs')
+    }
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${buildDir}/createSrgToMcp/output.srg"
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    source project(':npc-backpack-contracts').sourceSets.main
+                    source project(':npc-backpack-core').sourceSets.main
+                }
+            }
+        }
+        client { }
+        server { args '--nogui' }
+        gameTestServer { property 'forge.enabledGameTestNamespaces', mod_id }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':npc-backpack-contracts')
+    implementation project(':npc-backpack-core')
+    compileOnly "io.github.kxyr0.echonpc:npc-forge-api-1.20.1:${echo_npc_version}"
+    compileOnly "io.github.kxyr0.echonavigation:navigation-contracts:${echo_navigation_version}"
+    compileOnly "io.github.kxyr0.echonavigation:navigation-forge-api-1.20.1:${echo_navigation_version}"
+    compileOnly fg.deobf("local:sophisticatedbackpacks-1.20.1:${sophisticated_backpacks_version}")
+    compileOnly fg.deobf("local:sophisticatedcore-1.20.1:${sophisticated_core_version}")
+    runtimeOnly fg.deobf("local:echo-npc:${echo_npc_version}:all")
+    runtimeOnly fg.deobf("local:echo-navigation:${echo_navigation_version}:all")
+    runtimeOnly fg.deobf("local:sophisticatedbackpacks-1.20.1:${sophisticated_backpacks_version}")
+    runtimeOnly fg.deobf("local:sophisticatedcore-1.20.1:${sophisticated_core_version}")
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def values = [minecraft_version_range: minecraft_version_range, forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range, mod_id: mod_id, mod_name: mod_name,
+            mod_license: mod_license, mod_version: mod_version, mod_authors: mod_authors,
+            mod_description: mod_description, echo_npc_version: echo_npc_version,
+            echo_navigation_version: echo_navigation_version,
+            sophisticated_backpacks_version: sophisticated_backpacks_version,
+            sophisticated_core_version: sophisticated_core_version]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand values + [project: project] }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn ':npc-backpack-contracts:classes', ':npc-backpack-core:classes'
+    from project(':npc-backpack-contracts').sourceSets.main.output
+    from project(':npc-backpack-core').sourceSets.main.output
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest { attributes('Automatic-Module-Name': mod_id) }
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('jar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def required = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echonpcbackpack/api/service/NpcBackpackService.class',
+                'io/github/kxyr0/echonpcbackpack/core/transition/BackpackStateMachine.class',
+                'io/github/kxyr0/echonpcbackpack/forge/EchoNpcSophisticatedBackpacksMod.class',
+                'io/github/kxyr0/echonpcbackpack/forge/client/BackpackAttachmentExtension.class'
+        ]
+        def missing = required.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echonpcbackpack/testmod/')
+                    || entry.startsWith('io/github/kxyr0/echonpcbackpack/animation/')
+                    || entry.startsWith('io/github/kxyr0/echonpcbackpack/script/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/api/')
+                    || entry.startsWith('io/github/kxyr0/echoanimation/')
+                    || entry.startsWith('io/github/kxyr0/echonavigation/')
+                    || entry.startsWith('net/p3pp3rf1y/')
+        }
+        if (!missing.empty || !forbidden.empty) {
+            throw new GradleException('Production JAR verification failed.\nmissing:\n'
+                    + missing.join('\n') + '\nforbidden:\n' + forbidden.take(40).join('\n'))
+        }
+        println "NPC backpack production JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.named('check') { dependsOn 'verifyProductionJarContents' }

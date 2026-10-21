@@ -1,0 +1,23 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-animation-editor'
+
+include 'animation-editor-contracts'
+include 'animation-editor-core'
+include 'animation-editor-animation-adapter-1.20.1'
+include 'animation-editor-npc-adapter-1.20.1'
+include 'animation-editor-forge-1.20.1'
+include 'animation-editor-testmod-1.20.1'

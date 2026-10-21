@@ -1,0 +1,9 @@
+description = 'Plain Java layout and metric runtime for Echo Player HUD.'
+
+base {
+    archivesName = 'player-hud-core'
+}
+
+dependencies {
+    api project(':player-hud-contracts')
+}

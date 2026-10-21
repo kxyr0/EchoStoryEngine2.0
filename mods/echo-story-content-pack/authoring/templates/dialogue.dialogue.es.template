@@ -1,0 +1,7 @@
+class ExampleDialogue : DialogueResource
+{
+    Node FirstMeeting()
+    {
+        Line("john", "Первая строка.");
+    }
+}

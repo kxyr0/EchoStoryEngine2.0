@@ -1,0 +1,233 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+def echoScriptExternalMaven = layout.buildDirectory.dir('external-maven')
+
+allprojects {
+    repositories {
+        maven {
+            name = 'EchoMagicExternal'
+            url = echoScriptExternalMaven.get().asFile.toURI()
+            content { includeGroup 'io.github.kxyr0.echoscript' }
+        }
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+        if (providers.gradleProperty('enableMavenLocal').map { it.toBoolean() }.orElse(false).get()) {
+            mavenLocal()
+        }
+    }
+}
+
+def productionFiles = {
+    fileTree(rootDir) {
+        include 'magic-*/src/main/java/**/*.java'
+        exclude '**/build/**', 'magic-testmod-1.20.1/**'
+    }
+}
+
+def contentScripts = {
+    fileTree(rootDir) {
+        include 'magic-*/src/main/resources/**/*.es'
+        exclude '**/build/**', 'magic-testmod-1.20.1/**'
+    }
+}
+
+def checkedTextFiles = {
+    fileTree(rootDir) {
+        include '*.gradle', 'gradle.properties', '.gitignore'
+        include 'config/**/*.xml', 'magic-*/src/**/*.*'
+        include 'README.md', 'CHANGELOG.md', 'docs/**/*.md'
+        exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**', '**/*.png'
+    }
+}
+
+tasks.register('prepareEchoScriptArtifacts') {
+    group = LifecycleBasePlugin.BUILD_GROUP
+    description = 'Publishes public EchoScript artifacts into build/external-maven.'
+    def siblingRoot = file('../echo-script')
+    inputs.files(fileTree(siblingRoot) {
+        include '*.gradle', 'gradle.properties', 'settings.gradle', '**/*.java', '**/*.xml'
+        exclude '**/build/**', '**/.gradle/**'
+    })
+    outputs.dir(echoScriptExternalMaven)
+    doLast {
+        if (!siblingRoot.isDirectory()) {
+            throw new GradleException("Sibling EchoScript repository was not found: ${siblingRoot}")
+        }
+        def repo = echoScriptExternalMaven.get().asFile
+        def initFile = layout.buildDirectory.file('tmp/echo-script-publish.init.gradle').get().asFile
+        initFile.parentFile.mkdirs()
+        initFile.setText("""
+allprojects {
+    plugins.withId('maven-publish') {
+        publishing.repositories.maven { name = 'echoMagicExternal'; url = uri('${repo.toURI()}') }
+    }
+}
+""".stripIndent(), 'UTF-8')
+        exec {
+            workingDir siblingRoot
+            commandLine gradleWrapper(siblingRoot),
+                    ':echo-script-api:publishMavenJavaPublicationToEchoMagicExternalRepository',
+                    ':echo-script-language:publishMavenJavaPublicationToEchoMagicExternalRepository',
+                    '--init-script', initFile.absolutePath, '--console=plain'
+        }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    apply plugin: 'jacoco'
+    version = rootProject.version
+    group = rootProject.group
+
+    java {
+        toolchain { languageVersion = JavaLanguageVersion.of(17) }
+        withSourcesJar()
+    }
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+    checkstyle {
+        toolVersion = checkstyle_version
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    }
+    pmd {
+        toolVersion = pmd_version
+        ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+        ruleSets = []
+        consoleOutput = true
+    }
+    tasks.withType(Pmd).configureEach { classpath = files() }
+    jacoco { toolVersion = jacoco_version }
+}
+
+gradle.projectsEvaluated {
+    [project(':magic-script-adapter-1.20.1'), project(':magic-forge-1.20.1')].each { consumer ->
+        consumer.tasks.matching { it.name in ['compileJava', 'compileTestJava', 'jarJar'] }.configureEach {
+            dependsOn rootProject.tasks.named('prepareEchoScriptArtifacts')
+        }
+    }
+}
+
+configure([project(':magic-contracts'), project(':magic-forge-api-1.20.1')]) {
+    apply plugin: 'maven-publish'
+    publishing {
+        publications { register('mavenJava', MavenPublication) { from components.java } }
+        repositories { maven { name = 'integrationMaven'; url = rootProject.layout.buildDirectory.dir('integration-maven') } }
+    }
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('publishMagicIntegrationArtifacts') {
+    group = 'publishing'
+    dependsOn ':magic-contracts:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':magic-forge-api-1.20.1:publishMavenJavaPublicationToIntegrationMavenRepository'
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks shared Echo source-shape limits.'
+    doLast {
+        def violations = []
+        def javaCounts = [:].withDefault { 0 }
+        productionFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            javaCounts[file.parentFile.toPath()]++
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) violations << "${relative}: wildcard import"
+            if ((text =~ /(?m)\bstatic\s+(?!final\b)(?:[^;{=()]+)[;=]/).find()) violations << "${relative}: mutable static field candidate"
+            if (relative =~ /(?i)(^|[\\\/])(misc|helpers?|more|part1|part2|magic2|spell2|projectile2|void2|services2|internal2|impl2)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            if ((text =~ /(?m)^\s*public\s+(?:final\s+)?(?:class|interface|record|enum)\s+.*(?:Manager|Helper|Utils|Common|Processor|Handler|Impl)\b/).find()) {
+                violations << "${relative}: forbidden vague production type name"
+            }
+            def logical = text.readLines().count { line ->
+                def value = line.trim(); value && !value.startsWith('//') && !value.startsWith('*')
+            }
+            if (logical > 180) violations << "${relative}: ${logical} logical lines; max is 180"
+        }
+        javaCounts.each { path, count ->
+            if (count > 7) violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+        }
+        def scriptCounts = [:].withDefault { 0 }
+        contentScripts().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            scriptCounts[file.parentFile.toPath()]++
+            def logical = text.readLines().count { line -> line.trim() && !line.trim().startsWith('//') }
+            if (logical > 180) violations << "${relative}: ${logical} EchoScript logical lines; max is 180"
+        }
+        scriptCounts.each { path, count ->
+            if (count > 7) violations << "${rootDir.toPath().relativize(path)}: ${count} EchoScript files; max is 7"
+        }
+        if (!violations.isEmpty()) throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        println 'Source shape: Java files > 180 logical LOC = 0'
+        println 'Source shape: EchoScript files > 180 logical LOC = 0'
+        println 'Source shape: leaf Java packages > 7 files = 0'
+        println 'Source shape: leaf content folders > 7 scripts = 0'
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        checkedTextFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) violations << "${file}:${index + 1}: trailing whitespace"
+                if (line.contains('\t')) violations << "${file}:${index + 1}: tab"
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) violations << "${file}: missing final newline"
+        }
+        if (!violations.isEmpty()) throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+    }
+}
+
+tasks.register('verifyForbiddenText') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def forbidden = ['echo_void_magic', 'VoidDaggers', 'VoidDagger']
+        def hits = []
+        productionFiles().files.each { file ->
+            def marker = forbidden.find { file.getText('UTF-8').contains(it) }
+            if (marker != null) hits << "${file}: ${marker}"
+        }
+        if (!hits.isEmpty()) throw new GradleException("Forbidden Void coupling:\n" + hits.join('\n'))
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyForbiddenText')
+}
+
+String gradleWrapper(File root) {
+    return new File(root, org.gradle.internal.os.OperatingSystem.current().isWindows() ? 'gradlew.bat' : 'gradlew').absolutePath
+}
+

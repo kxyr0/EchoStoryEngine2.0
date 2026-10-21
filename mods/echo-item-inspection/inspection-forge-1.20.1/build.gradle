@@ -1,0 +1,54 @@
+plugins { id 'net.minecraftforge.gradle' }
+base { archivesName = artifact_name }
+jarJar.enable()
+configurations {
+    embeddedExternalRuntime { canBeConsumed = false; canBeResolved = true }
+}
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            lazyToken('minecraft_classpath') {
+                configurations.embeddedExternalRuntime.resolve().collect { it.absolutePath }.join(File.pathSeparator)
+            }
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    source project(':inspection-core').sourceSets.main
+                }
+            }
+        }
+        client { }
+        server { args '--nogui' }
+    }
+}
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':inspection-core')
+    compileOnly fg.deobf('local:ipla-mc1.20.1-forge:6.3.1')
+    compileOnly files(new File(rootProject.prismModsDirectory, 'echo-concentration-1.0.6.jar'),
+            new File(rootProject.prismModsDirectory, 'echo-cutscene-0.2.3-all.jar'),
+            new File(rootProject.prismModsDirectory, 'echo-dialogue-0.14.0-all.jar'))
+    embeddedExternalRuntime "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-api', version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-language', version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+}
+tasks.named('processResources', ProcessResources).configure {
+    inputs.property 'mod_version', mod_version
+    filesMatching('META-INF/mods.toml') { expand mod_version: mod_version }
+}
+['jar', 'jarJar'].each { taskName ->
+    tasks.named(taskName, Jar).configure {
+        dependsOn ':inspection-core:classes'
+        from project(':inspection-core').sourceSets.main.output
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        finalizedBy taskName == 'jar' ? 'reobfJar' : 'reobfJarJar'
+    }
+}

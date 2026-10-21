@@ -1,0 +1,5 @@
+#pragma once
+namespace echo {
+inline constexpr char defaultRussian[] = R"ECHO_JSON(@RUSSIAN_JSON@)ECHO_JSON";
+inline constexpr char defaultEnglish[] = R"ECHO_JSON(@ENGLISH_JSON@)ECHO_JSON";
+}

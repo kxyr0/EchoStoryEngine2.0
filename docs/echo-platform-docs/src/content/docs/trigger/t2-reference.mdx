@@ -1,0 +1,24 @@
+---
+title: "Полный справочник T2"
+description: "Фильтруемый справочник vanilla trigger expressions."
+section: "Trigger"
+pageKind: "reference"
+status: "review"
+since: "T2"
+updated: "2026-07-24"
+relatedIds: ["TriggerCondition", "TriggerEvent"]
+relatedPages: ["trigger/predicate-event", "trigger/items-inventory"]
+sourceRepositories: ["echo-trigger"]
+sourcePaths: ["D:/JDHSeason/mods/echo-trigger/docs/authoring/TRIGGER_VANILLA_REFERENCE.md"]
+visualIdentity: "trigger-t2-reference"
+interactiveModules: ["VanillaTriggerReference"]
+searchKeywords: ["T2", "vanilla", "trigger reference", "predicate", "event"]
+---
+import { VanillaTriggerReference } from "../../../components/VanillaTriggerLabs";
+
+# Полный справочник T2
+
+Все expressions связываются в общий `TriggerCondition` с category `PREDICATE` или `EVENT`. Dialogue adapter ждёт
+generic trigger outcome и не содержит provider-specific executors.
+
+<VanillaTriggerReference client:load />

@@ -1,0 +1,22 @@
+package io.github.kxyr0.echoplayersleep.api.session;
+
+public enum PlayerSleepStatus {
+    CREATED,
+    WAITING_FOR_VANILLA_SLEEP,
+    VANILLA_SLEEP_CONFIRMED,
+    WAITING_FOR_STORY_CLAIM,
+    STORY_CLAIMED,
+    CLOSING_EYES,
+    EYES_CLOSED,
+    ENTERING_DREAM,
+    DREAMING,
+    CLOSING_FOR_RETURN,
+    RETURNING,
+    RETURNED_SLEEPING,
+    RETURNED_AWAKE,
+    OPENING_EYES,
+    COMPLETED,
+    CANCELLED,
+    FAILED,
+    RECOVERING
+}

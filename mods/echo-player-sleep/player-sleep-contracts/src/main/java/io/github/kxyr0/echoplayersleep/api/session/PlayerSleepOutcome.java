@@ -1,0 +1,19 @@
+package io.github.kxyr0.echoplayersleep.api.session;
+
+public enum PlayerSleepOutcome {
+    COMPLETED,
+    CANCELLED,
+    SKIPPED,
+    BED_INTERACTION_FAILED,
+    BED_NOT_SUPPORTED,
+    BED_REMOVED,
+    BED_OCCUPIED,
+    VANILLA_SLEEP_LOST,
+    CLIENT_TRANSITION_UNAVAILABLE,
+    DREAM_DESTINATION_INVALID,
+    RETURN_FAILED,
+    PLAYER_DISCONNECTED,
+    OWNER_REMOVED,
+    TIMEOUT,
+    INTERNAL_FAILURE
+}

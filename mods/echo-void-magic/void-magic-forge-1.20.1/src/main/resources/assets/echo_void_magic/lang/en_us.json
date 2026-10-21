@@ -1,0 +1,7 @@
+{
+  "command.echo_void_magic.setup.unavailable": "Echo Magic service is unavailable.",
+  "command.echo_void_magic.setup.not_loaded": "Void Daggers was not loaded.",
+  "command.echo_void_magic.setup.success": "Void Magic unlocked for %1$s. Use the configured \"%2$s\" control.",
+  "message.echo_void_magic.step.success": "Void Step: movement complete",
+  "message.echo_void_magic.step.blocked": "Void Step: no safe destination ahead"
+}

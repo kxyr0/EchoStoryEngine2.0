@@ -1,0 +1,67 @@
+// Reused Echo Effects sourceShapeCheck (2026-10-21); no shared external checker exists.
+def productionFiles = { fileTree(rootDir) { include 'teleport-magic-*/src/main/java/**/*.java'; exclude '**/build/**', 'teleport-magic-testmod-1.20.1/**' } }
+def contentScripts = { fileTree(rootDir) { include 'teleport-magic-*/src/main/resources/**/*.es'; exclude '**/build/**', 'teleport-magic-testmod-1.20.1/**' } }
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks Echo Effects source shape and package limits.'
+    doLast {
+        def violations = []
+        def javaCounts = [:].withDefault { 0 }
+        productionFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            javaCounts[file.parentFile.toPath()] = javaCounts[file.parentFile.toPath()] + 1
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            if ((text =~ /(?m)\bstatic\s+(?!final\b)(?:[^;{=()]+)[;=]/).find()) {
+                violations << "${relative}: mutable static field candidate"
+            }
+            if (relative =~ /(?i)(^|[\\\/])(misc|helpers?|more|part1|part2|effects2|channels2|curves2|runtime2|services2|internal2|impl2)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            if ((text =~ /(?m)^\s*public\s+(?:final\s+)?(?:class|interface|record|enum)\s+.*(?:Manager|Helper|Utils|Common|Processor|Handler|Impl)\b/).find()) {
+                violations << "${relative}: forbidden vague production type name"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 180) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 180"
+            }
+        }
+        javaCounts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        def scriptCounts = [:].withDefault { 0 }
+        contentScripts().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            scriptCounts[file.parentFile.toPath()] += 1
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//')
+            }
+            if (logicalLines > 180) {
+                violations << "${relative}: ${logicalLines} EchoScript logical lines; max is 180"
+            }
+        }
+        scriptCounts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} EchoScript files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+        println 'Source shape: Java files > 180 logical LOC = 0'
+        println 'Source shape: EchoScript files > 180 logical LOC = 0'
+        println 'Source shape: leaf Java packages > 7 files = 0'
+        println 'Source shape: leaf content folders > 7 scripts = 0'
+    }
+}
+
+

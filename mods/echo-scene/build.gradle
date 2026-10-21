@@ -1,0 +1,71 @@
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+group = 'io.github.kxyr0.echoscene'
+version = scene_version
+
+repositories { mavenCentral() }
+
+dependencies {
+    implementation 'io.github.kxyr0.echoaudio:echo-audio:0.1.0'
+    api 'io.github.kxyr0.echoscript:echo-script-api:0.5.0-SNAPSHOT'
+    implementation 'io.github.kxyr0.echoscript:echo-script-language:0.5.0-SNAPSHOT'
+    testImplementation platform('org.junit:junit-bom:5.10.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+tasks.withType(Test).configureEach { useJUnitPlatform() }
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.register('sourceShapeCheck') {
+    group = 'verification'
+    doLast {
+        def violations = []
+        def packageCounts = [:].withDefault { 0 }
+        fileTree(rootDir).matching {
+            include 'src/main/java/**/*.java', 'scene-forge-1.20.1/src/main/java/**/*.java'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def logical = text.readLines().count { def line = it.trim(); line && !line.startsWith('//') && !line.startsWith('*') }
+            if (logical > 180) violations << "${relativePath(file)}: ${logical} logical lines; max is 180"
+            def match = text =~ /(?m)^package\s+([a-zA-Z0-9_.]+);/
+            if (match.find()) packageCounts[match.group(1)]++
+        }
+        packageCounts.findAll { it.value > 7 }.each { violations << "${it.key}: ${it.value} files; max is 7" }
+        def forbidden = ~/(?i)(^|[\\\/])(misc|utils?|helpers?2?|part\d+|scene2|doctor2|migration2|internal2|impl2|services2|more)([\\\/]|$)/
+        fileTree(rootDir).files.findAll { relativePath(it) =~ forbidden }.each { violations << "forbidden split: ${relativePath(it)}" }
+        fileTree(rootDir).matching { include 'src/main/**/*.es', 'scene-forge-1.20.1/src/main/**/*.es' }.files.each { file ->
+            def logical = file.readLines().count { it.trim() && !it.trim().startsWith('//') }
+            if (logical > 180) violations << "${relativePath(file)}: ${logical} EchoScript lines; max is 180"
+        }
+        if (violations) throw new GradleException(violations.join(System.lineSeparator()))
+        println 'Source shape: Java >180=0, EchoScript >180=0, leaf packages >7=0'
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = 'verification'
+    doLast {
+        fileTree(rootDir).matching {
+            include '**/*.java', '**/*.gradle', '**/*.properties', '**/*.md', '**/*.es'
+            exclude '**/build/**', '**/.gradle/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line.endsWith(' ') || line.endsWith('\t')) throw new GradleException("Whitespace ${file}:${index + 1}")
+            }
+            if (text && !text.endsWith('\n')) throw new GradleException("Missing final newline: ${file}")
+        }
+    }
+}
+
+tasks.named('check') { dependsOn 'sourceShapeCheck', 'checkWhitespace' }
+tasks.named('build') { dependsOn ':scene-forge-1.20.1:build' }

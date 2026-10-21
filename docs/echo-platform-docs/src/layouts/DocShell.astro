@@ -1,0 +1,231 @@
+---
+import { ClientRouter } from "astro:transitions";
+import Activity from "@lucide/astro/icons/activity";
+import Boxes from "@lucide/astro/icons/boxes";
+import Cable from "@lucide/astro/icons/cable";
+import CopyLink from "@lucide/astro/icons/link-2";
+import FileCode from "@lucide/astro/icons/file-code";
+import FocusFrame from "@lucide/astro/icons/scan-line";
+import FolderTree from "@lucide/astro/icons/folder-tree";
+import MapIcon from "@lucide/astro/icons/map";
+import MessagesSquare from "@lucide/astro/icons/messages-square";
+import Orbit from "@lucide/astro/icons/orbit";
+import ScrollText from "@lucide/astro/icons/scroll-text";
+import Search from "@lucide/astro/icons/search";
+import Sparkles from "@lucide/astro/icons/sparkles";
+import SunMoon from "@lucide/astro/icons/sun-moon";
+import UserRound from "@lucide/astro/icons/user-round";
+import { SearchPalette } from "../components/SearchPalette";
+import { ProgressSpine } from "../components/ProgressSpine";
+import { dockItems, navItems, pageKindLabels, sectionLabels, statusLabels } from "../data/nav";
+import "../styles/tokens.css";
+import "../styles/typography.css";
+import "../styles/shell.css";
+import "../styles/components.css";
+import "../styles/motion.css";
+
+const { doc } = Astro.props;
+const current = Astro.url.pathname;
+const currentItem = navItems.find((item) => item.href === current);
+const currentIndex = Math.max(0, navItems.findIndex((item) => item.href === current));
+const previousItem = currentIndex > 0 ? navItems[currentIndex - 1] : undefined;
+const nextItem = currentIndex < navItems.length - 1 ? navItems[currentIndex + 1] : undefined;
+const relatedItems = doc.data.relatedPages
+  .map((href: string) => navItems.find((item) => item.href === href || item.href.endsWith(`${href}/`)))
+  .filter(Boolean);
+const sectionTotal = navItems.filter((item) => item.section === doc.data.section).length;
+const sectionReadLabel = `${sectionLabels[doc.data.section]}: ${sectionTotal} страниц`;
+const pageKind = pageKindLabels[doc.data.pageKind] ?? doc.data.pageKind;
+const status = statusLabels[doc.data.status] ?? doc.data.status;
+const title = currentItem?.title ?? doc.data.title;
+const description = currentItem?.summary ?? doc.data.description;
+const transitionName = `doc-title-${doc.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+const dockIcons = {
+  platform: Boxes,
+  story: ScrollText,
+  dialogue: MessagesSquare,
+  trigger: SunMoon,
+  player: UserRound,
+  wardrobe: Boxes,
+  effects: Activity,
+  magic: Sparkles,
+  npc: UserRound,
+  animation: Orbit,
+  adapters: Cable,
+  echoscript: FileCode,
+  content: FolderTree,
+  commands: ScrollText,
+  diagnostics: Activity,
+};
+---
+
+<!doctype html>
+<html lang="ru" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={doc.data.description} />
+    <title>{title} - Echo Continuum</title>
+    <ClientRouter />
+    <script is:inline>
+      const savedTheme = localStorage.getItem("echo-continuum-theme");
+      const preferredTheme = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      document.documentElement.dataset.theme = savedTheme || preferredTheme;
+    </script>
+    <script>
+      import "../scripts/motion-policy";
+      import "../scripts/continuum-controls";
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">К содержанию</a>
+    <SearchPalette client:load />
+    <div class="continuum-shell" data-page-kind={doc.data.pageKind}>
+      <header class="continuum-topbar">
+        <a class="continuum-brand" href="/" aria-label="Открыть главную карту Echo Continuum">
+          <span class="brand-sigil" aria-hidden="true">
+            <svg viewBox="0 0 32 32" role="img">
+              <path d="M6 16 16 6l10 10-10 10L6 16Z" />
+              <path d="M16 6v20M6 16h20" />
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <strong>Echo Continuum</strong>
+            <span>Интерактивный атлас работающей системы</span>
+          </span>
+        </a>
+        <nav class="crumb" aria-label="Путь документа">
+          <a href="/">Атлас</a>
+          <span aria-hidden="true">/</span>
+          <a href={dockItems.find((item) => item.section === doc.data.section)?.href ?? "/docs/platform/overview/"}>
+            {sectionLabels[doc.data.section]}
+          </a>
+          <span aria-hidden="true">/</span>
+          <span>{title}</span>
+        </nav>
+        <div class="topbar-actions" aria-label="Действия страницы">
+          <button class="icon-control" type="button" data-open-search aria-label="Открыть поиск">
+            <Search size={19} strokeWidth={1.8} aria-hidden="true" />
+            <span class="tooltip" role="tooltip">Поиск</span>
+          </button>
+          <button class="icon-control" type="button" data-theme-toggle aria-label="Переключить тему">
+            <SunMoon size={19} strokeWidth={1.8} aria-hidden="true" />
+            <span class="tooltip" role="tooltip">Тема</span>
+          </button>
+          <button class="icon-control" type="button" data-focus-toggle aria-label="Включить режим чтения">
+            <FocusFrame size={19} strokeWidth={1.8} aria-hidden="true" />
+            <span class="tooltip" role="tooltip">Фокус</span>
+          </button>
+          <button class="icon-control" type="button" data-copy-link aria-label="Скопировать ссылку">
+            <CopyLink size={19} strokeWidth={1.8} aria-hidden="true" />
+            <span class="tooltip" role="tooltip">Ссылка</span>
+          </button>
+          <button class="icon-control page-map-trigger" type="button" data-page-map-toggle aria-label="Открыть карту страницы">
+            <MapIcon size={19} strokeWidth={1.8} aria-hidden="true" />
+            <span class="tooltip" role="tooltip">Карта страницы</span>
+          </button>
+        </div>
+      </header>
+
+      <aside class="navigation-dock" aria-label="Разделы атласа">
+        <nav class="dock-stack" aria-label="Разделы атласа">
+          {
+            dockItems.map((item) => {
+              const Icon = dockIcons[item.id as keyof typeof dockIcons];
+              const active = item.section === doc.data.section || current === item.href;
+              const count = item.section ? navItems.filter((nav) => nav.section === item.section).length : 1;
+              return (
+                <a class="dock-item" href={item.href} aria-current={active ? "page" : undefined}>
+                  <span class="dock-icon" aria-hidden="true">
+                    <Icon size={22} strokeWidth={1.8} />
+                  </span>
+                  <span class="dock-label">
+                    <strong>{item.title}</strong>
+                    <small>{item.description}</small>
+                    <em>{count} связ. стр.</em>
+                  </span>
+                </a>
+              );
+            })
+          }
+        </nav>
+      </aside>
+
+      <main id="content" class="continuum-canvas">
+        <header class="document-stage">
+          <div class="stage-system-map" aria-hidden="true">
+            <span data-step="источник"></span>
+            <span data-step="контракт"></span>
+            <span data-step="runtime"></span>
+          </div>
+          <div class="stage-copy">
+            <p class="stage-kicker">
+              <span>{sectionLabels[doc.data.section]}</span>
+              <span>{pageKind}</span>
+              <span>{status}</span>
+            </p>
+            <h1 transition:name={transitionName}>{title}</h1>
+            <p>{description}</p>
+          </div>
+          <dl class="stage-contracts" aria-label="Краткий контекст документа">
+            <div>
+              <dt>Состояние</dt>
+              <dd>{status}</dd>
+            </div>
+            <div>
+              <dt>Маршрут</dt>
+              <dd>{sectionReadLabel}</dd>
+            </div>
+            <div>
+              <dt>Обновлено</dt>
+              <dd>{doc.data.updated}</dd>
+            </div>
+          </dl>
+        </header>
+
+        <article class="doc-article reading-flow" data-pagefind-body data-reading-page={current}>
+          <slot />
+        </article>
+
+        <nav class="reading-route" aria-label="Продолжение чтения">
+          {previousItem && <a class="route-link route-prev" href={previousItem.href}><span>Назад</span><strong>{previousItem.title}</strong></a>}
+          <div class="route-related">
+            <span>Связанные понятия</span>
+            {
+              relatedItems.length > 0
+                ? relatedItems.slice(0, 3).map((item) => <a href={item.href}>{item.title}</a>)
+                : doc.data.relatedIds.slice(0, 3).map((id: string) => <button type="button" data-lens-subject={id}>{id}</button>)
+            }
+          </div>
+          {nextItem && <a class="route-link route-next" href={nextItem.href}><span>Дальше</span><strong>{nextItem.title}</strong></a>}
+        </nav>
+      </main>
+
+      <ProgressSpine client:load />
+
+      <section class="context-lens" data-context-lens hidden role="dialog" aria-modal="false" aria-label="Контекст выбранного элемента">
+        <button class="icon-control lens-close" type="button" data-lens-close aria-label="Закрыть контекст">
+          <span aria-hidden="true">×</span>
+          <span class="tooltip" role="tooltip">Закрыть</span>
+        </button>
+        <p class="lens-label">Контекст</p>
+        <h2 data-lens-title>{title}</h2>
+        <p data-lens-body>{description}</p>
+        <div class="lens-grid">
+          <div>
+            <strong>Связанные ID</strong>
+            <ul>
+              {doc.data.relatedIds.map((id: string) => <li><code>{id}</code></li>)}
+            </ul>
+          </div>
+          <div>
+            <strong>Исходники</strong>
+            <ul>
+              {doc.data.sourceRepositories.map((repo: string) => <li>{repo}</li>)}
+            </ul>
+          </div>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

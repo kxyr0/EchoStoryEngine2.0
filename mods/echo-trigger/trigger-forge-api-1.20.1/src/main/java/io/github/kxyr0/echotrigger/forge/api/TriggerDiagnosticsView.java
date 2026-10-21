@@ -1,0 +1,8 @@
+package io.github.kxyr0.echotrigger.forge.api;
+
+import io.github.kxyr0.echotrigger.api.model.TriggerDiagnostic;
+import java.util.List;
+
+public interface TriggerDiagnosticsView {
+    List<TriggerDiagnostic> recentDiagnostics();
+}

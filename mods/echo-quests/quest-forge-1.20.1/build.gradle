@@ -1,0 +1,91 @@
+plugins { id 'net.minecraftforge.gradle' }
+description = 'Forge 1.20.1 host for Echo Quests.'
+
+def embeddedProjects = [
+        project(':quest-contracts'),
+        project(':quest-core'),
+        project(':quest-echoscript-adapter'),
+        project(':quest-forge-api-1.20.1')
+]
+
+base { archivesName = artifact_name }
+jarJar.enable()
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods {
+                echo_quests {
+                    source sourceSets.main
+                    embeddedProjects.each { value -> source value.sourceSets.main }
+                }
+            }
+        }
+        client { }
+        server { args '--nogui' }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    embeddedProjects.each { value -> implementation value }
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    compileOnly "io.github.kxyr0.echotime:time-contracts:${echo_time_version}"
+    compileOnly "io.github.kxyr0.echotime:time-forge-api-1.20.1:${echo_time_version}"
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-api',
+            version: "[${echo_script_version},)") { jarJar.pin(it, echo_script_version) }
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-language',
+            version: "[${echo_script_version},)") { jarJar.pin(it, echo_script_version) }
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def values = [minecraft_version_range: minecraft_version_range, forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range, mod_id: mod_id, mod_name: mod_name,
+            mod_license: mod_license, mod_version: mod_version, mod_authors: mod_authors,
+            mod_description: mod_description]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand values }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedProjects.collect { "${it.path}:classes" }
+    embeddedProjects.each { value -> from(value.sourceSets.main.output) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest { attributes('Automatic-Module-Name': mod_id) }
+    finalizedBy 'reobfJar'
+}
+
+tasks.named('jarJar', Jar).configure {
+    dependsOn embeddedProjects.collect { "${it.path}:classes" }
+    embeddedProjects.each { value -> from(value.sourceSets.main.output) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest { attributes('Automatic-Module-Name': mod_id) }
+    finalizedBy 'reobfJarJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    dependsOn tasks.named('reobfJarJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}-all.jar").get().asFile
+        if (!jarFile.isFile()) throw new GradleException("Production JAR missing: ${jarFile}")
+        def required = ['META-INF/mods.toml',
+                'io/github/kxyr0/echoquests/api/runtime/QuestService.class',
+                'io/github/kxyr0/echoquests/api/condition/QuestCondition.class',
+                'io/github/kxyr0/echoquests/core/runtime/QuestStateMachine.class',
+                'io/github/kxyr0/echoquests/echoscript/QuestScriptCompiler.class',
+                'io/github/kxyr0/echoquests/forge/condition/VanillaQuestConditionResolver.class',
+                'io/github/kxyr0/echoquests/forge/time/QuestTimeCoordinator.class',
+                'io/github/kxyr0/echoquests/forge/EchoQuestsMod.class']
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            def missing = required.findAll { zip.getEntry(it) == null }
+            if (!missing.isEmpty()) throw new GradleException('Production JAR missing entries:\n' + missing.join('\n'))
+        }
+        println "Echo Quests production JAR verified: ${jarFile.name}"
+    }
+}
+
+tasks.named('check') { dependsOn tasks.named('verifyProductionJarContents') }

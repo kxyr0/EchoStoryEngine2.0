@@ -1,0 +1,22 @@
+---
+title: "Ошибки"
+description: "Стабильные failure codes для Player Actor."
+section: "Player"
+pageKind: "diagnostic"
+status: "review"
+since: "PA1"
+updated: "2026-07-28"
+relatedIds: ["PlayerActorFailure", "PlayerActorDiagnostic"]
+relatedPages: ["player-actor/recovery", "player-actor/interact"]
+sourceRepositories: ["echo-player-actor"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-actor/player-actor-contracts"]
+visualIdentity: "player-actor-errors"
+interactiveModules: []
+searchKeywords: ["failure", "diagnostic", "errors"]
+---
+
+# Ошибки
+
+Основные failure codes: context missing, actor offline, owner mismatch, still seated, interaction too far, no line of sight, navigation unavailable и command idempotency conflict.
+
+Отказ не должен менять GameMode, терять body или выполнять следующую script command как успешную.

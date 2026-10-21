@@ -1,0 +1,60 @@
+plugins { id 'net.minecraftforge.gradle' }
+
+description = 'Development-only Forge GameTests for Echo Item Attachments.'
+base { archivesName = 'echo-item-attachments-testmod' }
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    runs {
+        gameTestServer {
+            workingDirectory project.file('run')
+            property 'forge.enabledGameTestNamespaces', 'echo_item_attachments_testmod'
+            args '--nogui'
+            mods {
+                "${mod_id}" {
+                    source project(':item-attachments-forge-1.20.1').sourceSets.main
+                    source project(':item-attachments-contracts').sourceSets.main
+                    source project(':item-attachments-core').sourceSets.main
+                    source project(':item-attachments-forge-api-1.20.1').sourceSets.main
+                }
+                echo_item_attachments_testmod { source sourceSets.main }
+            }
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly project(':item-attachments-forge-1.20.1')
+    compileOnly project(':item-attachments-forge-api-1.20.1')
+    compileOnly project(':item-attachments-contracts')
+    compileOnly project(':item-attachments-core')
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    inputs.property 'mod_version', mod_version
+    filesMatching('META-INF/mods.toml') { expand mod_version: mod_version }
+}
+
+tasks.named('jar', Jar).configure { finalizedBy 'reobfJar' }
+
+tasks.matching { it.name == 'prepareRunGameTestServer' }.configureEach {
+    dependsOn tasks.named('processResources')
+    doLast {
+        copy {
+            from sourceSets.main.resources
+            include 'gameteststructures/**'
+            into project.file('run')
+        }
+    }
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doLast {
+        def gameTestLog = file('run/logs/latest.log')
+        def output = gameTestLog.exists() ? gameTestLog.getText('UTF-8') : ''
+        if (!output.contains('All 2 required tests passed')) {
+            throw new GradleException("GameTest success marker is missing from ${gameTestLog}")
+        }
+    }
+}

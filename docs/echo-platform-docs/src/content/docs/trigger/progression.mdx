@@ -1,0 +1,23 @@
+---
+title: "Прогресс и достижения"
+description: "AdvancementCompleted, AdvancementGranted, ExperienceLevelAtLeast and ExperienceLevelReached."
+section: "Trigger"
+pageKind: "reference"
+status: "review"
+since: "T2"
+updated: "2026-07-24"
+relatedIds: ["AdvancementId"]
+relatedPages: ["trigger/player-state", "trigger/t2-reference"]
+sourceRepositories: ["echo-trigger"]
+sourcePaths: ["D:/JDHSeason/mods/echo-trigger/docs/authoring/TRIGGER_VANILLA_REFERENCE.md"]
+visualIdentity: "trigger-progression"
+interactiveModules: []
+searchKeywords: ["AdvancementCompleted", "AdvancementGranted", "ExperienceLevelReached"]
+---
+
+# Прогресс и достижения
+
+`AdvancementCompleted(id)` проверяет текущее состояние. `AdvancementGranted(id)` срабатывает только на grant после
+подписки. Отсутствующий advancement ID должен давать diagnostic, а не тихое `false`.
+
+`ExperienceLevelReached(level)` является edge event: previous level меньше цели, current level больше или равен цели.

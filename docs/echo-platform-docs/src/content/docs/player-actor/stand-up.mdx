@@ -1,0 +1,22 @@
+---
+title: "StandUp"
+description: "Безопасное вставание без Shift simulation."
+section: "Player"
+pageKind: "api"
+status: "review"
+since: "PA1"
+updated: "2026-07-28"
+relatedIds: ["PlayerActorSeatProvider", "PlayerActorSeatSnapshot"]
+relatedPages: ["player-actor/move"]
+sourceRepositories: ["echo-player-actor"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-actor/player-actor-forge-api-1.20.1"]
+visualIdentity: "player-stand-up"
+interactiveModules: []
+searchKeywords: ["StandUp", "seat", "vehicle"]
+---
+
+# StandUp
+
+`Player.StandUp()` идемпотентен: если actor уже стоит, команда завершается успехом.
+
+Для vanilla vehicle runtime вызывает `stopRiding`. Для нестандартных сидений предусмотрен `PlayerActorSeatProvider`.

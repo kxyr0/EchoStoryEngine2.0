@@ -1,0 +1,10 @@
+{
+  "command.echo_blood_magic.setup.unavailable": "Сервис Echo Magic недоступен.",
+  "command.echo_blood_magic.setup.not_loaded": "Заклинания Крови не загружены.",
+  "command.echo_blood_magic.setup.success": "Арсенал Крови выдан %1$s. Используйте назначенную клавишу «%2$s».",
+  "message.echo_blood_magic.rapier.summoned": "Кровавая рапира призвана на 12 секунд",
+  "message.echo_blood_magic.rapier.faded": "Кровавая рапира рассеялась",
+  "item.echo_blood_magic.blood_rapier": "Кровавая рапира",
+  "item.echo_blood_magic.blood_rapier.temporary": "Временное призванное оружие",
+  "item.echo_blood_magic.blood_rapier.particle_blade": "Клинок полностью состоит из частиц"
+}

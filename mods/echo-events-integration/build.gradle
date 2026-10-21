@@ -1,0 +1,53 @@
+plugins { id 'java-library'; id 'net.minecraftforge.gradle' version '[6.0,6.2)' }
+group = 'io.github.kxyr0.echoeventsintegration'
+version = mod_version
+java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+repositories { mavenCentral(); maven { url = 'https://maven.minecraftforge.net/' } }
+minecraft { mappings channel: 'official', version: '1.20.1' }
+dependencies {
+    compileOnly 'io.github.kxyr0.echosavemigration:echo-save-migration:0.2.0'
+    compileOnly 'io.github.kxyr0.echosavemigration:save-migration-forge-1.20.1:0.2.0' 
+    minecraft 'net.minecraftforge:forge:1.20.1-47.4.10'
+    compileOnly 'io.github.kxyr0.echoevents:echo-events:0.1.0'
+    compileOnly 'io.github.kxyr0.echoevents:events-forge-1.20.1:0.1.0'
+    compileOnly 'io.github.kxyr0.echotrigger:trigger-contracts:0.6.0'
+    compileOnly 'io.github.kxyr0.echotrigger:trigger-forge-api-1.20.1:0.6.0'
+    compileOnly 'io.github.kxyr0.echodialogue:dialogue-contracts:0.16.0'
+    compileOnly 'io.github.kxyr0.echodialogue:dialogue-forge-api-1.20.1:0.16.0'
+    compileOnly 'io.github.kxyr0.echoscene:echo-scene:0.3.0'
+    compileOnly 'io.github.kxyr0.echoscene:scene-forge-1.20.1:0.3.0'
+    compileOnly 'io.github.kxyr0.echoobservation:echo-observation:1.4.0'
+    compileOnly 'io.github.kxyr0.echocutscene:cutscene-contracts:0.3.0'
+    compileOnly 'io.github.kxyr0.echocutscene:cutscene-forge-api-1.20.1:0.3.0'
+    compileOnly 'io.github.kxyr0.echonavigation:navigation-contracts:0.4.0'
+    compileOnly 'io.github.kxyr0.echonavigation:navigation-forge-api-1.20.1:0.4.0'
+    compileOnly 'io.github.kxyr0.echoanimation:animation-contracts:0.9.0-SNAPSHOT'
+    compileOnly 'io.github.kxyr0.echoanimation:animation-forge-api-1.20.1:0.9.0-SNAPSHOT'
+    compileOnly 'io.github.kxyr0.echonpc:npc-contracts:0.7.0-SNAPSHOT'
+    compileOnly 'io.github.kxyr0.echonpc:npc-forge-api-1.20.1:0.7.0-SNAPSHOT'
+    compileOnly 'io.github.kxyr0.echonpc:npc-forge-1.20.1:0.7.0-SNAPSHOT'
+    compileOnly 'io.github.kxyr0.echostoryengine:story-contracts:1.12.0'
+    compileOnly 'io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:1.12.0'
+    testImplementation platform('org.junit:junit-bom:5.10.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+tasks.withType(Test).configureEach { useJUnitPlatform() }
+tasks.named('processResources') {
+    inputs.property 'version', project.version
+    filesMatching('META-INF/mods.toml') { expand version: project.version }
+}
+tasks.named('jar') { finalizedBy 'reobfJar' }
+tasks.register('sourceShapeCheck') {
+    doLast {
+        def counts = [:].withDefault { 0 }
+        fileTree('src/main').matching { include '**/*.java', '**/*.es' }.each { source ->
+            counts[source.parent]++
+            def logical = source.readLines('UTF-8').count { it.trim() && !it.trim().startsWith('//') && !it.trim().startsWith('*') }
+            if (logical > 180) throw new GradleException("${source}: ${logical} lines; max 180")
+        }
+        if (counts.any { it.value > 7 }) throw new GradleException("Source folder limit exceeded: ${counts}")
+    }
+}
+tasks.named('check') { dependsOn 'sourceShapeCheck' }

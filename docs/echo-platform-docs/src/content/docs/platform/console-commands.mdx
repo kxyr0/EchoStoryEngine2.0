@@ -1,0 +1,858 @@
+---
+title: "Консольные команды"
+description: "Практический справочник по реальным /echo_* командам: что вводить после правки .es, как проверять Story, Dialogue, NPC, Animation и контент-пак."
+section: "Platform"
+pageKind: "reference"
+status: "review"
+since: "current"
+updated: "2026-07-24"
+relatedIds: ["StoryId", "DialogueId", "ActorId", "NpcDefinitionId", "AnimationId", "AnimationSubjectId", "EchoItemId"]
+relatedPages: ["platform/story-authoring", "platform/dialogue-authoring", "platform/content-workspace", "animation/animation-overview", "npc/materialization"]
+sourceRepositories: ["echo-story-engine", "echo-dialogue", "echo-npc", "echo-animation", "echo-npc-animation-adapter", "echo-item-pack", "echo-animation-authoring"]
+sourcePaths: ["D:/JDHSeason/mods/echo-story-engine", "D:/JDHSeason/mods/echo-dialogue", "D:/JDHSeason/mods/echo-npc", "D:/JDHSeason/mods/echo-animation", "D:/JDHSeason/mods/echo-npc-animation-adapter", "D:/JDHSeason/mods/echo-item-pack", "D:/JDHSeason/mods/echo-animation-authoring"]
+visualIdentity: "state-lines"
+interactiveModules: ["CommandPlayground"]
+searchKeywords: ["console commands", "команды", "/reload", "/echo_story", "/echo_dialogue", "/echo_npc", "/echo_animation", "/echo_npc_animation", "/echo_item", "/echo_animation_authoring"]
+---
+import { CommandPlayground } from "../../../components/CommandPlayground";
+
+# Консольные команды
+
+Эта страница перечисляет реальные команды, которые уже зарегистрированы в Forge-модах проекта. Команды нужны автору сюжета для проверки контент-пака после правки `.es`: загрузился ли каталог, видит ли система во время игры нужный ID, есть ли активные сессии, почему action завис или был отклонен.
+
+## Самый частый цикл после правки `.es`
+
+После правки `DialogueResource`, `StoryResource`, NPC definition, animation profile или binding сначала перезагрузите datapack/resource catalog:
+
+```text
+/reload
+```
+
+Потом проверяйте конкретный слой:
+
+```text
+/echo_story health
+/echo_story stories
+/echo_story diagnostics 20
+
+/echo_dialogue health
+/echo_dialogue dialogues
+/echo_dialogue diagnostics 20
+
+/echo_npc health
+/echo_npc definitions
+/echo_npc actors
+/echo_npc diagnostics 20
+
+/echo_animation health
+/echo_animation profiles
+/echo_animation animations
+/echo_animation diagnostics 20
+
+/echo_npc_animation health
+/echo_npc_animation bindings
+```
+
+Если правили диалог и хотите быстро открыть его себе:
+
+```text
+/echo_dialogue play jdh:chapter_1_home_arrival
+```
+
+Если правили NPC и хотите увидеть его в мире:
+
+```text
+/echo_npc spawn jdh:john_father jdh:john_father ~ ~ ~
+/echo_npc actor jdh:john_father
+```
+
+Если правили animation binding и хотите проверить проигрывание на NPC:
+
+```text
+/echo_animation play_animation jdh:wave jdh:john_father
+/echo_animation stop_animation jdh:john_father jdh:wave
+```
+
+## Правила ввода
+
+Большинство команд требуют уровень permission `2`, то есть singleplayer с cheats или OP на сервере. Исключение - часть catalog-команд animation-модуля может быть доступна шире, но для authoring workflow считайте, что нужен OP.
+
+ID почти всегда пишутся как `namespace:path`:
+
+```text
+jdh:chapter_1_home_arrival
+jdh:john_father
+jdh:wave
+echo_story_dialogue_adapter:bridge
+```
+
+Координаты в командах NPC принимают обычный Minecraft `Vec3`:
+
+```text
+~ ~ ~
+0 64 0
+12.5 67 -4.0
+```
+
+Лимиты диагностики защищены от огромного вывода. В большинстве команд используйте `20`, если не знаете точнее.
+
+## Команды Story
+
+Дерево команд Story сейчас диагностическое и read-only. Оно не стартует Story вручную. Запуск идет через игровой flow, trigger, acceptance harness или код интеграции.
+
+```text
+/echo_story health
+/echo_story stories
+/echo_story executions
+/echo_story execution <executionId>
+/echo_story extensions
+/echo_story extension <extensionId>
+/echo_story diagnostics
+/echo_story diagnostics <limit>
+```
+
+Где брать значения:
+
+```text
+<executionId> = jdh:chapter_1_home_arrival
+<extensionId> = echo_story_dialogue_adapter:bridge
+<limit> = 1..50
+```
+
+Частая проверка Story после `/reload`:
+
+```text
+/echo_story health
+/echo_story stories
+/echo_story extensions
+/echo_story diagnostics 20
+```
+
+Если story action завис:
+
+```text
+/echo_story executions
+/echo_story execution jdh:chapter_1_home_arrival
+/echo_story diagnostics 50
+```
+
+Если action type не найден:
+
+```text
+/echo_story extensions
+/echo_story extension echo_story_dialogue_adapter:bridge
+/echo_story extension echo_story_npc_adapter:bridge
+/echo_story extension echo_story_animation_adapter:bridge
+```
+
+Story action type в `.es` и extension в `/echo_story extensions` должны совпасть:
+
+```echoscript
+Action(
+    "play_dialogue",
+    type: "echo_dialogue:play",
+    dialogueId: "jdh:chapter_1_home_arrival",
+    audienceId: "jdh:local_author",
+    output: "outcome",
+    next: "finish");
+```
+
+Проверка результата:
+
+```text
+/echo_story executions
+/echo_story diagnostics 20
+/echo_dialogue active
+```
+
+## Команды Dialogue
+
+Дерево команд Dialogue показывает каталог, провайдеры presentation, активные сессии и позволяет вручную запустить диалог.
+
+```text
+/echo_dialogue health
+/echo_dialogue dialogues
+/echo_dialogue active
+/echo_dialogue cancel
+/echo_dialogue providers
+/echo_dialogue provider <providerId>
+/echo_dialogue diagnostics
+/echo_dialogue diagnostics <limit>
+/echo_dialogue play <dialogue>
+/echo_dialogue play <dialogue> <player>
+```
+
+Где брать значения:
+
+```text
+<dialogue> = jdh:chapter_1_home_arrival
+<dialogue> = home_arrival
+<player> = ник игрока или selector одного игрока
+<providerId> = namespace:path из /echo_dialogue providers
+<limit> = 1..50
+```
+
+`/echo_dialogue play` принимает полный `DialogueId` или имя файла. Если имя файла неоднозначное, вводите полный ID:
+
+```text
+/echo_dialogue play jdh:chapter_1_home_arrival
+```
+
+Проверка нового `.dialogue.es`:
+
+```text
+/reload
+/echo_dialogue health
+/echo_dialogue dialogues
+/echo_dialogue diagnostics 20
+/echo_dialogue play jdh:chapter_1_home_arrival
+```
+
+Проверка active/recovery:
+
+```text
+/echo_dialogue active
+/echo_dialogue cancel
+/echo_dialogue active
+```
+
+Проверка speaker presentation provider:
+
+```text
+/echo_dialogue providers
+/echo_dialogue provider <providerId>
+```
+
+Если диалог не появился в списке:
+
+```text
+/echo_dialogue diagnostics 50
+```
+
+Потом проверьте путь и ID в файле:
+
+```text
+data/jdh/echo_dialogue/dialogues/chapter_1/home/home_arrival.dialogue.es
+```
+
+```echoscript
+private void Init()
+{
+    Id("jdh:chapter_1_home_arrival");
+    Start(Greeting);
+    Alias("father", "jdh:john_father", display: "Отец");
+}
+```
+
+## Команды NPC
+
+Команды NPC работают с durable actors: список definitions, active actors, spawn, teleport, despawn, recovery и persistence status.
+
+```text
+/echo_npc health
+/echo_npc definitions
+/echo_npc actors
+/echo_npc actor <actorId>
+/echo_npc spawn <actorId> <definitionId>
+/echo_npc spawn <actorId> <definitionId> <pos>
+/echo_npc teleport <actorId> <pos>
+/echo_npc despawn <actorId>
+/echo_npc diagnostics
+/echo_npc diagnostics <limit>
+/echo_npc operations
+/echo_npc operation <operationId>
+/echo_npc blocked
+/echo_npc recovery retry <actorId>
+/echo_npc persistence status
+```
+
+Где брать значения:
+
+```text
+<actorId> = jdh:john_father
+<definitionId> = jdh:john_father
+<operationId> = ID из /echo_npc operations
+<pos> = ~ ~ ~ или 0 64 0
+<limit> = 1..50
+```
+
+Spawn рядом с игроком:
+
+```text
+/echo_npc spawn jdh:john_father jdh:john_father
+```
+
+Spawn в точку:
+
+```text
+/echo_npc spawn jdh:john_father jdh:john_father 0 64 0
+```
+
+Teleport:
+
+```text
+/echo_npc teleport jdh:john_father ~ ~ ~
+/echo_npc actor jdh:john_father
+```
+
+Despawn:
+
+```text
+/echo_npc despawn jdh:john_father
+/echo_npc actors
+```
+
+Если actor заблокирован после reload/restart:
+
+```text
+/echo_npc blocked
+/echo_npc recovery retry jdh:john_father
+/echo_npc persistence status
+```
+
+Эквивалент в Story для spawn:
+
+```echoscript
+Action(
+    "spawn_father",
+    type: "echo_npc:spawn",
+    actorId: "jdh:john_father",
+    definitionId: "jdh:john_father",
+    worldId: "minecraft:overworld",
+    x: "0",
+    y: "64",
+    z: "0",
+    yaw: "180",
+    pitch: "0",
+    output: "result",
+    next: "play_dialogue");
+```
+
+Эквивалент в Story для teleport:
+
+```echoscript
+Action(
+    "teleport_father_to_door",
+    type: "echo_npc:teleport",
+    actorId: "jdh:john_father",
+    worldId: "minecraft:overworld",
+    x: "3.5",
+    y: "64",
+    z: "-2.0",
+    yaw: "90",
+    pitch: "0",
+    output: "result",
+    next: "continue_scene");
+```
+
+Эквивалент в Story для despawn:
+
+```echoscript
+Action(
+    "despawn_father",
+    type: "echo_npc:despawn",
+    actorId: "jdh:john_father",
+    output: "result",
+    next: "finish");
+```
+
+## Команды каталога анимации
+
+Эти команды проверяют загруженный animation catalog: rigs, clips, high-level animations, profiles и диагностику.
+
+```text
+/echo_animation health
+/echo_animation catalog
+/echo_animation face_rigs
+/echo_animation face_rig <id>
+/echo_animation face_poses
+/echo_animation face_animations
+/echo_animation body_rigs
+/echo_animation body_clips
+/echo_animation animations
+/echo_animation profiles
+/echo_animation diagnostics
+/echo_animation diagnostics <limit>
+```
+
+Где брать значения:
+
+```text
+<id> = jdh:john_father
+<limit> = 1..100
+```
+
+Быстрый catalog smoke:
+
+```text
+/reload
+/echo_animation health
+/echo_animation body_rigs
+/echo_animation body_clips
+/echo_animation animations
+/echo_animation profiles
+/echo_animation diagnostics 20
+```
+
+Face rig:
+
+```text
+/echo_animation face_rigs
+/echo_animation face_rig jdh:john_father
+/echo_animation face_poses
+/echo_animation face_animations
+```
+
+Body rig:
+
+```text
+/echo_animation body_rigs
+/echo_animation body_clips
+/echo_animation animations
+```
+
+## Команды моста NPC-анимации
+
+`echo-npc-animation-adapter` добавляет команды, которые связывают NPC actor с animation subject через binding.
+
+```text
+/echo_npc_animation health
+/echo_npc_animation bindings
+```
+
+Проверка binding:
+
+```text
+/echo_npc definitions
+/echo_npc spawn jdh:john_father jdh:john_father ~ ~ ~
+/echo_npc_animation health
+/echo_npc_animation bindings
+```
+
+Ожидайте, что в bindings есть строка с actor или npc:
+
+```text
+jdh:john_father_standard actor=jdh:john_father profile=jdh:standard_humanoid
+jdh:john_father_by_definition npc=jdh:john_father profile=jdh:standard_humanoid
+```
+
+Если binding есть, можно вручную проиграть animation на NPC actor:
+
+```text
+/echo_animation play_animation <animation_id> <npc_id>
+/echo_animation stop_animation <npc_id>
+/echo_animation stop_animation <npc_id> <animation_id>
+```
+
+Примеры:
+
+```text
+/echo_animation play_animation jdh:wave jdh:john_father
+/echo_animation stop_animation jdh:john_father
+/echo_animation stop_animation jdh:john_father jdh:wave
+```
+
+Здесь `<npc_id>` - это `ActorId`, не UUID сущности.
+
+Эквивалент в Story:
+
+```echoscript
+Action(
+    "play_wave",
+    type: "echo_animation:play_animation",
+    animation: "jdh:wave",
+    target: "jdh:john_father",
+    await: "STARTED",
+    output: "wave_start",
+    next: "stop_wave");
+
+Action(
+    "stop_wave",
+    type: "echo_animation:stop_animation",
+    animation: "jdh:wave",
+    target: "jdh:john_father",
+    output: "wave_stop",
+    next: "finish");
+```
+
+## Команды ручной проверки анимации
+
+Эти команды нужны для ручного preview/acceptance состояния animation subject. Они не заменяют production `play_animation` на NPC.
+
+```text
+/echo_animation acceptance state <subjectId> <state>
+/echo_animation acceptance face <subjectId> <state>
+/echo_animation acceptance remove <subjectId>
+```
+
+Состояния тела:
+
+```text
+idle
+wave
+knee
+head
+body
+left_arm
+right_arm
+both_arms
+left_leg
+right_leg
+step
+acting
+```
+
+Состояния лица:
+
+```text
+neutral
+blink
+look_left
+brows_raise
+angry_brows
+face_nudge
+```
+
+Примеры:
+
+```text
+/echo_animation acceptance state jdh:test_subject wave
+/echo_animation acceptance face jdh:test_subject angry_brows
+/echo_animation acceptance remove jdh:test_subject
+```
+
+Если хотите проверить именно NPC-actor flow, используйте adapter-команду:
+
+```text
+/echo_animation play_animation jdh:wave jdh:john_father
+```
+
+## Команды предметов
+
+Команды item pack полезны, если сцена выдает предмет, оружие или проверяет item catalog.
+
+```text
+/echo_item reload
+/echo_item validate
+/echo_item pending
+/echo_item inspect <item_id>
+/echo_item sources <item_id>
+/echo_item give <player> <item_id>
+/echo_item give <player> <item_id> <count>
+```
+
+Где брать значения:
+
+```text
+<item_id> = jdh:void_sword
+<player> = ник игрока или selector одного игрока
+<count> = 1..64
+```
+
+Типовой цикл:
+
+```text
+/echo_item validate
+/echo_item reload
+/echo_item inspect jdh:void_sword
+/echo_item sources jdh:void_sword
+/echo_item give @p jdh:void_sword 1
+```
+
+`/echo_item pending` показывает items, для которых нужна перерегистрация после restart.
+
+## Команды редактора анимации только для разработки
+
+Эти команды есть только когда подключен dev-only мод `echo-animation-authoring`. В production pack на них не опирайтесь.
+
+```text
+/echo_animation_authoring
+/echo_animation_authoring editor
+/echo_animation_authoring workspace
+/echo_animation_authoring face open
+/echo_animation_authoring face open <faceRigId>
+/echo_animation_authoring migrate <legacyPath>
+/echo_animation_authoring diagnostics
+/echo_animation_authoring diagnostics <limit>
+```
+
+Где брать значения:
+
+```text
+<faceRigId> = jdh:john_father
+<legacyPath> = C:/path/to/legacy-face-file.json
+<limit> = 1..100
+```
+
+Порядок для face authoring:
+
+```text
+/echo_animation_authoring workspace
+/echo_animation_authoring editor
+/echo_animation_authoring face open jdh:john_father
+/echo_animation_authoring diagnostics 20
+```
+
+Если workspace не настроен, команда подскажет JVM property:
+
+```text
+-DechoAnimationAuthoring.workspace=C:/Users/kxyr0/Documents/Echo Story Dead/AnimationWorkspace
+```
+
+## Готовые рабочие сценарии
+
+### Проверить новый диалог
+
+```text
+/reload
+/echo_dialogue health
+/echo_dialogue dialogues
+/echo_dialogue diagnostics 20
+/echo_dialogue play jdh:chapter_1_home_arrival
+```
+
+Если диалог стартует, но спикер без имени или портрета:
+
+```text
+/echo_dialogue providers
+/echo_dialogue provider <providerId>
+```
+
+Потом смотрите `Alias(...)`:
+
+```echoscript
+Alias("father", "jdh:john_father", display: "Отец", visual: SkinHead("jdh:john_father"));
+```
+
+### Проверить Story, который запускает Dialogue
+
+```text
+/reload
+/echo_story health
+/echo_story stories
+/echo_story extensions
+/echo_dialogue dialogues
+/echo_story diagnostics 20
+```
+
+Код Story:
+
+```echoscript
+Start("start", next: "play_dialogue");
+Action(
+    "play_dialogue",
+    type: "echo_dialogue:play",
+    dialogueId: "jdh:chapter_1_home_arrival",
+    audienceId: "jdh:local_author",
+    output: "outcome",
+    next: "finish");
+Finish("finish");
+```
+
+### Проверить NPC перед Story
+
+```text
+/reload
+/echo_npc health
+/echo_npc definitions
+/echo_npc spawn jdh:john_father jdh:john_father ~ ~ ~
+/echo_npc actor jdh:john_father
+/echo_npc persistence status
+```
+
+Код Story:
+
+```echoscript
+Action(
+    "spawn_father",
+    type: "echo_npc:spawn",
+    actorId: "jdh:john_father",
+    definitionId: "jdh:john_father",
+    worldId: "minecraft:overworld",
+    x: "0",
+    y: "64",
+    z: "0",
+    yaw: "180",
+    pitch: "0",
+    output: "result",
+    next: "finish");
+```
+
+### Проверить animation binding на NPC
+
+```text
+/reload
+/echo_npc spawn jdh:john_father jdh:john_father ~ ~ ~
+/echo_animation health
+/echo_animation profiles
+/echo_animation animations
+/echo_npc_animation health
+/echo_npc_animation bindings
+/echo_animation play_animation jdh:wave jdh:john_father
+```
+
+Если play не стартует:
+
+```text
+/echo_animation diagnostics 50
+/echo_npc_animation health
+/echo_npc actor jdh:john_father
+```
+
+### Проверить graceful stop
+
+```text
+/echo_animation play_animation jdh:wave jdh:john_father
+/echo_animation stop_animation jdh:john_father jdh:wave
+/echo_animation diagnostics 20
+```
+
+Эквивалент в Story:
+
+```echoscript
+Action(
+    "play_wave",
+    type: "echo_animation:play_animation",
+    animation: "jdh:wave",
+    target: "jdh:john_father",
+    await: "STARTED",
+    output: "wave_start",
+    next: "stop_wave");
+Action(
+    "stop_wave",
+    type: "echo_animation:stop_animation",
+    animation: "jdh:wave",
+    target: "jdh:john_father",
+    output: "wave_stop",
+    next: "wait_wave_terminal");
+Action(
+    "wait_wave_terminal",
+    type: "echo_animation:wait_animation",
+    animation: "jdh:wave",
+    target: "jdh:john_father",
+    output: "wave_terminal",
+    next: "finish");
+```
+
+## Что команды не делают
+
+Команды не исправляют `.es` файл сами:
+
+```text
+/echo_dialogue diagnostics 50
+```
+
+Эта команда только показывает ошибки. Правка делается в файле:
+
+```text
+data/jdh/echo_dialogue/dialogues/chapter_1/home/home_arrival.dialogue.es
+```
+
+Команды Story не стартуют production Story вручную:
+
+```text
+/echo_story start jdh:chapter_1_home_arrival
+```
+
+Такой команды сейчас нет.
+
+Команда NPC `spawn` не создает NPC definition:
+
+```text
+/echo_npc spawn jdh:new_actor jdh:missing_definition ~ ~ ~
+```
+
+Если `definitionId` не существует, сначала добавьте `.npc.es` и сделайте `/reload`.
+
+Команда Animation `play_animation` не принимает UUID сущности:
+
+```text
+/echo_animation play_animation jdh:wave 9d3f0d50-0000-0000-0000-000000000001
+```
+
+Используйте `ActorId`:
+
+```text
+/echo_animation play_animation jdh:wave jdh:john_father
+```
+
+## Быстрый cheatsheet
+
+```text
+# Перезагрузка контента
+/reload
+
+# История
+/echo_story health
+/echo_story stories
+/echo_story executions
+/echo_story execution <executionId>
+/echo_story extensions
+/echo_story extension <extensionId>
+/echo_story diagnostics 20
+
+# Диалоги
+/echo_dialogue health
+/echo_dialogue dialogues
+/echo_dialogue active
+/echo_dialogue cancel
+/echo_dialogue providers
+/echo_dialogue provider <providerId>
+/echo_dialogue diagnostics 20
+/echo_dialogue play <dialogue>
+/echo_dialogue play <dialogue> <player>
+
+# NPC
+/echo_npc health
+/echo_npc definitions
+/echo_npc actors
+/echo_npc actor <actorId>
+/echo_npc spawn <actorId> <definitionId>
+/echo_npc spawn <actorId> <definitionId> <pos>
+/echo_npc teleport <actorId> <pos>
+/echo_npc despawn <actorId>
+/echo_npc diagnostics 20
+/echo_npc operations
+/echo_npc operation <operationId>
+/echo_npc blocked
+/echo_npc recovery retry <actorId>
+/echo_npc persistence status
+
+# Каталог анимации
+/echo_animation health
+/echo_animation catalog
+/echo_animation face_rigs
+/echo_animation face_rig <id>
+/echo_animation face_poses
+/echo_animation face_animations
+/echo_animation body_rigs
+/echo_animation body_clips
+/echo_animation animations
+/echo_animation profiles
+/echo_animation diagnostics 20
+
+# Мост NPC-анимации
+/echo_npc_animation health
+/echo_npc_animation bindings
+/echo_animation play_animation <animation_id> <npc_id>
+/echo_animation stop_animation <npc_id>
+/echo_animation stop_animation <npc_id> <animation_id>
+
+# Пакет предметов
+/echo_item reload
+/echo_item validate
+/echo_item pending
+/echo_item inspect <item_id>
+/echo_item sources <item_id>
+/echo_item give <player> <item_id>
+/echo_item give <player> <item_id> <count>
+
+# Редактор для разработки
+/echo_animation_authoring editor
+/echo_animation_authoring workspace
+/echo_animation_authoring face open <faceRigId>
+/echo_animation_authoring migrate <legacyPath>
+/echo_animation_authoring diagnostics 20
+```
+
+<CommandPlayground client:load />

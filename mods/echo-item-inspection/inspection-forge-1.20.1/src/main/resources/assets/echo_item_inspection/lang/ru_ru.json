@@ -1,0 +1,9 @@
+{
+  "echo_item_inspection.title": "Осмотр предмета",
+  "echo_item_inspection.world.inspect": "Осмотреть",
+  "echo_item_inspection.prompt.settings": "Плашка: масштаб %s, минимальная ширина %s (0 — автоматически), высота %s. Настройки сохранены.",
+  "key.echo_item_inspection.inspect": "Осмотреть предмет",
+  "key.categories.echo_item_inspection": "Echo — осмотр предметов",
+  "echo_item_inspection.commands.empty": "Определения осмотра предметов не загружены.",
+  "modmenu.nameTranslation.echo_item_inspection": "Echo — осмотр предметов"
+}

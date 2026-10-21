@@ -1,0 +1,74 @@
+---
+title: "Жизненный цикл NPC-анимации"
+description: "Автоматическая привязка долговечных NPC-актёров к субъектам анимации с согласованием, binding профиля и восстановлением после повторной материализации."
+section: "Animation"
+pageKind: "lifecycle"
+status: "review"
+since: "A4"
+updated: "2026-07-22"
+relatedIds: ["ActorId", "AnimationSubjectId", "AnimationProfileId", "NpcAnimationBindingId"]
+relatedPages: ["platform/dependency-rules", "animation/npc-animation-bindings", "npc/chunk-lifecycle"]
+sourceRepositories: ["echo-animation", "echo-npc", "echo-npc-animation-adapter", "echo-story-content-pack"]
+sourcePaths: ["D:/JDHSeason/mods/echo-animation", "D:/JDHSeason/mods/echo-npc-animation-adapter"]
+visualIdentity: "npc-lifecycle-map"
+interactiveModules: ["NpcLifecycleMap", "SyntaxXRay", "FailureMatrix", "ContractMatrix"]
+searchKeywords: ["A4", "жизненный цикл NPC", "NPC-анимация", "EchoScript", "ActorId", "AnimationSubjectId", "/echo_animation"]
+---
+import { ContractTable } from "../../../components/ContractTable";
+import { FailureMatrix } from "../../../components/FailureMatrix";
+import { NpcAnimationLifecycleMap } from "../../../components/NpcAnimationLifecycleMap";
+import { ProofPanel } from "../../../components/ProofPanel";
+import { RestartSimulator } from "../../../components/RestartSimulator";
+import { SyntaxLens } from "../../../components/SyntaxLens";
+
+# Жизненный цикл NPC-анимации
+
+<NpcAnimationLifecycleMap client:load />
+
+## Что делает адаптер
+
+A4 связывает долговечный `ActorId` с `AnimationSubjectId` автоматически. Адаптер читает публичные снимки NPC, выбирает авторский `NpcAnimationBinding`, создаёт subject через публичный Animation API и затем циклом согласования догоняет пропущенные изменения.
+
+UUID сущности при этом не является основным identity. После выгрузки чанка и повторной материализации новая сущность получает того же логического актёра и тот же субъект анимации, если subject принадлежал адаптеру.
+
+## Состояния во время игры
+
+| Состояние NPC | Сущность | Субъект анимации | Проигрывание |
+| --- | --- | --- | --- |
+| Durable `ACTIVE`, чанк загружен | материализована | должен существовать | продолжается |
+| Durable `ACTIVE`, чанк выгружен | временно отсутствует | сохраняется | продолжается на сервере |
+| Durable `ACTIVE`, восстановлена | новый UUID | тот же subject | не перезапускает `ENTER` |
+| Durable `ABSENT` | отсутствует | retire, если subject принадлежал адаптеру | terminal `SUBJECT_OWNER_REMOVED` |
+| `UNBOUND` | может существовать | не создаётся | обычный renderer NPC |
+
+## Профиль и binding в EchoScript
+
+<SyntaxLens example="profile" client:load />
+
+<SyntaxLens example="binding" client:load />
+
+## Перезапуск и смена профиля
+
+<RestartSimulator client:load />
+
+<ProofPanel client:load />
+
+## Отказы и публичный API
+
+<FailureMatrix client:load />
+
+<ContractTable client:load />
+
+## Точные пути
+
+- `D:/JDHSeason/mods/echo-story-content-pack/src/main/resources/data/jdh/echo_animation/animation_profiles/chapter_1/family/standard_humanoid.animation-profile.es`
+- `D:/JDHSeason/mods/echo-story-content-pack/src/main/resources/data/jdh/echo_npc_animation/bindings/chapter_1/family/john_father.npc-animation-binding.es`
+- `C:/Users/kxyr0/AppData/Roaming/PrismLauncher/instances/Форма Мысли/minecraft/story/content-pack/jdh/echo_animation/animation_profiles/chapter_1/family/standard_humanoid.animation-profile.es`
+- `C:/Users/kxyr0/AppData/Roaming/PrismLauncher/instances/Форма Мысли/minecraft/story/content-pack/jdh/echo_npc_animation/bindings/chapter_1/family/john_father.npc-animation-binding.es`
+
+## Команды
+
+- `/echo_animation play_animation jdh:wave jdh:john_father`
+- `/echo_animation profiles`
+- `/echo_npc_animation health`
+- `/echo_npc_animation bindings`

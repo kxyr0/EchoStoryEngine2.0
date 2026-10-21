@@ -1,0 +1,7 @@
+{
+  "entity.echo_test_target.immortal_target": "Неуязвимая тестовая цель",
+  "item.echo_test_target.immortal_target_spawn_egg": "Яйцо призыва неуязвимой цели",
+  "command.echo_test_target.spawned": "Создано неуязвимых тестовых целей: %s",
+  "command.echo_test_target.cleared": "Удалено неуязвимых тестовых целей: %s"
+}
+

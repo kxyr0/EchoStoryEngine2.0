@@ -1,0 +1,26 @@
+---
+title: "Empty Catalog"
+description: "Why an empty wardrobe catalog still produces a deterministic base appearance."
+section: "Wardrobe"
+pageKind: "decision"
+status: "review"
+since: "W2"
+updated: "2026-07-27"
+relatedIds: ["WardrobeCatalog", "ResolvedOutfit"]
+relatedPages: ["wardrobe/overview", "wardrobe/full-reference"]
+sourceRepositories: ["echo-wardrobe"]
+sourcePaths: ["D:/JDHSeason/mods/echo-wardrobe/wardrobe-core/src/main/java/io/github/kxyr0/echowardrobe/core/catalog/WardrobeCatalog.java"]
+visualIdentity: "wardrobe-empty-catalog"
+interactiveModules: ["OutfitResolverLab"]
+searchKeywords: ["empty catalog", "base appearance", "production"]
+---
+
+import { OutfitResolverLab } from "../../../components/WardrobeLabs";
+
+# Empty Catalog
+
+An empty `WardrobeCatalog` is valid. The player remains on `echo_content_player:player/base` because no exact outfit can be selected.
+
+<OutfitResolverLab client:load />
+
+This state does not register temporary items and does not mutate the Content Player base skin.

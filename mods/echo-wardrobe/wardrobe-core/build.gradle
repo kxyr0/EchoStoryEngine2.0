@@ -1,0 +1,7 @@
+description = 'Plain Java Echo Wardrobe binding, catalog, equipment, and exact outfit resolution core.'
+
+dependencies {
+    api project(':wardrobe-contracts')
+    implementation "io.github.kxyr0.echoscript:echo-script-api:${echo_script_version}"
+    testImplementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}

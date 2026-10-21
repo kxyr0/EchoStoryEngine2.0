@@ -1,0 +1,42 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Forge Story Extension adapter for Echo Player Actor PA0 actions.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly project(':player-actor-contracts')
+    compileOnly project(':player-actor-forge-api-1.20.1')
+    compileOnly "io.github.kxyr0.echostoryengine:story-contracts:${story_api_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-api:${story_api_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:${story_api_version}"
+    testImplementation project(':player-actor-contracts')
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version_range: minecraft_version_range,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_version: mod_version,
+            mod_license: mod_license,
+            mod_authors: mod_authors,
+            story_mod_version_range: story_mod_version_range
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    finalizedBy 'reobfJar'
+}

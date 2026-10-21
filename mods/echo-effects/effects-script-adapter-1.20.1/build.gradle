@@ -1,0 +1,12 @@
+base {
+    archivesName = 'effects-script-adapter-1.20.1'
+}
+
+description = 'EchoScript semantic adapter for EffectResource and Effect commands.'
+
+dependencies {
+    api project(':effects-contracts')
+    implementation project(':effects-core')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    testImplementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}

@@ -1,0 +1,5 @@
+description = 'Plain Java command, lease, rotation, interaction and recovery core.'
+
+dependencies {
+    api project(':player-actor-contracts')
+}

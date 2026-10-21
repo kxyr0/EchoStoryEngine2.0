@@ -1,0 +1,659 @@
+import org.apache.tools.ant.taskdefs.condition.Os
+
+import java.security.MessageDigest
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.zip.ZipFile
+
+configurations {
+    forgeServerInstaller {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+}
+
+dependencies {
+    forgeServerInstaller "net.minecraftforge:forge:${minecraft_version}-${forge_version}:installer"
+}
+
+def rel = { File file ->
+    rootDir.toPath().relativize(file.toPath()).toString().replace(File.separatorChar, '/' as char)
+}
+
+def siblingDir = { String propertyName ->
+    File configured = file(project.findProperty(propertyName) ?: '')
+    configured.isAbsolute() ? configured : new File(rootDir, configured.path).canonicalFile
+}
+
+def wrapperFor = { File dir ->
+    File wrapper = new File(dir, Os.isFamily(Os.FAMILY_WINDOWS) ? 'gradlew.bat' : 'gradlew')
+    if (!wrapper.isFile()) {
+        throw new GradleException("Gradle wrapper не найден: ${wrapper}")
+    }
+    return wrapper.absolutePath
+}
+
+def sha256 = { File file ->
+    MessageDigest digest = MessageDigest.getInstance('SHA-256')
+    file.withInputStream { stream ->
+        byte[] buffer = new byte[8192]
+        int read = stream.read(buffer)
+        while (read >= 0) {
+            digest.update(buffer, 0, read)
+            read = stream.read(buffer)
+        }
+    }
+    return digest.digest().collect { String.format('%02x', it & 0xff) }.join()
+}
+
+def requireJar = { String label, File file ->
+    if (!file.isFile()) {
+        throw new GradleException("${label}: final production JAR не найден: ${file}")
+    }
+    String lower = file.name.toLowerCase(Locale.ROOT)
+    if (lower.contains('sources') || lower.contains('javadoc') || lower.contains('gametest') ||
+            lower.contains('acceptance') || lower.contains('-api') || lower.contains('-contracts') ||
+            lower.contains('-core') || lower.contains('echo-script')) {
+        throw new GradleException("${label}: выбран не production runtime JAR: ${file.name}")
+    }
+    return file
+}
+
+def modMetadata = { File jar ->
+    ZipFile zip = new ZipFile(jar)
+    try {
+        def entry = zip.getEntry('META-INF/mods.toml')
+        if (entry == null) {
+            return [modId: 'unknown', version: 'unknown']
+        }
+        String text = new String(zip.getInputStream(entry).readAllBytes(), 'UTF-8')
+        def modId = (text =~ /(?m)^\s*modId="([^"]+)"/)
+        def version = (text =~ /(?m)^\s*version="([^"]+)"/)
+        return [
+                modId: modId.find() ? modId.group(1) : 'unknown',
+                version: version.find() ? version.group(1) : 'unknown'
+        ]
+    } finally {
+        zip.close()
+    }
+}
+
+tasks.register('buildEchoStoryEngineJar', Exec) {
+    group = 'build'
+    description = 'Собирает sibling Echo Story Engine final jarJar artifact.'
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    workingDir siblingDir('story_engine_project_dir')
+    commandLine wrapperFor(workingDir as File), ':story-forge-1.20.1:jarJar', '--console=plain'
+}
+
+tasks.register('buildEchoDialogueJar', Exec) {
+    group = 'build'
+    description = 'Собирает sibling Echo Dialogue final jarJar artifact.'
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    workingDir siblingDir('echo_dialogue_project_dir')
+    commandLine wrapperFor(workingDir as File), ':dialogue-forge-1.20.1:jarJar', '--console=plain'
+}
+
+tasks.register('buildEchoNpcJar', Exec) {
+    group = 'build'
+    description = 'Собирает sibling Echo NPC final jarJar artifact.'
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    workingDir siblingDir('echo_npc_project_dir')
+    commandLine wrapperFor(workingDir as File), ':npc-forge-1.20.1:jarJar', '--console=plain'
+}
+
+tasks.register('buildEchoAnimationJar', Exec) {
+    group = 'build'
+    description = 'Собирает sibling Echo Animation final jarJar artifact.'
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    workingDir siblingDir('echo_animation_project_dir')
+    commandLine wrapperFor(workingDir as File), ':animation-forge-1.20.1:jarJar', '--console=plain'
+}
+
+tasks.register('publishEchoNpcIntegrationArtifacts', Exec) {
+    group = 'build'
+    description = 'Публикует sibling Echo NPC public integration artifacts.'
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    workingDir siblingDir('echo_npc_project_dir')
+    commandLine wrapperFor(workingDir as File), 'publishNpcIntegrationArtifacts', '--console=plain'
+}
+
+tasks.register('publishEchoAnimationIntegrationArtifacts', Exec) {
+    group = 'build'
+    description = 'Публикует sibling Echo Animation public integration artifacts.'
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    workingDir siblingDir('echo_animation_project_dir')
+    commandLine wrapperFor(workingDir as File), 'publishAnimationIntegrationArtifacts', '--console=plain'
+}
+
+tasks.register('buildStoryDialogueAdapterJar', Exec) {
+    group = 'build'
+    description = 'Собирает sibling Story-Dialogue Adapter production JAR.'
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    workingDir siblingDir('story_dialogue_adapter_project_dir')
+    commandLine wrapperFor(workingDir as File),
+            '-PstoryEngineRoot=../echo-story-engine',
+            '-PstoryIntegrationMaven=../echo-story-engine/build/integration-maven',
+            '-PechoDialogueRoot=../echo-dialogue',
+            '-PdialogueIntegrationMaven=../echo-dialogue/build/integration-maven',
+            'jar',
+            '--console=plain'
+}
+
+tasks.register('buildStoryNpcAdapterJar', Exec) {
+    group = 'build'
+    description = 'Собирает sibling Story-NPC Adapter production JAR.'
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    workingDir siblingDir('story_npc_adapter_project_dir')
+    commandLine wrapperFor(workingDir as File), 'jar', '--console=plain'
+}
+
+tasks.register('buildStoryAnimationAdapterJar', Exec) {
+    group = 'build'
+    description = 'Builds sibling Story-Animation Adapter production JAR.'
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    dependsOn tasks.named('publishEchoAnimationIntegrationArtifacts')
+    workingDir siblingDir('story_animation_adapter_project_dir')
+    commandLine wrapperFor(workingDir as File),
+            '-PstoryEngineRoot=../echo-story-engine',
+            '-PstoryIntegrationMaven=../echo-story-engine/build/integration-maven',
+            '-PechoAnimationRoot=../echo-animation',
+            '-PanimationIntegrationMaven=../echo-animation/build/integration-maven',
+            'jar',
+            '--console=plain'
+}
+
+tasks.register('buildNpcAnimationAdapterJar', Exec) {
+    group = 'build'
+    description = 'Собирает sibling NPC-Animation Adapter production JAR.'
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    dependsOn tasks.named('publishEchoNpcIntegrationArtifacts')
+    dependsOn tasks.named('publishEchoAnimationIntegrationArtifacts')
+    workingDir siblingDir('npc_animation_adapter_project_dir')
+    commandLine wrapperFor(workingDir as File), 'jar', '--console=plain'
+}
+
+tasks.register('prepareRuntimeJars') {
+    group = 'build'
+    description = 'Готовит sibling final runtime JARs для stageStoryPack.'
+    dependsOn tasks.named('buildEchoStoryEngineJar')
+    dependsOn tasks.named('buildEchoDialogueJar')
+    dependsOn tasks.named('buildEchoNpcJar')
+    dependsOn tasks.named('buildEchoAnimationJar')
+    dependsOn tasks.named('buildStoryDialogueAdapterJar')
+    dependsOn tasks.named('buildStoryNpcAdapterJar')
+    dependsOn tasks.named('buildStoryAnimationAdapterJar')
+    dependsOn tasks.named('buildNpcAnimationAdapterJar')
+}
+
+tasks.register('installContentJar') {
+    group = 'distribution'
+    description = 'Копирует только Echo Story Content Pack JAR в -PinstanceDir=<path>/mods.'
+    dependsOn tasks.named('contentJar')
+    doLast {
+        if (!project.hasProperty('instanceDir')) {
+            throw new GradleException('Укажите -PinstanceDir=<path>.')
+        }
+        File instance = file(project.property('instanceDir')).canonicalFile
+        if (!instance.isDirectory()) {
+            throw new GradleException("instanceDir не существует или не каталог: ${instance}")
+        }
+        File mods = new File(instance, 'mods')
+        if (!mods.exists() && !mods.mkdirs()) {
+            throw new GradleException("Не удалось создать mods directory: ${mods}")
+        }
+        File jar = tasks.named('contentJar').get().archiveFile.get().asFile
+        mods.listFiles({ File file -> file.name ==~ /echo-story-content-pack-.*\.jar/ } as FileFilter)
+                ?.each { old ->
+                    if (!old.delete()) {
+                        throw new GradleException("Не удалось удалить старый content pack JAR: ${old}")
+                    }
+                }
+        copy {
+            from jar
+            into mods
+        }
+        println "installContentJar: ${new File(mods, jar.name).canonicalPath}"
+    }
+}
+
+tasks.register('stageStoryPack') {
+    group = 'distribution'
+    description = 'Собирает build/story-pack из final production JARs.'
+    dependsOn tasks.named('contentJar')
+    dependsOn tasks.named('prepareRuntimeJars')
+    doLast {
+        File storyRoot = siblingDir('story_engine_project_dir')
+        File dialogueRoot = siblingDir('echo_dialogue_project_dir')
+        File npcRoot = siblingDir('echo_npc_project_dir')
+        File animationRoot = siblingDir('echo_animation_project_dir')
+        File storyDialogueRoot = siblingDir('story_dialogue_adapter_project_dir')
+        File storyNpcRoot = siblingDir('story_npc_adapter_project_dir')
+        File storyAnimationRoot = siblingDir('story_animation_adapter_project_dir')
+        File npcAnimationRoot = siblingDir('npc_animation_adapter_project_dir')
+        List<Map<String, Object>> jars = [
+                [label: 'Echo Story Engine',
+                 source: storyRoot,
+                 file: requireJar('Echo Story Engine', new File(storyRoot,
+                         "story-forge-1.20.1/build/libs/echo-story-engine-${echo_story_engine_artifact_version}-all.jar"))],
+                [label: 'Echo Dialogue',
+                 source: dialogueRoot,
+                 file: requireJar('Echo Dialogue', new File(dialogueRoot,
+                         "dialogue-forge-1.20.1/build/libs/echo-dialogue-${echo_dialogue_version}-all.jar"))],
+                [label: 'Story-Dialogue Adapter',
+                 source: storyDialogueRoot,
+                 file: requireJar('Story-Dialogue Adapter', new File(storyDialogueRoot,
+                         "build/libs/echo-story-dialogue-adapter-${echo_story_dialogue_adapter_version}.jar"))],
+                [label: 'Echo NPC',
+                 source: npcRoot,
+                 file: requireJar('Echo NPC', new File(npcRoot,
+                         "npc-forge-1.20.1/build/libs/echo-npc-${echo_npc_version}-all.jar"))],
+                [label: 'Echo Animation',
+                 source: animationRoot,
+                 file: requireJar('Echo Animation', new File(animationRoot,
+                         "animation-forge-1.20.1/build/libs/echo-animation-${echo_animation_version}-all.jar"))],
+                [label: 'NPC-Animation Adapter',
+                 source: npcAnimationRoot,
+                 file: requireJar('NPC-Animation Adapter', new File(npcAnimationRoot,
+                         "build/libs/echo-npc-animation-adapter-${echo_npc_animation_adapter_version}.jar"))],
+                [label: 'Story-NPC Adapter',
+                 source: storyNpcRoot,
+                 file: requireJar('Story-NPC Adapter', new File(storyNpcRoot,
+                         "build/libs/echo-story-npc-adapter-${echo_story_npc_adapter_version}.jar"))],
+                [label: 'Story-Animation Adapter',
+                 source: storyAnimationRoot,
+                 file: requireJar('Story-Animation Adapter', new File(storyAnimationRoot,
+                         "build/libs/echo-story-animation-adapter-${echo_story_animation_adapter_version}.jar"))],
+                [label: 'Echo Story Content Pack',
+                 source: rootDir,
+                 file: requireJar('Echo Story Content Pack', tasks.named('contentJar').get().archiveFile.get().asFile)]
+        ]
+        File output = layout.buildDirectory.dir('story-pack').get().asFile
+        File mods = new File(output, 'mods')
+        delete output
+        mods.mkdirs()
+        jars.each { item ->
+            copy {
+                from item.file
+                into mods
+            }
+        }
+        List<String> stagedNames = mods.listFiles({ File file -> file.name.endsWith('.jar') } as FileFilter)
+                .collect { it.name }
+                .sort()
+        stagedNames.each { name ->
+            String lower = name.toLowerCase(Locale.ROOT)
+            if (lower.contains('sources') || lower.contains('javadoc') || lower.contains('gametest') ||
+                    lower.contains('acceptance') || lower.contains('-api') || lower.contains('-contracts') ||
+                    lower.contains('-core') || lower.contains('echo-script')) {
+                throw new GradleException("stageStoryPack выбрал запрещенный JAR: ${name}")
+            }
+        }
+        new File(output, 'README.txt').text = """Echo Story Pack staged runtime
+
+Скопируйте каталог mods в чистый Forge 1.20.1 / Forge ${forge_version} instance.
+Content JAR нужен и на dedicated server, и на client, потому что содержит data/ и assets/.
+JARs в этом каталоге являются final production artifacts; acceptance/test/API/source JARs не включены.
+""" + '\n'
+        File versions = new File(output, 'versions.txt')
+        versions.text = jars.collect { item ->
+            def metadata = modMetadata(item.file as File)
+            "${(item.file as File).name}\n" +
+                    "  label=${item.label}\n" +
+                    "  modId=${metadata.modId}\n" +
+                    "  modVersion=${metadata.version}\n" +
+                    "  bytes=${(item.file as File).length()}\n" +
+                    "  sha256=${sha256(item.file as File)}\n" +
+                    "  source=${(item.source as File).canonicalPath}\n"
+        }.join('\n')
+        println "stageStoryPack: ${output.canonicalPath}"
+        println 'stageStoryPack mods:'
+        stagedNames.each { println " - ${it}" }
+    }
+}
+
+tasks.register('validateWithEchoRuntime') {
+    group = 'verification'
+    description = 'Готовит final runtime JARs и фиксирует границу фактической runtime validation.'
+    dependsOn tasks.named('stageStoryPack')
+    doLast {
+        File mods = layout.buildDirectory.dir('story-pack/mods').get().asFile
+        List<String> jars = mods.listFiles({ File file -> file.name.endsWith('.jar') } as FileFilter)
+                .collect { it.name }
+                .sort()
+        if (jars.size() != 9) {
+            throw new GradleException("validateWithEchoRuntime: ожидалось 9 staged JARs, найдено ${jars.size()}.")
+        }
+        println 'validateWithEchoRuntime: staged final JARs готовы для isolated Forge runtime.'
+        println 'validateWithEchoRuntime: автоматический запуск dedicated server/GameTest не выполняется этой задачей; результат runtime acceptance должен быть записан отдельно.'
+    }
+}
+
+tasks.register('buildAcceptanceHarnessJar', Exec) {
+    group = 'verification'
+    description = 'Собирает test-only acceptance harness JAR; production content JAR его не включает.'
+    dependsOn tasks.named('stageStoryPack')
+    workingDir new File(rootDir, 'acceptance-harness')
+    commandLine wrapperFor(rootDir), '-p', workingDir.absolutePath, 'build', '--console=plain'
+}
+
+tasks.register('verifyAcceptanceHarnessJar') {
+    group = 'verification'
+    description = 'Проверяет, что acceptance harness JAR существует и является отдельным JavaFML test-only модом.'
+    dependsOn tasks.named('buildAcceptanceHarnessJar')
+    doLast {
+        File jar = new File(rootDir, "acceptance-harness/build/libs/${acceptance_harness_artifact_name}-${mod_version}.jar")
+        if (!jar.isFile()) {
+            throw new GradleException("verifyAcceptanceHarnessJar: JAR не найден: ${jar}")
+        }
+        ZipFile zip = new ZipFile(jar)
+        try {
+            Set<String> entries = zip.entries().collect { it.name } as Set
+            [
+                    'META-INF/mods.toml',
+                    'pack.mcmeta',
+                    'io/github/kxyr0/echostorycontentpack/acceptance/EchoStoryContentPackAcceptanceMod.class'
+            ].each { required ->
+                if (!entries.contains(required)) {
+                    throw new GradleException("verifyAcceptanceHarnessJar: missing ${required}")
+                }
+            }
+            entries.each { entry ->
+                if (entry.startsWith('data/') || entry.startsWith('assets/')) {
+                    throw new GradleException("verifyAcceptanceHarnessJar: harness JAR must not own content resources: ${entry}")
+                }
+            }
+        } finally {
+            zip.close()
+        }
+        println "verifyAcceptanceHarnessJar: OK ${jar} (${jar.length()} bytes)"
+    }
+}
+
+tasks.register('stageAcceptanceStoryPack') {
+    group = 'verification'
+    description = 'Собирает build/acceptance-story-pack из final runtime JARs, test-only content JAR и acceptance harness.'
+    dependsOn tasks.named('stageStoryPack')
+    dependsOn tasks.named('verifyAcceptanceContentJar')
+    dependsOn tasks.named('verifyAcceptanceHarnessJar')
+    doLast {
+        File productionMods = layout.buildDirectory.dir('story-pack/mods').get().asFile
+        File acceptanceJar = tasks.named('acceptanceContentJar').get().archiveFile.get().asFile
+        File harnessJar = new File(rootDir, "acceptance-harness/build/libs/${acceptance_harness_artifact_name}-${mod_version}.jar")
+        File output = layout.buildDirectory.dir('acceptance-story-pack').get().asFile
+        File mods = new File(output, 'mods')
+        delete output
+        mods.mkdirs()
+        productionMods.listFiles({ File file ->
+            file.name.endsWith('.jar') && !file.name.startsWith("${artifact_name}-")
+        } as FileFilter).each { runtimeJar ->
+            copy {
+                from runtimeJar
+                into mods
+            }
+        }
+        copy {
+            from acceptanceJar
+            into mods
+        }
+        copy {
+            from harnessJar
+            into mods
+        }
+        List<String> stagedNames = mods.listFiles({ File file -> file.name.endsWith('.jar') } as FileFilter)
+                .collect { it.name }
+                .sort()
+        if (stagedNames.size() != 9) {
+            throw new GradleException("stageAcceptanceStoryPack: ожидалось 9 staged JARs, найдено ${stagedNames.size()}.")
+        }
+        if (!stagedNames.contains(harnessJar.name)) {
+            throw new GradleException("stageAcceptanceStoryPack: acceptance harness JAR не включён.")
+        }
+        new File(output, 'README.txt').text = """Echo Story Pack acceptance runtime
+
+Этот набор предназначен только для runtime acceptance.
+Он заменяет production content JAR на acceptance content JAR с ресурсами из src/acceptance/resources
+и добавляет test-only JavaFML harness ${harnessJar.name}.
+Не устанавливайте его в обычный игровой instance вместо production story pack.
+""" + '\n'
+        println "stageAcceptanceStoryPack: ${output.canonicalPath}"
+        println 'stageAcceptanceStoryPack mods:'
+        stagedNames.each { println " - ${it}" }
+    }
+}
+
+def runtimeServerDir = { String name ->
+    layout.buildDirectory.dir(name).get().asFile
+}
+
+def assertBuildRuntimeDir = { File runDir ->
+    String buildPath = layout.buildDirectory.get().asFile.canonicalPath
+    String runPath = runDir.canonicalPath
+    if (!(runPath == buildPath || runPath.startsWith(buildPath + File.separator))) {
+        throw new GradleException("Refusing to reset runtime dir outside buildDir: ${runPath}")
+    }
+}
+
+def installForgeServer = { File runDir ->
+    runDir.mkdirs()
+    String argsName = Os.isFamily(Os.FAMILY_WINDOWS) ? 'win_args.txt' : 'unix_args.txt'
+    File argsFile = new File(runDir, "libraries/net/minecraftforge/forge/${minecraft_version}-${forge_version}/${argsName}")
+    if (argsFile.isFile()) {
+        return argsFile
+    }
+    File installer = configurations.forgeServerInstaller.singleFile
+    exec {
+        workingDir runDir
+        commandLine 'java', '-jar', installer.absolutePath, '--installServer', runDir.absolutePath
+    }
+    if (!argsFile.isFile()) {
+        throw new GradleException("Forge server install did not create ${argsFile}")
+    }
+    return argsFile
+}
+
+def prepareServerRunDir = { File runDir, File stagedMods, boolean includeHarness ->
+    assertBuildRuntimeDir(runDir)
+    installForgeServer(runDir)
+    ['mods', 'logs', 'world', 'config', 'defaultconfigs', 'story'].each { child ->
+        delete new File(runDir, child)
+    }
+    ['banned-ips.json', 'banned-players.json', 'ops.json', 'usercache.json', 'whitelist.json'].each { child ->
+        delete new File(runDir, child)
+    }
+    File mods = new File(runDir, 'mods')
+    mods.mkdirs()
+    copy {
+        from stagedMods
+        into mods
+        if (!includeHarness) {
+            exclude '*acceptance-harness*.jar'
+        }
+    }
+    new File(runDir, 'eula.txt').setText('eula=true\n', 'UTF-8')
+    new File(runDir, 'server.properties').setText(
+            'online-mode=false\nlevel-name=world\nmotd=Echo acceptance\nserver-port=0\nenable-query=false\n'
+                    + 'enable-rcon=false\n',
+            'UTF-8')
+}
+
+def verifyLogContains = { File logFile, String taskName, List<String> markers ->
+    if (!logFile.isFile()) {
+        throw new GradleException("${taskName}: log file not found: ${logFile}")
+    }
+    String log = logFile.getText('UTF-8')
+    markers.each { marker ->
+        if (!log.contains(marker)) {
+            throw new GradleException("${taskName}: log marker not found: ${marker}")
+        }
+    }
+    if (log.contains('ESCPC-ACCEPTANCE FAIL') || log.contains('ESCPC-ACCEPTANCE AUTO_FAIL') ||
+            log.contains('PRODUCTION_SMOKE_FAIL')) {
+        throw new GradleException("${taskName}: acceptance log contains FAIL marker.")
+    }
+}
+
+def verifyLogClean = { File logFile, String taskName ->
+    String log = logFile.getText('UTF-8')
+    ['ERROR', 'FATAL', 'NoClassDefFoundError', 'ClassNotFoundException', 'NoSuchMethodError',
+     'Failed to start', 'encountered an error'].each { marker ->
+        if (log.contains(marker)) {
+            throw new GradleException("${taskName}: forbidden log marker found: ${marker}")
+        }
+    }
+}
+
+def copyRuntimeLog = { File runDir, String reportName ->
+    File logFile = new File(runDir, 'logs/latest.log')
+    File reportDir = layout.buildDirectory.dir('reports/runtime').get().asFile
+    reportDir.mkdirs()
+    File reportFile = new File(reportDir, reportName)
+    reportFile.setText(logFile.getText('UTF-8'), 'UTF-8')
+    return reportFile
+}
+
+def verifyProductionModSet = { File runDir ->
+    List<String> names = new File(runDir, 'mods').listFiles({ File file -> file.name.endsWith('.jar') } as FileFilter)
+            .collect { it.name }
+            .sort()
+    List<String> expected = [
+            "echo-animation-${echo_animation_version}-all.jar",
+            "echo-dialogue-${echo_dialogue_version}-all.jar",
+            "echo-npc-${echo_npc_version}-all.jar",
+            "echo-npc-animation-adapter-${echo_npc_animation_adapter_version}.jar",
+            "${artifact_name}-${mod_version}.jar",
+            "echo-story-animation-adapter-${echo_story_animation_adapter_version}.jar",
+            "echo-story-dialogue-adapter-${echo_story_dialogue_adapter_version}.jar",
+            "echo-story-engine-${echo_story_engine_artifact_version}-all.jar",
+            "echo-story-npc-adapter-${echo_story_npc_adapter_version}.jar"
+    ].sort()
+    if (names != expected) {
+        throw new GradleException("Production runtime mods mismatch. Expected ${expected}, got ${names}")
+    }
+    names.each { name ->
+        String lower = name.toLowerCase(Locale.ROOT)
+        if (lower.contains('authoring') || lower.contains('acceptance') || lower.contains('gametest')) {
+            throw new GradleException("Forbidden production runtime mod: ${name}")
+        }
+    }
+}
+
+def runForgeServer = { File runDir, String taskName, List<String> jvmArgs, List<String> commands,
+                       boolean stopAfterCommands, List<String> stopOnMarkers ->
+    File argsFile = installForgeServer(runDir)
+    List<String> command = (['java'] + jvmArgs + ['@user_jvm_args.txt', "@${argsFile.absolutePath}", '--nogui'])
+            .collect { it.toString() }
+    Process process = new ProcessBuilder(command)
+            .directory(runDir)
+            .redirectErrorStream(true)
+            .start()
+    StringBuilder output = new StringBuilder()
+    AtomicBoolean commandBlockSent = new AtomicBoolean(false)
+    AtomicBoolean doneSeen = new AtomicBoolean(false)
+    AtomicBoolean markerStopSent = new AtomicBoolean(false)
+    Thread reader = new Thread({
+        process.inputStream.withReader('UTF-8') { reader ->
+            String line = reader.readLine()
+            while (line != null) {
+                println line
+                output.append(line).append(System.lineSeparator())
+                if (line.contains('Done (')) {
+                    doneSeen.set(true)
+                    if (commandBlockSent.compareAndSet(false, true)) {
+                        commands.each { commandText ->
+                            process.outputStream.write((commandText + System.lineSeparator()).getBytes('UTF-8'))
+                            process.outputStream.flush()
+                            Thread.sleep(300)
+                        }
+                        if (stopAfterCommands) {
+                            Thread.sleep(1000)
+                            process.outputStream.write(('stop' + System.lineSeparator()).getBytes('UTF-8'))
+                            process.outputStream.flush()
+                        }
+                    }
+                }
+                if (stopOnMarkers.any { marker -> line.contains(marker) }
+                        && markerStopSent.compareAndSet(false, true)) {
+                    try {
+                        process.outputStream.write(('stop' + System.lineSeparator()).getBytes('UTF-8'))
+                        process.outputStream.flush()
+                    } catch (IOException ignored) {
+                        // The harness may already be stopping the server.
+                    }
+                }
+                line = reader.readLine()
+            }
+        }
+    } as Runnable, "${taskName}-stdout")
+    reader.start()
+    if (!process.waitFor(180, TimeUnit.SECONDS)) {
+        process.destroyForcibly()
+        throw new GradleException("${taskName}: Forge server did not exit before timeout.\n${output}")
+    }
+    reader.join(5000)
+    if (process.exitValue() != 0) {
+        throw new GradleException("${taskName}: Forge server exited with ${process.exitValue()}.\n${output}")
+    }
+    if (!doneSeen.get()) {
+        throw new GradleException("${taskName}: Forge server never reached Done.\n${output}")
+    }
+}
+
+tasks.register('runProductionStoryPackSmokeServer') {
+    group = 'verification'
+    description = 'Runs isolated production Forge server with 8 final production JARs and no authoring mod.'
+    dependsOn tasks.named('stageStoryPack')
+    doLast {
+        File runDir = runtimeServerDir('production-runtime-server')
+        prepareServerRunDir(runDir, layout.buildDirectory.dir('story-pack/mods').get().asFile, false)
+        verifyProductionModSet(runDir)
+        runForgeServer(runDir, 'runProductionStoryPackSmokeServer', [],
+                ['echo_story health', 'echo_story stories', 'echo_dialogue health', 'echo_dialogue dialogues',
+                 'echo_npc health', 'echo_npc definitions', 'echo_animation health', 'echo_animation face_rigs',
+                 'echo_animation face_rig jdh:john_father',
+                 'echo_animation face_rig echo_content_player:player/base', 'echo_animation face_poses',
+                 'echo_animation face_animations', 'echo_animation body_rigs', 'echo_animation body_clips',
+                 'echo_animation animations', 'echo_animation profiles', 'echo_npc_animation health',
+                 'echo_npc_animation bindings', 'echo_animation diagnostics'],
+                true, [])
+        File logFile = new File(runDir, 'logs/latest.log')
+        verifyLogContains(logFile, 'runProductionStoryPackSmokeServer',
+                ['Done (', 'Stopping server', 'jdh:chapter_1_home_arrival', 'jdh:john_father',
+                 'Echo Animation: face_rigs=2, face_poses=1, face_animations=7, body_rigs=1, body_clips=17, animations=3, animation_profiles=1',
+                 'Echo Animation face_rigs: echo_content_player:player/base, jdh:john_father',
+                 'FaceRig jdh:john_father: bones=', 'FaceRig echo_content_player:player/base: bones=',
+                 'Echo Animation face_poses: jdh:john_father/neutral',
+                 'jdh:shared/blink rig=jdh:john_father', 'jdh:face_test/full_face_hold rig=jdh:john_father',
+                 'jdh:face_test/look_left',
+                 'jdh:face_test_full_face_hold rig=jdh:john_father',
+                 'jdh:face_test_blink_closed rig=jdh:john_father', 'Echo Animation body_rigs: jdh:humanoid',
+                 'jdh:wave', 'jdh:knee_bend', 'jdh:look_around_once',
+                 'Echo Animation profiles: jdh:standard_humanoid rig=jdh:humanoid graph=jdh:humanoid',
+                 'Echo NPC Animation: bindings=1', 'Echo NPC Animation bindings: jdh:john_father_standard_humanoid',
+                 'Echo Animation diagnostics: none'])
+        verifyLogClean(logFile, 'runProductionStoryPackSmokeServer')
+        copyRuntimeLog(runDir, 'production-story-pack-smoke-latest.log')
+        println "runProductionStoryPackSmokeServer: OK ${runDir.canonicalPath}"
+    }
+}
+
+tasks.register('runAcceptanceStoryPackServer') {
+    group = 'verification'
+    description = 'Runs isolated Forge server with acceptance content and accepted/refused auto scenarios.'
+    dependsOn tasks.named('stageAcceptanceStoryPack')
+    doLast {
+        File runDir = runtimeServerDir('acceptance-runtime-server')
+        prepareServerRunDir(runDir, layout.buildDirectory.dir('acceptance-story-pack/mods').get().asFile, true)
+        runForgeServer(runDir, 'runAcceptanceStoryPackServer',
+                ['-DechoStoryContentPackAcceptance.autoMode=acceptance'], [], false,
+                ['ESCPC-ACCEPTANCE AUTO_PASS scenarios=accepted,refused'])
+        File logFile = new File(runDir, 'logs/latest.log')
+        verifyLogContains(logFile, 'runAcceptanceStoryPackServer',
+                ['ESCPC-ACCEPTANCE PASS scenario=accepted', 'ESCPC-ACCEPTANCE PASS scenario=refused',
+                 'ESCPC-ACCEPTANCE AUTO_PASS scenarios=accepted,refused'])
+        verifyLogClean(logFile, 'runAcceptanceStoryPackServer')
+        copyRuntimeLog(runDir, 'acceptance-story-pack-server-latest.log')
+        println "runAcceptanceStoryPackServer: OK ${runDir.canonicalPath}"
+    }
+}

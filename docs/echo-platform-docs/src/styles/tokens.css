@@ -1,0 +1,99 @@
+@import "@fontsource-variable/geologica/wght.css";
+@import "@fontsource-variable/golos-text/wght.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
+
+:root {
+  --font-display: "Geologica Variable", "Geologica", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Golos Text Variable", "Golos Text", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", "Cascadia Mono", monospace;
+
+  --text-body: 1.125rem;
+  --text-small: 0.875rem;
+  --text-label: 0.8125rem;
+  --text-code: 0.9375rem;
+  --heading-1: 4.25rem;
+  --heading-2: 2.7rem;
+  --heading-3: 1.75rem;
+
+  --dock-width: 64px;
+  --topbar-height: 56px;
+  --reading-width: 66ch;
+  --stage-width: 1180px;
+  --control-size: 40px;
+
+  --depth-soft: 0 12px 34px rgb(0 0 0 / 18%);
+  --depth-lens: 0 22px 80px rgb(0 0 0 / 34%);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --spring: cubic-bezier(0.18, 0.88, 0.28, 1.15);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: oklch(11.5% 0.018 260);
+  --canvas-raised: oklch(15.5% 0.022 260);
+  --surface: oklch(19% 0.027 260);
+  --surface-strong: oklch(23% 0.033 260);
+
+  --text-primary: oklch(96% 0.012 90);
+  --text-secondary: oklch(75% 0.025 255);
+  --text-tertiary: oklch(59% 0.025 255);
+
+  --line-soft: oklch(29% 0.025 260);
+  --line-strong: oklch(40% 0.04 255);
+
+  --accent-primary: oklch(82% 0.145 195);
+  --accent-secondary: oklch(70% 0.185 275);
+  --accent-warm: oklch(80% 0.155 72);
+
+  --success: oklch(78% 0.155 153);
+  --warning: oklch(82% 0.15 78);
+  --danger: oklch(69% 0.205 25);
+  --info: oklch(76% 0.14 225);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --canvas: oklch(98.5% 0.006 90);
+  --canvas-raised: oklch(96.5% 0.009 250);
+  --surface: oklch(93.5% 0.012 250);
+  --surface-strong: oklch(89% 0.018 250);
+
+  --text-primary: oklch(18% 0.025 260);
+  --text-secondary: oklch(43% 0.03 260);
+  --text-tertiary: oklch(57% 0.025 260);
+
+  --line-soft: oklch(84% 0.018 255);
+  --line-strong: oklch(70% 0.04 255);
+
+  --accent-primary: oklch(57% 0.16 195);
+  --accent-secondary: oklch(55% 0.2 275);
+  --accent-warm: oklch(62% 0.17 55);
+
+  --success: oklch(52% 0.15 153);
+  --warning: oklch(58% 0.16 68);
+  --danger: oklch(55% 0.21 25);
+  --info: oklch(55% 0.15 230);
+}
+
+:root {
+  --bg: var(--canvas);
+  --line: var(--line-soft);
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+  --accent: var(--accent-primary);
+  --accent-2: var(--accent-warm);
+  --focus: var(--accent-primary);
+  --code: var(--text-primary);
+  --code-bg: var(--canvas-raised);
+  --shadow: var(--depth-soft);
+}
+
+@media (max-width: 780px) {
+  :root {
+    --text-body: 1rem;
+    --text-code: 0.875rem;
+    --heading-1: 2.75rem;
+    --heading-2: 2rem;
+    --heading-3: 1.45rem;
+  }
+}

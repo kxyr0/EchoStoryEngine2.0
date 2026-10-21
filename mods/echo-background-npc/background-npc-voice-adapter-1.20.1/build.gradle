@@ -1,0 +1,9 @@
+plugins { id 'net.minecraftforge.gradle' }
+base { archivesName = 'background-npc-voice-adapter-1.20.1' }
+minecraft { mappings channel: mapping_channel, version: mapping_version }
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':background-npc-core')
+    compileOnly "io.github.kxyr0.echovoice:voice-contracts:${echo_voice_version}"
+    compileOnly "io.github.kxyr0.echovoice:voice-forge-api-1.20.1:${echo_voice_version}"
+}

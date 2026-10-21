@@ -1,0 +1,2 @@
+base { archivesName = 'background-npc-contracts' }
+description = 'Public typed contracts for Echo Background NPC.'

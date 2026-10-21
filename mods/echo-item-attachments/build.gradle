@@ -1,0 +1,107 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+allprojects {
+    version = rootProject.version
+    group = rootProject.group
+    repositories {
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    java {
+        toolchain { languageVersion = JavaLanguageVersion.of(17) }
+        withSourcesJar()
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        fileTree(rootDir).matching {
+            include 'item-*/src/main/java/**/*.java'
+            exclude '**/build/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()]++
+            def logical = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logical > 180) violations << "${relative}: ${logical} logical lines; max is 180"
+        }
+        counts.each { path, count ->
+            if (count > 7) violations << "${rootDir.toPath().relativize(path)}: ${count} files; max is 7"
+        }
+        if (!violations.empty) throw new GradleException('Source shape violations:\n' + violations.join('\n'))
+    }
+}
+
+tasks.register('architectureTest') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        ['item-attachments-contracts', 'item-attachments-core'].each { module ->
+            fileTree("${module}/src/main/java").matching { include '**/*.java' }.files.each { file ->
+                def text = file.getText('UTF-8')
+                if (text.contains('net.minecraft') || text.contains('net.minecraftforge')
+                        || text.contains('io.github.kxyr0.echonpc')
+                        || text.contains('io.github.kxyr0.echoanimation')) {
+                    violations << "${file}: platform or optional-mod import in neutral module"
+                }
+            }
+        }
+        if (!violations.empty) throw new GradleException('Architecture violations:\n' + violations.join('\n'))
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        fileTree(rootDir).matching {
+            include '**/*.java', '**/*.gradle', '**/*.properties', '**/*.md', '**/*.toml', '**/*.json', '**/*.mcmeta'
+            exclude '**/build/**', '**/run/**', '**/.gradle/**', '**/.git/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) violations << "${file}:${index + 1}: trailing whitespace"
+                if (line.contains('\t')) violations << "${file}:${index + 1}: tab"
+            }
+            if (!text.empty && !text.endsWith('\n')) violations << "${file}: missing final newline"
+        }
+        if (!violations.empty) throw new GradleException('Whitespace violations:\n' + violations.join('\n'))
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn 'sourceShapeCheck', 'architectureTest', 'checkWhitespace'
+}
+
+tasks.named('assemble') { dependsOn subprojects.collect { "${it.path}:assemble" } }

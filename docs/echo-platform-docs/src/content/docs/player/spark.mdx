@@ -1,0 +1,25 @@
+---
+title: "Искра"
+description: "Current/max, atomic spend и политики изменения maximum."
+section: "Player"
+pageKind: "reference"
+status: "review"
+since: "P1"
+updated: "2026-07-25"
+relatedIds: ["PlayerSpark", "PlayerSparkSnapshot"]
+relatedPages: ["player/profile"]
+sourceRepositories: ["echo-content-player"]
+sourcePaths: ["D:/JDHSeason/mods/echo-content-player/player-core"]
+visualIdentity: "player-spark"
+interactiveModules: ["SparkMutationLab"]
+searchKeywords: ["Искра", "Spark", "SpendSpark", "TrySpendSpark"]
+---
+import { SparkMutationLab } from "../../../components/PlayerProfileLabs";
+
+# Искра
+
+`PlayerSpark` хранит `current` и `maximum`. Инварианты: `0 <= current <= maximum`, `maximum > 0`, `maximum <= 1_000_000`.
+
+<SparkMutationLab client:load />
+
+`SpendSpark` не делает частичного списания. При нехватке значения профиль остаётся прежним и результат операции — `INSUFFICIENT_SPARK`.

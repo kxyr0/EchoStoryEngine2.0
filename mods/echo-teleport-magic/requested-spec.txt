@@ -1,0 +1,4791 @@
+# =====================================================================
+# ETM1 — ECHO TELEPORT MAGIC
+# REFERENCE-ACCURATE WHITE/GOLD TELEPORT EFFECT
+# PLAYER + NPC
+# SEPARATE REPOSITORY + GIT
+# FORGE 1.20.1
+# =====================================================================
+#
+# ЦЕЛЬ:
+#
+# Создать отдельный production repository:
+#
+# D:\JDHSeason\mods\echo-teleport-magic
+#
+# Mod ID:
+#
+# echo_teleport_magic
+#
+# Initial version:
+#
+# 0.1.0
+#
+#
+# Это отдельный Echo-мод,
+# отвечающий за магическую телепортацию
+# Player/NPC/LivingEntity.
+#
+#
+# Главная задача ETM1:
+#
+# ВОСПРОИЗВЕСТИ ЭФФЕКТ ИСЧЕЗНОВЕНИЯ
+# МАКСИМАЛЬНО БЛИЗКО К ПРЕДОСТАВЛЕННОМУ ВИДЕО.
+#
+#
+# Не:
+#
+# "примерно золотая телепортация".
+#
+# Не:
+#
+# "какой-нибудь красивый particle effect".
+#
+#
+# А конкретная визуальная последовательность,
+# описанная ниже по кадрам.
+#
+#
+# =====================================================================
+# 0. REFERENCE ANALYSIS — ЭТО ЯВЛЯЕТСЯ SPEC
+# =====================================================================
+#
+# Reference clip:
+#
+# resolution:
+# 1920x1080
+#
+# frame rate:
+# 60 FPS
+#
+# clip duration:
+# ~7.47 seconds.
+#
+#
+# В исходном ролике:
+#
+# ~3.3 sec:
+#
+# персонаж ещё практически без эффекта.
+#
+#
+# ~3.45–3.55 sec:
+#
+# появляются первые мягкие белые светящиеся сферы.
+#
+# Они:
+#
+# - круглые;
+# - с мягкими краями;
+# - fullbright/emissive;
+# - похожи на bokeh;
+# - не квадратные vanilla particles;
+# - появляются около головы/плеч/тела;
+# - отдельные появляются около ног;
+# - медленно движутся вверх.
+#
+#
+# ~3.6–4.0 sec:
+#
+# количество белых сфер заметно увеличивается.
+#
+# Добавляются:
+#
+# - тёплые золотые;
+# - жёлтые;
+# - оранжевые световые частицы.
+#
+#
+# Сам персонаж начинает выглядеть
+# более ярким и освещённым.
+#
+#
+# ~4.0–4.8 sec:
+#
+# плотность эффекта растёт.
+#
+#
+# Вокруг тела уже одновременно:
+#
+# - большие мягкие белые сферы;
+# - небольшие белые motes;
+# - яркие золотые сферы;
+# - оранжево-жёлтые световые ядра;
+# - мелкие восходящие искры.
+#
+#
+# Большая часть движения:
+#
+# ВВЕРХ
+#
+# с небольшим:
+#
+# - radial drift;
+# - боковым разбросом;
+# - лёгкой случайностью.
+#
+#
+# Это НЕ вращение вокруг персонажа
+# по идеальной спирали.
+#
+#
+# ~4.8–5.2 sec:
+#
+# персонаж сильно пересвечивается.
+#
+#
+# Основной body silhouette
+# становится:
+#
+# WHITE HOT
+# +
+# WARM GOLD.
+#
+#
+# При этом:
+#
+# положение тела НЕ меняется.
+#
+#
+# В reference персонаж сидит.
+#
+# Он:
+#
+# - не взлетает;
+# - не встаёт;
+# - не растягивается;
+# - не распадается на кубики;
+# - не вращается;
+# - не превращается в beam.
+#
+#
+# Эффект накладывается НА ТЕКУЩУЮ ПОЗУ.
+#
+#
+# ~5.25–5.55 sec:
+#
+# CLIMAX.
+#
+#
+# Вокруг персонажа образуется
+# очень яркая локальная:
+#
+# WHITE + GOLD FLASH.
+#
+#
+# Она практически полностью
+# перекрывает силуэт персонажа.
+#
+#
+# Максимально яркая область:
+#
+# центр/торс
+# +
+# нижняя часть тела
+# +
+# область непосредственно вокруг персонажа.
+#
+#
+# Это НЕ full-screen white flash.
+#
+#
+# Это локальная world-space вспышка.
+#
+#
+# Внутри этой вспышки
+# персонаж исчезает.
+#
+#
+# Очень важно:
+#
+# исчезновение НЕ должно
+# быть хорошо видно само по себе.
+#
+#
+# Игрок НЕ должен видеть:
+#
+# alpha 1.0 → 0.0
+#
+# в течение секунды.
+#
+#
+# Вместо этого:
+#
+# ENTITY VISIBLE
+#
+# ↓
+#
+# LIGHT INTENSITY GROWS
+#
+# ↓
+#
+# ENTITY FULLY CONCEALED BY WHITE/GOLD ENERGY
+#
+# ↓
+#
+# TELEPORT / ENTITY REMOVAL FROM SOURCE
+#
+# ↓
+#
+# FLASH CONTINUES
+#
+# ↓
+#
+# FLASH FADES
+#
+#
+# Это принципиальная часть reference.
+#
+#
+# ~5.5–6.2 sec:
+#
+# персонажа уже нет.
+#
+#
+# Но в исходном месте остаются:
+#
+# - яркое бело-золотое ground glow;
+# - крупные золотые сферы;
+# - крупные белые bokeh;
+# - множество мелких белых частиц;
+# - жёлтые/оранжевые остаточные частицы;
+# - вертикально уходящие вверх motes.
+#
+#
+# ~6.2–7.4 sec:
+#
+# residual tail.
+#
+#
+# Количество новых частиц резко уменьшается.
+#
+#
+# Оставшиеся:
+#
+# - продолжают подниматься;
+# - увеличивают/уменьшают scale немного;
+# - теряют alpha;
+# - исчезают постепенно.
+#
+#
+# Ground glow:
+#
+# уменьшается и затухает.
+#
+#
+# Последними остаются:
+#
+# мелкие белые восходящие motes.
+#
+#
+# =====================================================================
+# 1. ЧЕГО В REFERENCE НЕТ
+# =====================================================================
+#
+# НЕ ДОБАВЛЯТЬ:
+#
+# - portal ring;
+# - круг на земле с рунами;
+# - magic glyphs;
+# - purple particles;
+# - blue particles;
+# - lightning;
+# - vertical laser beam;
+# - spinning vortex;
+# - tornado;
+# - Minecraft Enderman particles;
+# - smoke cloud;
+# - black smoke;
+# - block fragments;
+# - pixel dissolve;
+# - voxel dissolve;
+# - screen shake;
+# - chromatic aberration;
+# - giant shockwave ring;
+# - floating runes;
+# - rotating symbols;
+# - arbitrary lens flares;
+# - levitation.
+#
+#
+# Не "улучшать" reference
+# своей фантазией.
+#
+#
+# ЦЕЛЬ:
+#
+# повторить reference.
+#
+#
+# =====================================================================
+# 2. НОРМАЛИЗОВАННЫЙ TIMELINE
+# =====================================================================
+#
+# Для runtime считать:
+#
+# t = 0
+#
+# момент появления
+# первых видимых частиц.
+#
+#
+# Reference departure total:
+#
+# ~4.0 seconds.
+#
+#
+# Default:
+#
+# DEPARTURE_DURATION = 4.0 sec.
+#
+#
+# TELEPORT COMMIT:
+#
+# примерно:
+#
+# t = 1.95 sec.
+#
+#
+# Это соответствует
+# моменту максимального concealment.
+#
+#
+# Не использовать Echo Time HH:mm.
+#
+#
+# Это runtime monotonic duration.
+#
+#
+# =====================================================================
+# 3. PHASE A — PRECHARGE
+# =====================================================================
+#
+# t:
+#
+# 0.00 → 0.30 sec
+#
+#
+# Поведение:
+#
+# появляются первые:
+#
+# WHITE SOFT ORBS.
+#
+#
+# Их пока мало.
+#
+#
+# Spawn areas:
+#
+# - around shoulders;
+# - around head;
+# - around torso;
+# - several near feet.
+#
+#
+# Alpha:
+#
+# мягкий.
+#
+#
+# Body glow:
+#
+# почти отсутствует.
+#
+#
+# Ground glow:
+#
+# практически отсутствует.
+#
+#
+# =====================================================================
+# 4. PHASE B — BUILDUP
+# =====================================================================
+#
+# t:
+#
+# 0.30 → 1.20 sec.
+#
+#
+# Увеличиваются:
+#
+# white orb emission;
+# white mote emission;
+# gold orb emission.
+#
+#
+# Body glow:
+#
+# примерно:
+#
+# 0 → 45–55%.
+#
+#
+# Появляется:
+#
+# лёгкий golden illumination
+# вокруг silhouette.
+#
+#
+# Большинство particles:
+#
+# движутся вверх.
+#
+#
+# =====================================================================
+# 5. PHASE C — SURGE
+# =====================================================================
+#
+# t:
+#
+# 1.20 → 1.75 sec.
+#
+#
+# Particle density
+# растёт существенно быстрее.
+#
+#
+# Body:
+#
+# становится очень ярким.
+#
+#
+# Добавить:
+#
+# - white core glow;
+# - golden edge glow;
+# - orange/gold orbs;
+# - upward particle plume;
+# - foot/ground energy.
+#
+#
+# Body pose:
+#
+# remains unchanged.
+#
+#
+# =====================================================================
+# 6. PHASE D — CONCEALMENT / FLASH
+# =====================================================================
+#
+# t:
+#
+# 1.75 → 2.15 sec.
+#
+#
+# Максимально важная фаза.
+#
+#
+# Создать локальную:
+#
+# WHITE-HOT ENERGY CORE.
+#
+#
+# Вокруг неё:
+#
+# warm yellow/gold halo.
+#
+#
+# Центральная яркость
+# должна визуально saturate изображение.
+#
+#
+# ENTITY полностью скрывается
+# внутри света примерно:
+#
+# 1.85 → 2.10 sec.
+#
+#
+# TELEPORT_COMMIT:
+#
+# target:
+#
+# t ≈ 1.95 sec.
+#
+#
+# В этот момент:
+#
+# source entity уже практически невозможно
+# визуально различить.
+#
+#
+# Поэтому физический teleport
+# остаётся незаметным.
+#
+#
+# =====================================================================
+# 7. PHASE E — AFTERBURST
+# =====================================================================
+#
+# t:
+#
+# 2.15 → 2.80 sec.
+#
+#
+# Entity:
+#
+# source position absent.
+#
+#
+# Effect:
+#
+# остаётся очень ярким.
+#
+#
+# Ground glow:
+#
+# сильный.
+#
+#
+# White + gold orbs:
+#
+# продолжают вылетать вверх/в стороны.
+#
+#
+# Но emission уже постепенно уменьшается.
+#
+#
+# =====================================================================
+# 8. PHASE F — RESIDUAL
+# =====================================================================
+#
+# t:
+#
+# 2.80 → 4.00 sec.
+#
+#
+# Новых частиц мало.
+#
+#
+# Existing particles:
+#
+# - rise;
+# - drift;
+# - fade;
+# - scale subtly.
+#
+#
+# Ground glow:
+#
+# 1 → 0.
+#
+#
+# Gold particles:
+#
+# уходят раньше.
+#
+#
+# White motes:
+#
+# остаются дольше всего.
+#
+#
+# At ~4.0 sec:
+#
+# effect fully finished.
+#
+#
+# =====================================================================
+# 9. SOURCE SHAPE — ЖЁСТКИЕ ЛИМИТЫ
+# =====================================================================
+#
+# Наши project-wide лимиты
+# ОБЯЗАТЕЛЬНЫ.
+#
+#
+# Production Java:
+#
+# target:
+# 40–90 logical LOC/file.
+#
+#
+# Mandatory SRP review:
+#
+# >100 logical LOC.
+#
+#
+# HARD MAX:
+#
+# 180 logical LOC/file.
+#
+#
+# Methods:
+#
+# обычно:
+# 5–20 LOC.
+#
+#
+# Review:
+#
+# >30 LOC.
+#
+#
+# Leaf production Java package:
+#
+# HARD MAX:
+#
+# 7 `.java` files.
+#
+#
+# Production EchoScript:
+#
+# HARD MAX:
+#
+# 180 logical LOC/file.
+#
+#
+# Leaf EchoScript folder:
+#
+# HARD MAX:
+#
+# 7 `.es`.
+#
+#
+# Existing sourceShapeCheck
+# должен быть использован.
+#
+#
+# Если shared checker существует:
+#
+# использовать его.
+#
+#
+# НЕ создавать параллельный checker.
+#
+#
+# Build FAIL:
+#
+# если hard limit нарушен.
+#
+#
+# Запрещено fake splitting:
+#
+# part1
+# part2
+# more
+# misc
+# helpers2
+# utils2
+# rendering2
+# particles2
+# internal2
+# impl2
+#
+#
+# =====================================================================
+# 10. SOLID / SRP
+# =====================================================================
+#
+# НЕ создавать:
+#
+# TeleportMagicManager.java
+#
+# на 700 строк.
+#
+#
+# Не:
+#
+# TeleportUtils.
+#
+# Не:
+#
+# TeleportHelper.
+#
+#
+# Разделить реальные responsibilities.
+#
+#
+# Возможные responsibilities:
+#
+# TeleportExecution
+# TeleportTimeline
+# TeleportSubject
+# TeleportDestination
+# TeleportCoordinator
+# TeleportVisualState
+# TeleportParticleField
+# TeleportParticleRenderer
+# TeleportEntityGlowRenderer
+# TeleportGroundGlowRenderer
+# TeleportNetworkProtocol
+#
+#
+# Названия адаптировать
+# по существующему project style.
+#
+#
+# Не interface-per-class.
+#
+#
+# =====================================================================
+# 11. GIT — СРАЗУ
+# =====================================================================
+#
+# Создать:
+#
+# D:\JDHSeason\mods\echo-teleport-magic
+#
+#
+# Затем:
+#
+# cd D:\JDHSeason\mods\echo-teleport-magic
+#
+# git init -b main
+#
+#
+# Проверить:
+#
+# .git
+#
+# существует.
+#
+#
+# НЕ делать submodule.
+#
+#
+# НЕ изменять parent Git history.
+#
+#
+# =====================================================================
+# 12. .gitignore
+# =====================================================================
+#
+# Сначала посмотреть
+# актуальные соседние Echo repos.
+#
+#
+# Минимум:
+#
+# .gradle/
+# build/
+# out/
+# run/
+# logs/
+# *.log
+# .idea/
+# *.iml
+# .vscode/
+# bin/
+# generated/
+# local.properties
+#
+#
+# После scaffold:
+#
+# git add .
+#
+# git commit -m "chore: initialize echo-teleport-magic"
+#
+#
+# После полной реализации:
+#
+# git add .
+#
+# git commit -m "feat: add reference golden teleport effect"
+#
+#
+# Если user.name/user.email отсутствуют:
+#
+# НЕ менять global git config.
+#
+#
+# Report:
+#
+# GIT_COMMIT_BLOCKED_IDENTITY.
+#
+#
+# =====================================================================
+# 13. СНАЧАЛА AUDIT JDH
+# =====================================================================
+#
+# Перед архитектурой изучить:
+#
+# D:\JDHSeason\mods
+#
+#
+# Особенно:
+#
+# echo-effects
+# echo-animation
+# echo-npc
+# echo-player-actor
+# echo-scene
+# echo-story
+# echo-script
+# echo-trigger
+# echo-events
+# echo-content-doctor
+# echo-seating
+# echo-navigation
+# echo-time
+#
+#
+# Если каких-то repo реально нет:
+#
+# не выдумывать.
+#
+#
+# Найти реальные:
+#
+# - LivingEntity/NPC renderer;
+# - Player actor contract;
+# - actor identifiers;
+# - Scene command registry;
+# - typed Location system;
+# - networking conventions;
+# - execution IDs;
+# - provenance;
+# - owner scopes;
+# - event layer;
+# - effect rendering helpers;
+# - shader/render utilities;
+# - reload conventions;
+# - sourceShapeCheck;
+# - deployment conventions.
+#
+#
+# =====================================================================
+# 14. НЕ ДУБЛИРОВАТЬ ECHO-EFFECTS
+# =====================================================================
+#
+# Если echo-effects уже содержит:
+#
+# - common additive render helpers;
+# - particles;
+# - screen effects;
+# - effect lifecycle;
+# - shader utilities;
+#
+# использовать public reusable API.
+#
+#
+# Но:
+#
+# echo-teleport-magic
+#
+# остаётся отдельным domain module.
+#
+#
+# Teleport-specific timeline
+# не помещать внутрь generic echo-effects.
+#
+#
+# =====================================================================
+# 15. REPOSITORY STRUCTURE
+# =====================================================================
+#
+# Не создавать 12 Gradle modules.
+#
+#
+# Следовать существующему Echo pattern.
+#
+#
+# Предпочтительно минимум:
+#
+# echo-teleport-magic/
+#
+# ├── teleport-magic-core/
+# ├── teleport-magic-forge-1.20.1/
+# ├── teleport-magic-testmod-1.20.1/
+# ├── docs/
+# └── ...
+#
+#
+# Но только если
+# это соответствует соседним repos.
+#
+#
+# Один production mod:
+#
+# echo_teleport_magic.
+#
+#
+# =====================================================================
+# 16. PLAYER + NPC
+# =====================================================================
+#
+# Effect обязан работать:
+#
+# 1. ServerPlayer.
+# 2. Echo NPC.
+#
+#
+# Где возможно:
+#
+# generic supported LivingEntity.
+#
+#
+# Нельзя написать effect,
+# который работает только на PlayerRenderer.
+#
+#
+# =====================================================================
+# 17. CURRENT POSE MUST BE PRESERVED
+# =====================================================================
+#
+# Очень важно из reference.
+#
+#
+# Subject может:
+#
+# - стоять;
+# - сидеть;
+# - быть в custom animation pose;
+# - смотреть в сторону;
+# - держать предмет.
+#
+#
+# Во время buildup:
+#
+# НЕ менять pose.
+#
+#
+# Effect оборачивает
+# СУЩЕСТВУЮЩУЮ pose.
+#
+#
+# =====================================================================
+# 18. SEATED NPC
+# =====================================================================
+#
+# Reference показывает
+# сидящего персонажа.
+#
+#
+# Поэтому teleport
+# должен корректно работать
+# с seated subject.
+#
+#
+# Во время:
+#
+# PRECHARGE
+# BUILDUP
+# SURGE
+#
+# NPC остаётся визуально сидеть.
+#
+#
+# Не заставлять его вставать
+# перед эффектом.
+#
+#
+# =====================================================================
+# 19. SEAT RELEASE
+# =====================================================================
+#
+# Если subject находится
+# на seat/riding anchor:
+#
+# до concealment
+# НЕ dismount.
+#
+#
+# В момент:
+#
+# TELEPORT_COMMIT
+#
+# когда персонаж полностью скрыт flash:
+#
+# безопасно release/dismount
+# через существующий echo-seating API,
+# если такой public API существует.
+#
+#
+# Не лазить
+# в private seating internals.
+#
+#
+# Destination default:
+#
+# standing,
+# если caller отдельно
+# не посадит персонажа.
+#
+#
+# =====================================================================
+# 20. TELEPORT SEMANTICS
+# =====================================================================
+#
+# Server authoritative.
+#
+#
+# High-level:
+#
+# PREPARE
+# ↓
+# DEPARTURE
+# ↓
+# CONCEALED
+# ↓
+# COMMIT
+# ↓
+# ARRIVAL
+# ↓
+# RESIDUAL
+# ↓
+# COMPLETED
+#
+#
+# =====================================================================
+# 21. PREPARE
+# =====================================================================
+#
+# До начала видимого эффекта:
+#
+# - resolve subject;
+# - resolve destination;
+# - validate dimension;
+# - validate target;
+# - ensure destination chunk/server region ready;
+# - validate subject still teleportable.
+#
+#
+# Если target invalid:
+#
+# НЕ начинать beautiful effect,
+# а потом внезапно fail
+# на максимальном flash.
+#
+#
+# Fail before visual start.
+#
+#
+# =====================================================================
+# 22. DESTINATION CHUNK
+# =====================================================================
+#
+# Для same-dimension teleport:
+#
+# destination server chunk
+# должен быть loaded/prepared
+# перед visible timeline.
+#
+#
+# Использовать правильный
+# Forge/Minecraft 1.20.1 API
+# после audit.
+#
+#
+# Не угадывать mappings.
+#
+#
+# =====================================================================
+# 23. WORLD STREAMING НЕ ДЕЛАТЬ
+# =====================================================================
+#
+# НЕ реализовывать
+# весь future seamless world streaming
+# внутри этого mod.
+#
+#
+# echo-teleport-magic:
+#
+# только teleport + VFX.
+#
+#
+# Если существует
+# public destination preparation API:
+#
+# использовать adapter.
+#
+#
+# Иначе:
+#
+# обычная safe chunk preparation.
+#
+#
+# =====================================================================
+# 24. TELEPORT COMMIT
+# =====================================================================
+#
+# В default reference timeline:
+#
+# t ≈ 1.95 sec.
+#
+#
+# Сервер:
+#
+# переносит subject.
+#
+#
+# Клиент:
+#
+# source entity уже скрыт
+# локальной вспышкой.
+#
+#
+# Нельзя teleport subject
+# в t=0
+# и затем рисовать fake entity
+# четыре секунды,
+# если это ломает gameplay semantics.
+#
+#
+# Нельзя teleport
+# слишком поздно,
+# когда source flash уже исчез.
+#
+#
+# =====================================================================
+# 25. SOURCE VISUAL ANCHOR
+# =====================================================================
+#
+# После физического teleport
+# source VFX обязан продолжить tail
+# на СТАРОЙ позиции.
+#
+#
+# Поэтому:
+#
+# source effect position
+# НЕ должен просто следовать
+# за Entity после commit.
+#
+#
+# На start:
+#
+# capture immutable:
+#
+# source position
+# source yaw
+# subject bounds/scale
+# initial pose visual context
+# effect seed.
+#
+#
+# При commit:
+#
+# source particle anchor
+# остаётся на source.
+#
+#
+# =====================================================================
+# 26. ARRIVAL
+# =====================================================================
+#
+# Reference показывает departure,
+# а не arrival.
+#
+#
+# Поэтому:
+#
+# DEPARTURE
+# должен соответствовать reference.
+#
+#
+# Arrival:
+#
+# сделать эстетически согласованным
+# counterpart.
+#
+#
+# Не утверждать,
+# что arrival "в точности из видео".
+#
+#
+# =====================================================================
+# 27. ARRIVAL DEFAULT
+# =====================================================================
+#
+# Destination:
+#
+# сначала:
+#
+# white/gold residual particles
+# +
+# concentrated golden light.
+#
+#
+# Затем:
+#
+# local flash.
+#
+#
+# На peak:
+#
+# entity становится visible.
+#
+#
+# После:
+#
+# glow/particles fade.
+#
+#
+# То есть:
+#
+# MATERIALIZATION,
+#
+# а не просто:
+#
+# instant entity pop.
+#
+#
+# =====================================================================
+# 28. VANISH API
+# =====================================================================
+#
+# Полезно поддержать:
+#
+# TeleportMagic.Vanish(subject)
+#
+#
+# Это:
+#
+# reference departure
+# без destination arrival.
+#
+#
+# После commit:
+#
+# конкретное gameplay действие
+# должно быть explicit:
+#
+# despawn/hide/remove
+#
+# согласно existing actor lifecycle.
+#
+#
+# Не silently kill entity.
+#
+#
+# Если clean gameplay semantics
+# для Vanish нет:
+#
+# оставить visual-only preview
+# и не подделывать lifecycle.
+#
+#
+# =====================================================================
+# 29. APPEAR API
+# =====================================================================
+#
+# Поддержать:
+#
+# TeleportMagic.Appear(subject)
+#
+#
+# Для NPC materialization/spawn scene,
+# если existing NPC lifecycle
+# позволяет clean integration.
+#
+#
+# =====================================================================
+# 30. NORMAL TELEPORT API
+# =====================================================================
+#
+# Основной сценарный API:
+#
+# conceptually:
+#
+# TeleportMagic.To(
+#     Nolan,
+#     ChemistryDoor
+# );
+#
+#
+# Player:
+#
+# TeleportMagic.To(
+#     Player,
+#     ForestArrival
+# );
+#
+#
+# Exact parser-valid syntax
+# выбрать после audit ES2.
+#
+#
+# =====================================================================
+# 31. НЕ RAW XYZ В ОСНОВНОМ DSL
+# =====================================================================
+#
+# Canonical:
+#
+# typed existing Location.
+#
+#
+# Не заставлять сценариста писать:
+#
+# TeleportMagic.To(
+#     Nolan,
+#     200000,
+#     71,
+#     300000
+# );
+#
+#
+# Raw coordinate overload
+# допустим только debug/escape hatch,
+# если такой pattern уже есть.
+#
+#
+# =====================================================================
+# 32. WORLDSPACE COMPATIBILITY
+# =====================================================================
+#
+# Если к моменту реализации
+# существует canonical WorldSpace/Location system:
+#
+# использовать её.
+#
+#
+# Teleport Magic
+# не должен знать,
+# что local location физически:
+#
+# +200000 X.
+#
+#
+# Он получает resolved destination
+# через public API.
+#
+#
+# =====================================================================
+# 33. SCENE COMMAND SEMANTICS
+# =====================================================================
+#
+# TeleportMagic.To(...)
+#
+# как Scene command
+# по умолчанию:
+#
+# DURABLE_BLOCKING.
+#
+#
+# Scene продолжает выполнение,
+# когда:
+#
+# teleport commit успешен
+# +
+# required arrival/reference VFX lifecycle
+# достиг завершения.
+#
+#
+# =====================================================================
+# 34. НЕ GENERIC ACTION
+# =====================================================================
+#
+# Не:
+#
+# Action(
+#     "teleport_magic",
+#     ...
+# );
+#
+#
+# Не:
+#
+# ExecuteAction(...)
+#
+#
+# Typed command.
+#
+#
+# =====================================================================
+# 35. PLAYBACK / EXECUTION ID
+# =====================================================================
+#
+# Нужен typed:
+#
+# TeleportExecutionId.
+#
+#
+# Resource/profile ID
+# != execution ID.
+#
+#
+# Два одновременных teleport
+# не конфликтуют.
+#
+#
+# =====================================================================
+# 36. IMMUTABLE EXECUTION
+# =====================================================================
+#
+# Teleport execution хранит минимум:
+#
+# execution ID
+# subject ID
+# source position
+# destination
+# server start tick
+# visual seed
+# phase
+# commit state
+# owner/root execution
+# definition/profile revision.
+#
+#
+# =====================================================================
+# 37. DETERMINISTIC VISUAL SEED
+# =====================================================================
+#
+# Server создаёт:
+#
+# deterministic random seed
+# per TeleportExecution.
+#
+#
+# Client uses it
+# для particle generation.
+#
+#
+# Не отправлять:
+#
+# 100 network packets
+# на 100 particles.
+#
+#
+# =====================================================================
+# 38. NETWORK MODEL
+# =====================================================================
+#
+# Packet/event:
+#
+# TELEPORT_VISUAL_START
+#
+# содержит:
+#
+# execution ID
+# subject identity
+# source position
+# start tick
+# seed
+# visual profile version
+# expected commit time.
+#
+#
+# Client:
+#
+# локально воспроизводит timeline.
+#
+#
+# =====================================================================
+# 39. NO PARTICLE NETWORK SPAM
+# =====================================================================
+#
+# Запрещено:
+#
+# server each tick
+# →
+# spawn particle packet × 50.
+#
+#
+# Network:
+#
+# start
+# commit/state correction if required
+# cancel
+# complete if required.
+#
+#
+# Particle simulation:
+#
+# client-side.
+#
+#
+# =====================================================================
+# 40. VISUAL CLOCK
+# =====================================================================
+#
+# Visual progression:
+#
+# deterministic elapsed time.
+#
+#
+# Не зависит от FPS.
+#
+#
+# 30 FPS
+# 60 FPS
+# 120 FPS
+# 200 FPS
+#
+# должны давать
+# одинаковую timeline duration.
+#
+#
+# =====================================================================
+# 41. TICK VS FRAME
+# =====================================================================
+#
+# Gameplay commit:
+#
+# server tick.
+#
+#
+# Visual interpolation:
+#
+# render partial tick / time.
+#
+#
+# Поэтому:
+#
+# particles двигаются плавно
+# даже при 20 TPS simulation.
+#
+#
+# =====================================================================
+# 42. WHITE SOFT ORBS
+# =====================================================================
+#
+# Главный particle class.
+#
+#
+# Внешний вид:
+#
+# идеально/почти круглый billboard.
+#
+#
+# Texture:
+#
+# radial alpha gradient.
+#
+#
+# Center:
+#
+# white.
+#
+#
+# Edge:
+#
+# smoothly transparent.
+#
+#
+# NO hard pixel square.
+#
+#
+# =====================================================================
+# 43. WHITE ORB SIZE
+# =====================================================================
+#
+# Должны быть:
+#
+# разные размеры.
+#
+#
+# Reference имеет:
+#
+# - маленькие motes;
+# - средние soft circles;
+# - очень крупные foreground/background bokeh.
+#
+#
+# Не делать все particles
+# одинакового размера.
+#
+#
+# =====================================================================
+# 44. WHITE ORB MOVEMENT
+# =====================================================================
+#
+# Dominant velocity:
+#
+# UP.
+#
+#
+# Дополнительно:
+#
+# small radial velocity
+# +
+# low-frequency horizontal drift.
+#
+#
+# Не Brownian chaos.
+#
+#
+# Не spiral.
+#
+#
+# =====================================================================
+# 45. GOLD ORBS
+# =====================================================================
+#
+# Golden particles:
+#
+# должны иметь:
+#
+# bright yellow/white core
+# +
+# warm gold/orange halo.
+#
+#
+# Цветовая область:
+#
+# white
+# → pale yellow
+# → saturated gold
+# → warm orange edge.
+#
+#
+# Не уходить:
+#
+# в красный
+# или коричневый.
+#
+#
+# =====================================================================
+# 46. GOLD ORB BLOOM WITHOUT SHADERS
+# =====================================================================
+#
+# Effect должен оставаться красивым
+# БЕЗ shaderpack.
+#
+#
+# Не полагаться исключительно
+# на external bloom.
+#
+#
+# Для крупных energy orb
+# допустимо рисовать:
+#
+# 1. small bright core;
+# 2. medium gold layer;
+# 3. large low-alpha halo.
+#
+#
+# Additive composition
+# создаёт bloom-like appearance.
+#
+#
+# =====================================================================
+# 47. SHADERPACK COMPATIBILITY
+# =====================================================================
+#
+# Если Oculus/Iris-compatible shaderpack
+# даёт bloom:
+#
+# effect naturally становится ярче.
+#
+#
+# Но:
+#
+# НЕ делать hard dependency
+# на конкретный shader.
+#
+#
+# НЕ patch shaderpack files.
+#
+#
+# =====================================================================
+# 48. RENDER BLEND
+# =====================================================================
+#
+# Использовать Minecraft/Forge rendering APIs
+# после реального audit.
+#
+#
+# Для emissive energy:
+#
+# additive или соответствующий
+# controlled blend.
+#
+#
+# Render state ОБЯЗАТЕЛЬНО restore.
+#
+#
+# Не оставлять:
+#
+# depthMask(false)
+# blend enabled
+# custom shader
+#
+# после render pass.
+#
+#
+# =====================================================================
+# 49. DEPTH
+# =====================================================================
+#
+# World particles:
+#
+# должны иметь правильную
+# world-space depth semantics.
+#
+#
+# Не должны светиться
+# через три стены.
+#
+#
+# Depth test:
+#
+# использовать.
+#
+#
+# Depth write:
+#
+# определить по particle type.
+#
+#
+# =====================================================================
+# 50. FULLBRIGHT
+# =====================================================================
+#
+# Energy particles:
+#
+# fullbright/emissive.
+#
+#
+# Они не должны
+# становиться чёрными ночью.
+#
+#
+# =====================================================================
+# 51. ENTITY GLOW — ОБЯЗАТЕЛЕН
+# =====================================================================
+#
+# Reference:
+#
+# светится не только воздух.
+#
+#
+# САМ ПЕРСОНАЖ
+# становится всё более:
+#
+# white/gold overexposed.
+#
+#
+# Это обязательно повторить.
+#
+#
+# =====================================================================
+# 52. ENTITY GLOW IMPLEMENTATION
+# =====================================================================
+#
+# Сначала audit actual:
+#
+# Player renderer
+# Echo NPC renderer
+# animation/model pipeline.
+#
+#
+# Реализовать clean
+# emissive overlay pass.
+#
+#
+# Цель:
+#
+# render current entity pose
+# повторно/через appropriate visual adapter
+# с:
+#
+# fullbright
+# white/gold tint
+# additive/translucent emission.
+#
+#
+# НЕ менять permanent texture.
+#
+#
+# НЕ менять skin.
+#
+#
+# НЕ менять material resource.
+#
+#
+# =====================================================================
+# 53. GLOW MUST FOLLOW CURRENT ANIMATION
+# =====================================================================
+#
+# Если NPC:
+#
+# сидит,
+# двигает рукой,
+# имеет facial pose,
+#
+# glow silhouette
+# должна использовать
+# ЭТУ ЖЕ текущую pose.
+#
+#
+# Не рисовать
+# статический humanoid proxy
+# поверх NPC.
+#
+#
+# =====================================================================
+# 54. PLAYER SKIN
+# =====================================================================
+#
+# Player glow pass
+# должен работать
+# поверх actual player model/skin.
+#
+#
+# Не заменять skin
+# белым PNG.
+#
+#
+# =====================================================================
+# 55. CUSTOM NPC MODEL
+# =====================================================================
+#
+# Если Echo NPC renderer
+# отличается от vanilla:
+#
+# использовать narrow visual adapter
+# через public rendering boundary
+# или добавить минимальный public hook
+# в соответствующий module.
+#
+#
+# Не reflection.
+#
+#
+# =====================================================================
+# 56. ENTITY GLOW CURVE
+# =====================================================================
+#
+# Approx:
+#
+# t 0.0:
+# 0
+#
+# t 0.6:
+# ~0.2
+#
+# t 1.2:
+# ~0.5
+#
+# t 1.6:
+# ~0.8
+#
+# t 1.85:
+# ~1.0
+#
+# t 2.10:
+# entity already gone at source.
+#
+#
+# Use smooth curves.
+#
+#
+# Не linear staircase.
+#
+#
+# =====================================================================
+# 57. BODY MUST NOT FADE EARLY
+# =====================================================================
+#
+# Не делать:
+#
+# entity alpha:
+# 1 → 0
+#
+# с самого начала.
+#
+#
+# До climax:
+#
+# body остаётся solid/visible,
+# только становится ярче.
+#
+#
+# Исчезновение скрывает FLASH.
+#
+#
+# =====================================================================
+# 58. CENTRAL FLASH
+# =====================================================================
+#
+# В climax нужен:
+#
+# локальный bright core.
+#
+#
+# Не одна плоская
+# огромная картинка.
+#
+#
+# Скомбинировать:
+#
+# - multiple soft volumetric-looking billboards;
+# - entity glow;
+# - dense golden particles;
+# - white central glow;
+# - ground energy.
+#
+#
+# =====================================================================
+# 59. CENTRAL FLASH SIZE
+# =====================================================================
+#
+# Scale относительно
+# subject bounding/render size.
+#
+#
+# Не hardcode
+# "2 blocks".
+#
+#
+# Маленький NPC
+# не должен получить
+# гигантский 6-block flash.
+#
+#
+# =====================================================================
+# 60. GROUND GLOW
+# =====================================================================
+#
+# После исчезновения
+# на месте ног
+# остаётся bright residual.
+#
+#
+# Это НЕ:
+#
+# magic circle.
+#
+#
+# Это:
+#
+# irregular/soft light pool.
+#
+#
+# Center:
+#
+# near white.
+#
+#
+# Outer:
+#
+# warm gold.
+#
+#
+# Edge:
+#
+# transparent.
+#
+#
+# =====================================================================
+# 61. GROUND GLOW ORIENTATION
+# =====================================================================
+#
+# Привязан к:
+#
+# source ground/feet plane.
+#
+#
+# Не billboard facing camera
+# как вертикальная картинка.
+#
+#
+# Должен выглядеть
+# как свет на поверхности.
+#
+#
+# =====================================================================
+# 62. NO RUNES
+# =====================================================================
+#
+# Ground glow:
+#
+# НИКАКИХ:
+#
+# runes
+# circles
+# lines
+# symbols.
+#
+#
+# Только organic light.
+#
+#
+# =====================================================================
+# 63. MICRO SPARKS
+# =====================================================================
+#
+# Добавить мелкие:
+#
+# white/gold motes.
+#
+#
+# Они:
+#
+# быстрее крупных orb;
+# живут меньше;
+# поднимаются вверх;
+# дают density.
+#
+#
+# =====================================================================
+# 64. PARTICLE SPAWN VOLUME
+# =====================================================================
+#
+# Основной volume:
+#
+# around current rendered subject bounds.
+#
+#
+# Использовать:
+#
+# subject height
+# width
+# current pose/bounds.
+#
+#
+# Spawn bias:
+#
+# head/torso:
+# white motes.
+#
+# torso/sides:
+# gold orbs.
+#
+# feet:
+# gold/white energy + ground residual.
+#
+#
+# =====================================================================
+# 65. SITTING SUBJECT
+# =====================================================================
+#
+# Не предполагать:
+#
+# subject height всегда 1.8.
+#
+#
+# Reference subject сидит.
+#
+#
+# Particles должны
+# концентрироваться вокруг
+# actual visible body.
+#
+#
+# =====================================================================
+# 66. PARTICLE LIFETIME
+# =====================================================================
+#
+# Использовать variation.
+#
+#
+# Conceptually:
+#
+# large white:
+# ~0.8–1.8 sec.
+#
+# medium white:
+# ~0.6–1.4 sec.
+#
+# gold:
+# ~0.4–1.2 sec.
+#
+# micro:
+# ~0.3–0.9 sec.
+#
+#
+# Exact values tune visually.
+#
+#
+# =====================================================================
+# 67. PARTICLE SCALE CURVE
+# =====================================================================
+#
+# Некоторые bokeh:
+#
+# small
+# →
+# slight grow
+# →
+# fade.
+#
+#
+# Другие:
+#
+# constant scale
+# →
+# fade.
+#
+#
+# Не все частицы
+# используют одинаковый curve.
+#
+#
+# =====================================================================
+# 68. NO RANDOM FLICKER
+# =====================================================================
+#
+# Particle brightness
+# не должна хаотично
+# мигать frame-to-frame.
+#
+#
+# Randomness sampled
+# при spawn.
+#
+#
+# Далее:
+#
+# smooth deterministic curve.
+#
+#
+# =====================================================================
+# 69. EMISSION CURVES
+# =====================================================================
+#
+# Не:
+#
+# if phase == 1: 5 particles
+# if phase == 2: 50 particles
+#
+# с заметными скачками.
+#
+#
+# Использовать smooth:
+#
+# ease-in
+# smoothstep
+# cubic curves.
+#
+#
+# =====================================================================
+# 70. APPROXIMATE EMISSION ENVELOPE
+# =====================================================================
+#
+# Параметры ниже
+# являются STARTING TUNING,
+# а не догмой:
+#
+#
+# 0.0–0.3:
+#
+# white:
+# low
+#
+# gold:
+# very low
+#
+# sparks:
+# almost 0.
+#
+#
+# 0.3–1.2:
+#
+# white:
+# medium rising
+#
+# gold:
+# medium rising
+#
+# sparks:
+# rising.
+#
+#
+# 1.2–1.75:
+#
+# white:
+# high
+#
+# gold:
+# high
+#
+# sparks:
+# high.
+#
+#
+# 1.75–2.15:
+#
+# peak:
+#
+# VERY HIGH
+#
+# but bounded.
+#
+#
+# 2.15–2.8:
+#
+# rapidly falling.
+#
+#
+# 2.8–3.3:
+#
+# low residual spawn.
+#
+#
+# >3.3:
+#
+# preferably no new particles,
+# only existing particles decay.
+#
+#
+# =====================================================================
+# 71. PARTICLE COUNT BUDGET
+# =====================================================================
+#
+# Эффект должен быть плотным,
+# но не создавать
+# тысячи Particle objects/frame.
+#
+#
+# Профилировать.
+#
+#
+# Если vanilla ParticleEngine
+# подходит:
+#
+# использовать.
+#
+#
+# Если нужен custom batched renderer
+# для reference look:
+#
+# сделать отдельный
+# small client-side particle field.
+#
+#
+# Выбрать после benchmark.
+#
+#
+# =====================================================================
+# 72. NO PER-FRAME HEAP STORM
+# =====================================================================
+#
+# Steady render:
+#
+# не создавать:
+#
+# ArrayList
+# ResourceLocation
+# String
+# Random
+# Vector objects
+#
+# десятками/сотнями каждый frame.
+#
+#
+# Precompute/cache.
+#
+#
+# =====================================================================
+# 73. TEXTURE ASSETS
+# =====================================================================
+#
+# Добавить production textures:
+#
+# примерно:
+#
+# textures/effect/soft_orb.png
+# textures/effect/soft_core.png
+# textures/effect/spark.png
+# textures/effect/ground_glow.png
+#
+#
+# Actual layout:
+# project convention.
+#
+#
+# =====================================================================
+# 74. TEXTURE STYLE
+# =====================================================================
+#
+# soft_orb:
+#
+# circular radial alpha;
+# no hard border.
+#
+#
+# soft_core:
+#
+# tighter bright gradient.
+#
+#
+# spark:
+#
+# tiny soft bright point.
+#
+#
+# ground_glow:
+#
+# soft radial/irregular gradient.
+#
+#
+# =====================================================================
+# 75. NO EXTERNAL STOCK VFX
+# =====================================================================
+#
+# Не скачивать
+# random copyrighted particle pack.
+#
+#
+# Эти simple procedural textures
+# можно создать самостоятельно
+# и commit в repository.
+#
+#
+# =====================================================================
+# 76. FIRST PERSON PLAYER
+# =====================================================================
+#
+# Если teleport subject:
+#
+# LOCAL PLAYER
+#
+# и camera first-person,
+#
+# world-space body effect
+# почти невозможно увидеть.
+#
+#
+# Поэтому нужен
+# first-person presentation variant,
+# использующий ТОТ ЖЕ timeline.
+#
+#
+# =====================================================================
+# 77. FIRST PERSON EFFECT
+# =====================================================================
+#
+# НЕ переключать камеру
+# автоматически в third person.
+#
+#
+# Вместо этого:
+#
+# PRECHARGE:
+#
+# несколько white/gold motes
+# в периферии.
+#
+#
+# BUILDUP:
+#
+# увеличивается warm bloom.
+#
+#
+# CLIMAX:
+#
+# короткая controlled
+# white/gold exposure/flash.
+#
+#
+# COMMIT:
+#
+# teleport происходит внутри peak.
+#
+#
+# ARRIVAL:
+#
+# flash/motes fade.
+#
+#
+# =====================================================================
+# 78. FIRST PERSON FLASH
+# =====================================================================
+#
+# Не держать экран
+# полностью белым секунду.
+#
+#
+# Peak:
+#
+# короткий.
+#
+#
+# Reference world flash
+# остаётся локальной,
+# но поскольку camera находится
+# внутри subject,
+# first-person adaptation
+# естественно занимает больше screen.
+#
+#
+# =====================================================================
+# 79. THIRD PERSON PLAYER
+# =====================================================================
+#
+# Third person:
+#
+# использовать тот же
+# world-space entity effect,
+# что и для NPC.
+#
+#
+# =====================================================================
+# 80. OTHER PLAYERS SEE EFFECT
+# =====================================================================
+#
+# Multiplayer:
+#
+# tracking clients
+# должны видеть teleport
+# другого Player/NPC.
+#
+#
+# Не только teleporting player.
+#
+#
+# =====================================================================
+# 81. CAMERA OWNERSHIP
+# =====================================================================
+#
+# echo-teleport-magic
+# НЕ должен самостоятельно
+# захватывать camera.
+#
+#
+# Не:
+#
+# lock camera
+# force cinematic
+# change FOV permanently.
+#
+#
+# Scene/Cutscene
+# может делать это отдельно.
+#
+#
+# =====================================================================
+# 82. PLAYER INPUT
+# =====================================================================
+#
+# Teleport effect
+# сам по себе
+# не должен создавать
+# второй control lock system.
+#
+#
+# Если Scene уже владеет player control:
+#
+# использовать Scene ownership.
+#
+#
+# Иначе:
+#
+# не блокировать управление
+# без явной необходимости.
+#
+#
+# =====================================================================
+# 83. SUBJECT MOTION DURING BUILDUP
+# =====================================================================
+#
+# Default cinematic command:
+#
+# определить clean policy.
+#
+#
+# Предпочтительно:
+#
+# visual anchor следует за subject
+# ДО concealment.
+#
+#
+# Поэтому если NPC слегка двигается,
+# particles/glow следуют за ним.
+#
+#
+# При COMMIT:
+#
+# source anchor freezes.
+#
+#
+# =====================================================================
+# 84. EFFECT ATTACHMENT BEFORE COMMIT
+# =====================================================================
+#
+# PRECHARGE → SURGE:
+#
+# particle spawn origin
+# следует actual subject transform.
+#
+#
+# Existing particles:
+#
+# остаются в world positions,
+# а не приклеиваются к entity.
+#
+#
+# Это создаёт естественный trail.
+#
+#
+# =====================================================================
+# 85. COMMIT FREEZE
+# =====================================================================
+#
+# На commit:
+#
+# новые source particles
+# используют frozen source anchor.
+#
+#
+# Не перескакивают
+# на destination вместе с entity.
+#
+#
+# =====================================================================
+# 86. ARRIVAL ANCHOR
+# =====================================================================
+#
+# Отдельный:
+#
+# destination anchor.
+#
+#
+# Source residual
+# и destination arrival
+# существуют независимо.
+#
+#
+# =====================================================================
+# 87. SIMULTANEOUS SOURCE + DESTINATION
+# =====================================================================
+#
+# После commit
+# короткое время могут существовать:
+#
+# source residual VFX
+# +
+# destination arrival VFX.
+#
+#
+# Это нормально.
+#
+#
+# Не путать их
+# одной mutable position.
+#
+#
+# =====================================================================
+# 88. SAME-DIMENSION FIRST
+# =====================================================================
+#
+# ETM1 обязан идеально
+# поддерживать:
+#
+# same dimension teleport.
+#
+#
+# Cross-dimension:
+#
+# поддержать только если
+# current Minecraft/Echo architecture
+# позволяет clean lifecycle
+# без огромного отдельного scope.
+#
+#
+# Не обещать seamless cross-dimension
+# без доказательства.
+#
+#
+# =====================================================================
+# 89. CROSS-DIMENSION HONESTY
+# =====================================================================
+#
+# Если cross-dimension
+# сохраняет vanilla loading behavior:
+#
+# честно документировать.
+#
+#
+# НЕ называть его seamless.
+#
+#
+# =====================================================================
+# 90. TELEPORT FAIL BEFORE START
+# =====================================================================
+#
+# Destination invalid:
+#
+# TeleportMagic.To
+# fails BEFORE PRECHARGE.
+#
+#
+# No half-played effect.
+#
+#
+# =====================================================================
+# 91. SUBJECT REMOVED MID-EFFECT
+# =====================================================================
+#
+# Subject died/despawned/disconnected
+# before commit:
+#
+# cancel execution safely.
+#
+#
+# Source VFX:
+#
+# may fade quickly.
+#
+#
+# No ghost teleport.
+#
+#
+# =====================================================================
+# 92. PLAYER DISCONNECT
+# =====================================================================
+#
+# Disconnect:
+#
+# cleanup execution.
+#
+#
+# No server-side permanent ticket.
+#
+# No particle/network leaks.
+#
+#
+# =====================================================================
+# 93. CANCELLATION
+# =====================================================================
+#
+# Typed states:
+#
+# CREATED
+# PREPARING
+# DEPARTING
+# CONCEALED
+# COMMITTED
+# ARRIVING
+# RESIDUAL
+# COMPLETED
+# CANCELLED
+# FAILED
+#
+#
+# Не generic boolean:
+#
+# isRunning.
+#
+#
+# =====================================================================
+# 94. AFTER COMMIT CANCELLATION
+# =====================================================================
+#
+# Если failure/cancellation
+# произошёл ПОСЛЕ teleport commit:
+#
+# нельзя автоматически
+# teleport back
+# без explicit transaction semantics.
+#
+#
+# Gameplay commit остаётся committed.
+#
+#
+# Visual:
+#
+# cleanup safely.
+#
+#
+# =====================================================================
+# 95. SCENE RECOVERY
+# =====================================================================
+#
+# Если TeleportMagic.To
+# используется внутри Scene:
+#
+# интегрировать
+# с existing durable Scene command receipts.
+#
+#
+# Не создавать duplicate teleport
+# после crash/recovery.
+#
+#
+# =====================================================================
+# 96. DUPLICATE TELEPORT PROTECTION
+# =====================================================================
+#
+# Crash:
+#
+# teleport COMMITTED
+# →
+# receipt ещё не финализирован
+# →
+# restart.
+#
+#
+# Нельзя teleport entity
+# ещё раз на destination offset.
+#
+#
+# Execution receipt
+# должен различать:
+#
+# BEFORE_COMMIT
+#
+# и:
+#
+# AFTER_COMMIT.
+#
+#
+# =====================================================================
+# 97. VISUAL RECOVERY
+# =====================================================================
+#
+# VFX сама по себе presentation.
+#
+#
+# После process restart
+# не требуется продолжать
+# particle effect
+# с точностью до миллисекунды.
+#
+#
+# Gameplay correctness важнее.
+#
+#
+# Если commit уже произошёл:
+#
+# Scene recovery считает
+# teleport committed
+# по receipt/state.
+#
+#
+# =====================================================================
+# 98. ECHOSCRIPT
+# =====================================================================
+#
+# Интеграция через
+# существующий generic command binder.
+#
+#
+# Не отдельный parser.
+#
+#
+# Desired authoring:
+#
+# TeleportMagic.To(
+#     Nolan,
+#     ChemistryDoor
+# );
+#
+#
+# =====================================================================
+# 99. PLAYER ECHOSCRIPT
+# =====================================================================
+#
+# Desired:
+#
+# TeleportMagic.To(
+#     Player,
+#     RiftExit
+# );
+#
+#
+# Exact Player symbol
+# использовать существующий,
+# не изобретать второй.
+#
+#
+# =====================================================================
+# 100. OPTIONAL EFFECT-ONLY AUTHORING
+# =====================================================================
+#
+# Если чисто ложится в architecture:
+#
+# TeleportMagic.Depart(
+#     Nolan
+# );
+#
+#
+# TeleportMagic.Arrive(
+#     Nolan
+# );
+#
+#
+# Но:
+#
+# основной API:
+#
+# TeleportMagic.To.
+#
+#
+# Не создавать command zoo.
+#
+#
+# =====================================================================
+# 101. NO REQUIRED VISUAL PARAMETERS
+# =====================================================================
+#
+# Сценарист НЕ должен писать:
+#
+# particleCount
+# flashPower
+# goldColor
+# bloomRadius
+# glowIntensity
+#
+# для каждого teleport.
+#
+#
+# Reference profile:
+#
+# default.
+#
+#
+# =====================================================================
+# 102. REFERENCE PROFILE
+# =====================================================================
+#
+# Внутренний canonical profile:
+#
+# echo:golden_reference
+#
+# либо project-style equivalent.
+#
+#
+# Default TeleportMagic.To
+# использует его автоматически.
+#
+#
+# =====================================================================
+# 103. НЕ ДЕЛАТЬ PROFILE DSL В ETM1 БЕЗ НУЖДЫ
+# =====================================================================
+#
+# ETM1 нужен один
+# качественный эффект.
+#
+#
+# Не тратить scope
+# на конструктор 50 VFX profiles.
+#
+#
+# Architecture должна
+# позволять добавить profiles позже.
+#
+#
+# =====================================================================
+# 104. VISUAL PROFILE IMMUTABILITY
+# =====================================================================
+#
+# Runtime execution
+# pin'ит profile revision.
+#
+#
+# Даже если dev hot reload
+# появится позже,
+# running teleport
+# не должен менять curves
+# посередине effect.
+#
+#
+# =====================================================================
+# 105. EVENTS INTEGRATION
+# =====================================================================
+#
+# Сначала проверить:
+#
+# существует ли canonical
+# Echo Event Layer.
+#
+#
+# Если ДА:
+#
+# публиковать typed:
+#
+# TeleportMagic.Started
+# TeleportMagic.Committed
+# TeleportMagic.Completed
+# TeleportMagic.Cancelled
+# TeleportMagic.Failed
+#
+#
+# Только через существующий event API.
+#
+#
+# =====================================================================
+# 106. НЕ СОЗДАВАТЬ PRIVATE EVENT BUS
+# =====================================================================
+#
+# Если echo-events
+# ещё не реализован:
+#
+# НЕ создавать внутри teleport mod:
+#
+# TeleportEventBus.
+#
+#
+# Оставить lifecycle API,
+# пригодный для будущего adapter.
+#
+#
+# =====================================================================
+# 107. EVENT SEMANTICS
+# =====================================================================
+#
+# Started:
+#
+# visible execution accepted/start.
+#
+#
+# Committed:
+#
+# gameplay entity teleport committed.
+#
+#
+# Completed:
+#
+# complete teleport action lifecycle.
+#
+#
+# Cancelled:
+#
+# cancelled before normal completion.
+#
+#
+# Failed:
+#
+# error.
+#
+#
+# Completed != Failed.
+#
+#
+# =====================================================================
+# 108. AUDIO
+# =====================================================================
+#
+# Reference visual implementation
+# НЕ должна зависеть
+# от hardcoded sound.
+#
+#
+# Если canonical Echo Audio system
+# существует:
+#
+# architecture может expose
+# effect markers/events:
+#
+# PRECHARGE
+# BURST
+# COMMIT
+#
+# для Scene/Sound integration.
+#
+#
+# Не создавать
+# второй audio decoder.
+#
+#
+# =====================================================================
+# 109. NO HARDCODED SOUND FILE
+# =====================================================================
+#
+# Не зашивать:
+#
+# teleport.mp3
+#
+# внутрь Java logic.
+#
+#
+# ETM1 focus:
+#
+# visual + teleport semantics.
+#
+#
+# =====================================================================
+# 110. CONTENT DOCTOR
+# =====================================================================
+#
+# Если TeleportMagic
+# используется из `.es`,
+# Echo Content Doctor
+# должен видеть typed command references.
+#
+#
+# Validate:
+#
+# subject symbol
+# destination location
+# incompatible subject
+# unknown location.
+#
+#
+# =====================================================================
+# 111. CONTENT DOCTOR MISSING LOCATION
+# =====================================================================
+#
+# Example:
+#
+# TeleportMagic.To(
+#     Nolan,
+#     ChemstryDoor
+# );
+#
+#
+# Doctor:
+#
+# exact source file/line.
+#
+#
+# Suggest:
+#
+# ChemistryDoor.
+#
+#
+# =====================================================================
+# 112. NO CUSTOM DOCTOR PARSER
+# =====================================================================
+#
+# Использовать реальные
+# parser/binder descriptors.
+#
+#
+# Не regexp scan `.es`.
+#
+#
+# =====================================================================
+# 113. DEBUG COMMANDS
+# =====================================================================
+#
+# Добавить dev commands:
+#
+# /echo_teleport_magic status
+#
+# /echo_teleport_magic preview <entity>
+#
+# /echo_teleport_magic teleport <entity> <destination>
+#
+# /echo_teleport_magic cancel <execution>
+#
+# /echo_teleport_magic debug on
+#
+# /echo_teleport_magic debug off
+#
+#
+# Exact syntax:
+# Brigadier/project convention.
+#
+#
+# =====================================================================
+# 114. PREVIEW
+# =====================================================================
+#
+# Очень важен для визуальной настройки.
+#
+#
+# preview:
+#
+# проигрывает departure reference VFX
+# на target entity,
+#
+# но НЕ TELEPORTS entity.
+#
+#
+# После peak:
+#
+# для preview
+# renderer может временно
+# скрыть только visual representation
+# и затем восстановить,
+#
+# ЛИБО использовать non-destructive
+# preview-specific concealment.
+#
+#
+# Gameplay entity state:
+#
+# unchanged.
+#
+#
+# =====================================================================
+# 115. PREVIEW MUST NOT MUTATE
+# =====================================================================
+#
+# preview:
+#
+# position before = position after.
+#
+# seat before = seat after.
+# health unchanged.
+# inventory unchanged.
+# AI unchanged.
+#
+#
+# =====================================================================
+# 116. DEBUG TIMELINE
+# =====================================================================
+#
+# Debug overlay:
+#
+# execution ID
+# phase
+# elapsed seconds
+# normalized progress
+# commit status
+# source anchor
+# destination
+# particle counts
+# rendered particles
+# entity glow intensity
+# ground glow intensity
+# seed.
+#
+#
+# =====================================================================
+# 117. DEBUG FREEZE
+# =====================================================================
+#
+# Для точной визуальной настройки
+# сделать DEV-ONLY возможность
+# остановить preview timeline
+# на конкретном elapsed time.
+#
+#
+# Например:
+#
+# /echo_teleport_magic debug freeze 1.50
+#
+#
+# или existing debug UI equivalent.
+#
+#
+# Это полезно сравнивать:
+#
+# precharge
+# surge
+# flash
+# residual.
+#
+#
+# Production gameplay
+# это не использует.
+#
+#
+# =====================================================================
+# 118. REFERENCE CHECKPOINTS
+# =====================================================================
+#
+# В debug documentation
+# зафиксировать checkpoints:
+#
+# t=0.00
+# first particles.
+#
+# t=0.30
+# visible buildup.
+#
+# t=0.80
+# medium density.
+#
+# t=1.20
+# strong glow begins.
+#
+# t=1.55
+# subject strongly overexposed.
+#
+# t=1.80
+# concealment begins.
+#
+# t=1.95
+# teleport commit.
+#
+# t=2.10
+# subject absent at source.
+#
+# t=2.40
+# bright afterburst.
+#
+# t=3.00
+# tail.
+#
+# t=3.60
+# sparse particles.
+#
+# t=4.00
+# complete.
+#
+#
+# =====================================================================
+# 119. REFERENCE SCREENSHOT VALIDATION
+# =====================================================================
+#
+# Если live Minecraft можно запускать:
+#
+# сделать deterministic preview:
+#
+# fixed seed
+# stationary seated/standing subject
+# fixed camera.
+#
+#
+# Захватить frames
+# примерно на checkpoints.
+#
+#
+# Проверить визуально:
+#
+# - плотность;
+# - palette;
+# - body glow;
+# - flash timing;
+# - disappearance;
+# - residual.
+#
+#
+# Не claim:
+#
+# REFERENCE_MATCH_PASS
+#
+# без реального запуска/render evidence.
+#
+#
+# =====================================================================
+# 120. RENDER RESOLUTIONS
+# =====================================================================
+#
+# Проверить:
+#
+# 1280x720
+# 1920x1080
+# 2560x1440
+# 3440x1440.
+#
+#
+# World-space effect:
+#
+# не зависит от framebuffer size.
+#
+#
+# =====================================================================
+# 121. FOV
+# =====================================================================
+#
+# Проверить:
+#
+# common FOV ranges.
+#
+#
+# Particle billboard
+# остаются world-space.
+#
+#
+# Не screen-position hardcode.
+#
+#
+# =====================================================================
+# 122. CAMERA DISTANCE
+# =====================================================================
+#
+# Third person / NPC effect
+# должен читаться:
+#
+# близко
+# средне
+# дальше.
+#
+#
+# Не scale particles
+# напрямую по screen pixels.
+#
+#
+# =====================================================================
+# 123. OCCLUSION
+# =====================================================================
+#
+# Если teleport происходит
+# за стеной:
+#
+# particle field
+# не должен магически
+# рисоваться поверх стены.
+#
+#
+# Depth semantics.
+#
+#
+# =====================================================================
+# 124. FRUSTUM
+# =====================================================================
+#
+# Effect полностью вне frustum:
+#
+# не выполнять тяжёлый render.
+#
+#
+# Simulation может продолжаться
+# дешёво,
+# но render cull.
+#
+#
+# =====================================================================
+# 125. DISTANCE CULL
+# =====================================================================
+#
+# Очень далёкие teleport effects
+# могут использовать:
+#
+# lower particle density
+# / simulation LOD.
+#
+#
+# Но визуально рядом
+# reference quality highest.
+#
+#
+# =====================================================================
+# 126. PARTICLE LOD
+# =====================================================================
+#
+# Не менять:
+#
+# timeline
+# commit timing
+# color.
+#
+#
+# Только:
+#
+# density/complexity.
+#
+#
+# =====================================================================
+# 127. FPS PERFORMANCE
+# =====================================================================
+#
+# Reference effect:
+#
+# один subject
+# в foreground.
+#
+#
+# Target:
+#
+# минимальный FPS impact
+# относительно обычного scene rendering.
+#
+#
+# Не ставить выдуманный
+# absolute FPS threshold,
+# зависящий от GPU.
+#
+#
+# Measure:
+#
+# frame CPU cost
+# allocations
+# particle count
+# draw calls.
+#
+#
+# =====================================================================
+# 128. BATCHING
+# =====================================================================
+#
+# Где возможно:
+#
+# white particles
+# одним render type/batch.
+#
+#
+# gold particles
+# минимальное число batches.
+#
+#
+# Не:
+#
+# draw call per orb.
+#
+#
+# =====================================================================
+# 129. GPU STATE
+# =====================================================================
+#
+# No raw OpenGL state abuse
+# без причины.
+#
+#
+# Использовать Minecraft render stack.
+#
+#
+# Forge 1.20.1 APIs:
+#
+# audit first.
+#
+#
+# =====================================================================
+# 130. DEDICATED SERVER
+# =====================================================================
+#
+# Client renderer/textures
+# не должны загружаться
+# на dedicated server.
+#
+#
+# Dedicated server:
+#
+# starts successfully.
+#
+#
+# No:
+#
+# Minecraft client classloading crash.
+#
+#
+# =====================================================================
+# 131. CLIENT DIST BOUNDARY
+# =====================================================================
+#
+# Particle renderer
+# entity glow
+# screen overlay
+#
+# strictly client side.
+#
+#
+# Teleport execution/gameplay:
+#
+# server side.
+#
+#
+# =====================================================================
+# 132. TEST — TIMELINE
+# =====================================================================
+#
+# Start execution.
+#
+#
+# Assert:
+#
+# phase at:
+#
+# 0.1 = PRECHARGE
+# 0.8 = BUILDUP
+# 1.4 = SURGE
+# 1.9 = CONCEALMENT
+# ~1.95 = COMMIT
+# 2.4 = AFTERBURST
+# 3.3 = RESIDUAL
+# >=4.0 = COMPLETE.
+#
+#
+# Exact boundaries
+# according final implementation.
+#
+#
+# =====================================================================
+# 133. TEST — TELEPORT ONCE
+# =====================================================================
+#
+# Player:
+#
+# source A.
+#
+# destination B.
+#
+#
+# TeleportMagic.To.
+#
+#
+# Expected:
+#
+# before commit:
+# A.
+#
+# after commit:
+# B.
+#
+# number of gameplay teleport commits:
+# exactly 1.
+#
+#
+# =====================================================================
+# 134. TEST — NPC
+# =====================================================================
+#
+# Echo NPC:
+#
+# effect starts.
+#
+# current pose preserved.
+#
+# commit once.
+#
+# destination correct.
+#
+#
+# =====================================================================
+# 135. TEST — SEATED NPC
+# =====================================================================
+#
+# NPC seated.
+#
+#
+# Start teleport.
+#
+#
+# Before concealment:
+#
+# seated pose preserved.
+#
+#
+# Commit:
+#
+# seat released safely.
+#
+#
+# Destination:
+#
+# NPC exists.
+#
+#
+# Original seat:
+#
+# not destroyed.
+#
+#
+# No ghost passenger.
+#
+#
+# =====================================================================
+# 136. TEST — SOURCE TAIL
+# =====================================================================
+#
+# Teleport commit.
+#
+#
+# Entity destination:
+# B.
+#
+#
+# Source residual particles:
+# remain at A.
+#
+#
+# They MUST NOT
+# jump to B.
+#
+#
+# =====================================================================
+# 137. TEST — DESTINATION ARRIVAL
+# =====================================================================
+#
+# Destination arrival VFX:
+#
+# anchored at B.
+#
+#
+# Source tail:
+#
+# anchored at A.
+#
+#
+# Independent.
+#
+#
+# =====================================================================
+# 138. TEST — BODY CONCEALMENT
+# =====================================================================
+#
+# At commit:
+#
+# visual concealment intensity
+# above required threshold.
+#
+#
+# The entity should not
+# visibly pop from source
+# before flash.
+#
+#
+# Automated test:
+#
+# validate timeline curves.
+#
+#
+# Final visual:
+#
+# live/manual evidence.
+#
+#
+# =====================================================================
+# 139. TEST — FPS INDEPENDENCE
+# =====================================================================
+#
+# Simulate/render:
+#
+# 30
+# 60
+# 120 FPS timing.
+#
+#
+# Commit elapsed time:
+#
+# same.
+#
+#
+# Completion:
+#
+# same.
+#
+#
+# Particle positions
+# consistent within interpolation policy.
+#
+#
+# =====================================================================
+# 140. TEST — DETERMINISTIC SEED
+# =====================================================================
+#
+# Same:
+#
+# profile
+# seed
+# timeline.
+#
+#
+# Generated particle spawn sequence:
+#
+# deterministic.
+#
+#
+# Different seed:
+#
+# visual variation,
+# same statistical/timing envelope.
+#
+#
+# =====================================================================
+# 141. TEST — CANCEL BEFORE COMMIT
+# =====================================================================
+#
+# Start.
+#
+# Cancel at t=1.0.
+#
+#
+# Subject:
+#
+# remains source.
+#
+#
+# Destination:
+#
+# not committed.
+#
+#
+# VFX:
+#
+# safe fade/cleanup.
+#
+#
+# =====================================================================
+# 142. TEST — FAILURE BEFORE START
+# =====================================================================
+#
+# Invalid destination.
+#
+#
+# Expected:
+#
+# teleport rejected.
+#
+# VFX start count:
+# 0.
+#
+#
+# =====================================================================
+# 143. TEST — CRASH/RECOVERY COMMIT
+# =====================================================================
+#
+# Scene command teleport.
+#
+#
+# Commit succeeds.
+#
+# Simulate crash
+# before final Scene receipt.
+#
+#
+# Restart recovery.
+#
+#
+# Expected:
+#
+# duplicate teleport:
+# 0.
+#
+#
+# Entity remains destination.
+#
+#
+# =====================================================================
+# 144. TEST — MULTIPLE TELEPORTS
+# =====================================================================
+#
+# 5 NPC
+# teleport concurrently.
+#
+#
+# Separate execution IDs.
+#
+# Separate source anchors.
+#
+# Separate seeds.
+#
+# No state collision.
+#
+#
+# =====================================================================
+# 145. TEST — PLAYER + NPC SIMULTANEOUS
+# =====================================================================
+#
+# Player teleport.
+# NPC teleport.
+#
+#
+# Both independent.
+#
+# No global singleton:
+#
+# currentTeleport.
+#
+#
+# =====================================================================
+# 146. TEST — RENDER STATE RESTORE
+# =====================================================================
+#
+# Render teleport.
+#
+#
+# Next normal entity/world rendering:
+#
+# blend/depth/shader/light state
+# normal.
+#
+#
+# =====================================================================
+# 147. TEST — NO SHADERPACK
+# =====================================================================
+#
+# Vanilla/normal renderer:
+#
+# effect still has:
+#
+# soft white glow
+# golden halo
+# bright climax
+# residual.
+#
+#
+# =====================================================================
+# 148. TEST — SHADER COMPATIBILITY
+# =====================================================================
+#
+# Если current Prism instance
+# использует shader rendering:
+#
+# smoke-test.
+#
+#
+# No:
+#
+# black quads
+# missing particles
+# broken depth
+# permanently overexposed screen.
+#
+#
+# =====================================================================
+# 149. TEST — FIRST PERSON
+# =====================================================================
+#
+# Local Player,
+# first-person.
+#
+#
+# Start teleport.
+#
+#
+# Expected:
+#
+# precharge visible
+# buildup visible
+# commit masked
+# destination arrives
+# overlay fully clears.
+#
+#
+# No stuck white screen.
+#
+#
+# =====================================================================
+# 150. TEST — THIRD PERSON
+# =====================================================================
+#
+# Local Player,
+# third-person.
+#
+#
+# Full world-space
+# entity effect visible.
+#
+#
+# =====================================================================
+# 151. TEST — PREVIEW
+# =====================================================================
+#
+# `/echo_teleport_magic preview`
+#
+# effect plays.
+#
+#
+# Gameplay position:
+# unchanged.
+#
+# health:
+# unchanged.
+#
+# inventory:
+# unchanged.
+#
+# riding state:
+# unchanged.
+#
+#
+# =====================================================================
+# 152. TEST — SERVER CLASSLOADING
+# =====================================================================
+#
+# Dedicated server:
+#
+# startup PASS.
+#
+#
+# Renderer client classes:
+#
+# not loaded.
+#
+#
+# =====================================================================
+# 153. TEST — SOURCE SHAPE
+# =====================================================================
+#
+# Java >180 logical LOC:
+#
+# 0.
+#
+#
+# Leaf packages >7:
+#
+# 0.
+#
+#
+# Methods >30:
+#
+# reviewed.
+#
+#
+# Production ES >180:
+#
+# 0.
+#
+#
+# =====================================================================
+# 154. TESTMOD
+# =====================================================================
+#
+# Создать минимальный
+# development/test setup.
+#
+#
+# Он должен позволять:
+#
+# spawn/use real subject
+# preview departure
+# teleport target
+# repeat rapidly.
+#
+#
+# Не добавлять test content
+# в production story.
+#
+#
+# =====================================================================
+# 155. DOCUMENTATION
+# =====================================================================
+#
+# Не documentation farm.
+#
+#
+# Максимум:
+#
+# docs/architecture/TELEPORT_MAGIC.md
+#
+# docs/runtime/TELEPORT_MAGIC_DSL.md
+#
+#
+# =====================================================================
+# 156. TELEPORT_MAGIC.md
+# =====================================================================
+#
+# Описать:
+#
+# - lifecycle;
+# - server/client responsibility;
+# - source/destination anchors;
+# - reference timeline;
+# - visual phases;
+# - networking;
+# - crash semantics;
+# - rendering.
+#
+#
+# =====================================================================
+# 157. TELEPORT_MAGIC_DSL.md
+# =====================================================================
+#
+# Начать с:
+#
+# TeleportMagic.To(
+#     Nolan,
+#     ChemistryDoor
+# );
+#
+#
+# Затем Player example.
+#
+#
+# Затем optional:
+#
+# Depart
+# Arrive
+#
+# только если реально implemented.
+#
+#
+# Все examples:
+#
+# parser-valid.
+#
+#
+# =====================================================================
+# 158. НЕ ПИСАТЬ НЕСУЩЕСТВУЮЩИЙ API В DOCS
+# =====================================================================
+#
+# Documentation:
+#
+# отражает actual implementation.
+#
+#
+# Если cross-dimension
+# не поддержан:
+#
+# сказать.
+#
+#
+# Если events layer отсутствует:
+#
+# не писать TeleportMagic.Completed
+# как существующий event.
+#
+#
+# =====================================================================
+# 159. BUILD
+# =====================================================================
+#
+# Запустить реальные:
+#
+# compile
+# unit tests
+# timeline tests
+# networking tests
+# teleport tests
+# Player tests
+# NPC tests
+# seat integration tests
+# recovery tests
+# render-state tests
+# dedicated server classloading
+# parser/binder tests
+# sourceShapeCheck.
+#
+#
+# Не останавливаться
+# на:
+#
+# BUILD SUCCESSFUL.
+#
+#
+# =====================================================================
+# 160. VISUAL LIVE-SMOKE
+# =====================================================================
+#
+# Это VFX module.
+#
+#
+# Поэтому только unit tests
+# НЕДОСТАТОЧНЫ.
+#
+#
+# Если Minecraft
+# реально можно запустить:
+#
+# обязательно live-smoke.
+#
+#
+# =====================================================================
+# 161. LIVE-SMOKE SETUP
+# =====================================================================
+#
+# Проверить:
+#
+# A. standing NPC
+# B. seated NPC
+# C. third-person Player
+# D. first-person Player.
+#
+#
+# =====================================================================
+# 162. LIVE REFERENCE CHECK
+# =====================================================================
+#
+# Для одного неподвижного NPC:
+#
+# fixed camera.
+#
+#
+# Preview.
+#
+#
+# Сравнить визуальные checkpoints:
+#
+# 0.0
+# 0.3
+# 0.8
+# 1.2
+# 1.55
+# 1.8
+# 1.95
+# 2.1
+# 2.4
+# 3.0
+# 3.6
+# 4.0.
+#
+#
+# =====================================================================
+# 163. VISUAL ACCEPTANCE — COLORS
+# =====================================================================
+#
+# PASS только если dominant palette:
+#
+# WHITE
+# PALE YELLOW
+# GOLD
+# WARM ORANGE.
+#
+#
+# Не:
+#
+# blue
+# purple
+# green.
+#
+#
+# =====================================================================
+# 164. VISUAL ACCEPTANCE — PARTICLES
+# =====================================================================
+#
+# PASS только если:
+#
+# крупные particles выглядят
+# как мягкие световые сферы/bokeh.
+#
+#
+# Не:
+#
+# vanilla pixel sprites.
+#
+#
+# =====================================================================
+# 165. VISUAL ACCEPTANCE — BUILDUP
+# =====================================================================
+#
+# PASS только если:
+#
+# первые ~1.7 sec
+# визуальная интенсивность
+# постоянно нарастает.
+#
+#
+# Не:
+#
+# сразу explosion.
+#
+#
+# =====================================================================
+# 166. VISUAL ACCEPTANCE — BODY
+# =====================================================================
+#
+# PASS только если:
+#
+# body itself
+# заметно становится
+# white/gold overexposed.
+#
+#
+# Частицы вокруг обычного
+# неизменного персонажа:
+#
+# недостаточно.
+#
+#
+# =====================================================================
+# 167. VISUAL ACCEPTANCE — DISAPPEARANCE
+# =====================================================================
+#
+# PASS только если:
+#
+# actual disappearance
+# скрыт flash.
+#
+#
+# Если видно:
+#
+# entity просто мгновенно исчез
+# на фоне слабых particles:
+#
+# FAIL.
+#
+#
+# =====================================================================
+# 168. VISUAL ACCEPTANCE — RESIDUAL
+# =====================================================================
+#
+# PASS только если:
+#
+# после исчезновения
+# эффект остаётся
+# ещё примерно 1.5–2 sec.
+#
+#
+# Если всё исчезает
+# одновременно с NPC:
+#
+# FAIL.
+#
+#
+# =====================================================================
+# 169. VISUAL ACCEPTANCE — GROUND
+# =====================================================================
+#
+# PASS:
+#
+# свет/энергия
+# остаётся у feet/source position
+# после исчезновения.
+#
+#
+# No rune circle.
+#
+#
+# =====================================================================
+# 170. VISUAL ACCEPTANCE — MOTION
+# =====================================================================
+#
+# PASS:
+#
+# dominant particle flow:
+#
+# upward.
+#
+#
+# Небольшой radial drift:
+#
+# yes.
+#
+#
+# Strong spiral:
+#
+# FAIL.
+#
+#
+# =====================================================================
+# 171. VISUAL ACCEPTANCE — POSE
+# =====================================================================
+#
+# NPC sitting:
+#
+# buildup happens
+# в seated pose.
+#
+#
+# Если система заставляет NPC
+# сначала вставать:
+#
+# FAIL.
+#
+#
+# =====================================================================
+# 172. LIVE SMOKE HONESTY
+# =====================================================================
+#
+# Если Minecraft
+# НЕ запускался:
+#
+# написать:
+#
+# LIVE_SMOKE_NOT_RUN.
+#
+#
+# Если visual comparison
+# не выполнялся:
+#
+# написать:
+#
+# REFERENCE_VISUAL_MATCH_NOT_VERIFIED_LIVE.
+#
+#
+# Не писать:
+#
+# "exact reference achieved"
+#
+# только на основании unit tests.
+#
+#
+# =====================================================================
+# 173. SAFE PRISM DEPLOYMENT
+# =====================================================================
+#
+# После всех успешных build/tests:
+#
+# установить production JAR:
+#
+# C:\Users\kxyr0\AppData\Roaming\PrismLauncher\instances\Форма Мысли\minecraft\mods
+#
+#
+# Использовать:
+#
+# temporary `.deploying`
+# SHA-256
+# verify
+# atomic replace.
+#
+#
+# =====================================================================
+# 174. NO DUPLICATE JARS
+# =====================================================================
+#
+# Active:
+#
+# echo-teleport-magic
+#
+# version count:
+#
+# exactly 1.
+#
+#
+# `.deploying`:
+#
+# 0.
+#
+#
+# Старые versions:
+#
+# backup вне active mods directory.
+#
+#
+# =====================================================================
+# 175. LOCKED JAR
+# =====================================================================
+#
+# Если Prism/Minecraft
+# держит JAR:
+#
+# НЕ kill process.
+#
+#
+# Report:
+#
+# FAILED_LOCKED
+#
+# exact path.
+#
+#
+# =====================================================================
+# 176. GIT FINAL
+# =====================================================================
+#
+# Перед final report:
+#
+# git status
+#
+# git branch --show-current
+#
+# git log --oneline -5.
+#
+#
+# Expected:
+#
+# branch:
+# main.
+#
+#
+# Working tree:
+# clean,
+#
+# если commit identity доступен.
+#
+#
+# =====================================================================
+# 177. DEFINITION OF DONE — REPOSITORY
+# =====================================================================
+#
+# 1. Repository:
+#    D:\JDHSeason\mods\echo-teleport-magic
+#
+# 2. `.git` exists.
+#
+# 3. branch main.
+#
+# 4. Mod ID echo_teleport_magic.
+#
+# 5. Separate production JAR.
+#
+# 6. Parent repository не повреждён.
+#
+#
+# =====================================================================
+# 178. DEFINITION OF DONE — VISUAL
+# =====================================================================
+#
+# 1. Reference duration ~4 sec.
+# 2. Slow buildup.
+# 3. Soft white bokeh spheres.
+# 4. White micro motes.
+# 5. Warm golden/orange energy orbs.
+# 6. Dominant upward flow.
+# 7. Current body pose preserved.
+# 8. Body itself becomes emissive.
+# 9. White/gold overexposure increases.
+# 10. Dense climax around ~1.8–2.1 sec.
+# 11. Entity completely concealed.
+# 12. Teleport commit occurs inside concealment.
+# 13. No visible simple pop.
+# 14. Source flash remains after teleport.
+# 15. Ground residual remains.
+# 16. Large residual orbs remain.
+# 17. Small white motes remain longest.
+# 18. Residual tail lasts ~2 sec.
+# 19. No portal.
+# 20. No rune.
+# 21. No beam.
+# 22. No spiral.
+# 23. No purple/blue.
+# 24. No voxel dissolve.
+#
+#
+# =====================================================================
+# 179. DEFINITION OF DONE — GAMEPLAY
+# =====================================================================
+#
+# 1. Player supported.
+# 2. Echo NPC supported.
+# 3. Seated NPC supported.
+# 4. Current pose retained until concealment.
+# 5. Destination validated first.
+# 6. Destination chunk prepared first.
+# 7. Server authoritative.
+# 8. Gameplay teleport commit exactly once.
+# 9. Source VFX anchor freezes correctly.
+# 10. Destination arrival separate.
+# 11. No teleport duplication after recovery.
+# 12. Scene blocking semantics work.
+#
+#
+# =====================================================================
+# 180. DEFINITION OF DONE — RENDER
+# =====================================================================
+#
+# 1. No shaderpack required.
+# 2. Shaderpack-compatible where possible.
+# 3. Additive glow works.
+# 4. Depth correct.
+# 5. Fullbright energy works.
+# 6. Render state restored.
+# 7. Body glow follows model pose.
+# 8. Player skin supported.
+# 9. Echo NPC model supported.
+# 10. World-space particles batched.
+# 11. No per-frame allocation storm.
+# 12. Frustum culling exists.
+#
+#
+# =====================================================================
+# 181. DEFINITION OF DONE — FIRST PERSON
+# =====================================================================
+#
+# 1. Camera NOT forcibly switched.
+# 2. First-person precharge visible.
+# 3. Build-up visible.
+# 4. Commit masked.
+# 5. No stuck overlay.
+# 6. Arrival clean.
+#
+#
+# =====================================================================
+# 182. DEFINITION OF DONE — QUALITY
+# =====================================================================
+#
+# Java >180 LOC:
+# 0.
+#
+# Production `.es` >180:
+# 0.
+#
+# Leaf Java packages >7:
+# 0.
+#
+# Leaf ES folders >7:
+# 0.
+#
+# Giant managers:
+# 0.
+#
+# Reflection:
+# 0.
+#
+# Map<String,Object>:
+# 0.
+#
+# Generic ExecuteAction:
+# 0.
+#
+#
+# =====================================================================
+# 183. FINAL REPORT
+# =====================================================================
+#
+# Отчёт короткий,
+# evidence-oriented.
+#
+#
+# ## Repository
+#
+# path:
+# D:\JDHSeason\mods\echo-teleport-magic
+#
+# Git:
+# initialized
+#
+# branch:
+# main
+#
+# commits:
+# ...
+#
+#
+# ## Module
+#
+# mod ID:
+# echo_teleport_magic
+#
+# version:
+# ...
+#
+# production JAR:
+# ...
+#
+#
+# ## Reference Timeline
+#
+# precharge:
+# ...
+#
+# buildup:
+# ...
+#
+# surge:
+# ...
+#
+# concealment:
+# ...
+#
+# commit:
+# ...
+#
+# afterburst:
+# ...
+#
+# residual:
+# ...
+#
+#
+# ## Rendering
+#
+# white bokeh:
+# PASS/FAIL
+#
+# gold orbs:
+# PASS/FAIL
+#
+# entity glow:
+# PASS/FAIL
+#
+# ground residual:
+# PASS/FAIL
+#
+# shader-independent glow:
+# PASS/FAIL
+#
+#
+# ## Player
+#
+# first-person:
+# ...
+#
+# third-person:
+# ...
+#
+#
+# ## NPC
+#
+# normal:
+# ...
+#
+# seated:
+# ...
+#
+#
+# ## Teleport
+#
+# server authority:
+# ...
+#
+# commit once:
+# ...
+#
+# recovery:
+# ...
+#
+#
+# ## EchoScript
+#
+# показать REAL parser-valid example.
+#
+#
+# ## Tests
+#
+# total:
+# ...
+#
+# failures:
+# ...
+#
+#
+# ## Source Shape
+#
+# Java >180:
+# 0
+#
+# leaf packages >7:
+# 0
+#
+# ES >180:
+# 0.
+#
+#
+# ## Performance
+#
+# peak particles:
+# ...
+#
+# draw calls:
+# ...
+#
+# allocations:
+# ...
+#
+# render CPU cost:
+# ...
+#
+#
+# ## Live Smoke
+#
+# RUN
+#
+# либо:
+#
+# LIVE_SMOKE_NOT_RUN.
+#
+#
+# ## Reference Match
+#
+# VERIFIED_LIVE
+#
+# либо:
+#
+# REFERENCE_VISUAL_MATCH_NOT_VERIFIED_LIVE.
+#
+#
+# ## Deployment
+#
+# destination:
+# ...
+#
+# SHA-256:
+# ...
+#
+# duplicate active JARs:
+# 0.
+#
+#
+# =====================================================================
+# 184. КРИТИЧЕСКИЕ ЗАПРЕТЫ
+# =====================================================================
+#
+# НЕ считать задачу выполненной,
+# если получился обычный Minecraft:
+#
+# particle cloud
+# →
+# entity disappears.
+#
+#
+# Главная особенность reference:
+#
+# ПОСТЕПЕННОЕ НАРАСТАНИЕ
+# →
+# ПЕРЕСВЕЧИВАНИЕ САМОГО ПЕРСОНАЖА
+# →
+# ПЛОТНАЯ БЕЛО-ЗОЛОТАЯ ВСПЫШКА
+# →
+# ИСЧЕЗНОВЕНИЕ ВНУТРИ ВСПЫШКИ
+# →
+# ДОЛГИЙ ОСТАТОЧНЫЙ ШЛЕЙФ.
+#
+#
+# НЕ считать reference повторённым,
+# если:
+#
+# - персонаж просто становится transparent;
+# - персонаж просто исчезает;
+# - particles квадратные;
+# - particles только золотые;
+# - отсутствуют крупные белые bokeh;
+# - тело не светится;
+# - отсутствует peak concealment;
+# - отсутствует ground residual;
+# - particles исчезают вместе с entity;
+# - сделана спираль;
+# - сделан портал;
+# - сделана руна;
+# - сделан laser beam.
+#
+#
+# =====================================================================
+# 185. ФИНАЛЬНЫЙ ВИЗУАЛЬНЫЙ ОБРАЗ
+# =====================================================================
+#
+# В начале:
+#
+#             ○
+#
+#        ○
+#               ○
+#
+#           [NPC]
+#
+#
+# Через ~1 сек:
+#
+#       ○    ○    ○
+#
+#    ●     ◉ [NPC]  ○
+#
+#       ○   ◉   ●
+#
+#
+# Перед teleport:
+#
+#      ○ ○ ○ ○ ○
+#
+#    ●   █████   ●
+#      ██WHITE██
+#    ◉ ██GOLD ██ ◉
+#      ███████
+#
+#      ◉ ◉ ◉ ◉
+#
+#
+# Peak:
+#
+#      ○ ○ ○ ○ ○
+#
+#        █████
+#      █████████
+#     ███ WHITE ███
+#      ███GOLD███
+#        █████
+#
+# ENTITY COMPLETELY HIDDEN
+#
+#
+#            ↓ COMMIT
+#
+#
+# После:
+#
+#      ○   ○    ○
+#
+#   ◉      ○       ●
+#
+#
+#       ✦ ✦ ✦
+#     ◉ WHITE ◉
+#       GLOW
+#
+#
+# NPC УЖЕ НЕТ.
+#
+#
+# Ещё через ~1.5 сек:
+#
+#         ·
+#      ○
+#              ·
+#
+#         ✦
+#
+#
+# Затем:
+#
+# nothing.
+#
+#
+# =====================================================================
+# 186. ОСНОВНОЙ AUTHORING GOAL
+# =====================================================================
+#
+# Сценарист НЕ занимается VFX.
+#
+#
+# Он пишет:
+#
+# TeleportMagic.To(
+#     Nolan,
+#     ChemistryDoor
+# );
+#
+#
+# И движок сам делает:
+#
+# VALIDATE
+# ↓
+# PRELOAD DESTINATION
+# ↓
+# WHITE PARTICLES
+# ↓
+# GOLD PARTICLES
+# ↓
+# BODY GLOW
+# ↓
+# FLASH
+# ↓
+# CONCEAL
+# ↓
+# TELEPORT COMMIT
+# ↓
+# SOURCE RESIDUAL
+# ↓
+# DESTINATION ARRIVAL
+# ↓
+# CLEANUP
+#
+#
+# Именно этот уровень abstraction
+# нужен от echo-teleport-magic.

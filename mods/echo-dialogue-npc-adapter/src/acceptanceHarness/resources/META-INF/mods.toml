@@ -1,0 +1,52 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="Решение о лицензии не принято"
+
+[[mods]]
+modId="echo_dialogue_npc_adapter_acceptance"
+version="0.1.0-SNAPSHOT"
+displayName="Echo Dialogue NPC Adapter Acceptance Harness"
+authors="kxyr0"
+description='''Test-only N4 acceptance harness. Не устанавливать в production instance.'''
+
+[[dependencies.echo_dialogue_npc_adapter_acceptance]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.echo_dialogue_npc_adapter_acceptance]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.echo_dialogue_npc_adapter_acceptance]]
+    modId="echo_dialogue"
+    mandatory=true
+    versionRange="[0.1.0-SNAPSHOT,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.echo_dialogue_npc_adapter_acceptance]]
+    modId="echo_npc"
+    mandatory=true
+    versionRange="[0.1.0-SNAPSHOT,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.echo_dialogue_npc_adapter_acceptance]]
+    modId="echo_dialogue_npc_adapter"
+    mandatory=true
+    versionRange="[0.1.0-SNAPSHOT,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.echo_dialogue_npc_adapter_acceptance]]
+    modId="echo_story_content_pack"
+    mandatory=true
+    versionRange="[0.1.0-SNAPSHOT,)"
+    ordering="AFTER"
+    side="BOTH"

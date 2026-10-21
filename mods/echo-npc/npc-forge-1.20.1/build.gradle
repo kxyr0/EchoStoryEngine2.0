@@ -1,0 +1,260 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Forge 1.20.1 standalone runtime for Echo NPC.'
+
+def embeddedNpcProjects = [
+        project(':npc-contracts'),
+        project(':npc-core'),
+        project(':npc-persistence'),
+        project(':npc-echoscript-adapter'),
+        project(':npc-forge-api-1.20.1')
+]
+
+def requiredEchoNpcGameTests = [
+        'ForgeNpcGameTests.hostStarts',
+        'ForgeNpcGameTests.commandsParseNamespacedIds',
+        'ForgeNpcGameTests.npcResourceCompiles',
+        'ForgeNpcGameTests.catalogInstalls',
+        'ForgeNpcGameTests.invalidReloadRetainsCatalog',
+        'ForgeNpcGameTests.spawnCreatesOneEntity',
+        'ForgeNpcGameTests.spawnedEntityHasActorId',
+        'ForgeNpcGameTests.spawnedEntityHasDefinitionData',
+        'ForgeNpcActorGameTests.duplicateSpawnDoesNotCreateSecondEntity',
+        'ForgeNpcActorGameTests.actorIdConflictIsRejected',
+        'ForgeNpcActorGameTests.twoActorIdsMayUseOneDefinition',
+        'ForgeNpcActorGameTests.teleportMovesEntity',
+        'ForgeNpcActorGameTests.changeSkinUpdatesDurableActorAndLiveEntity',
+        'ForgeNpcActorGameTests.despawnRemovesEntity',
+        'ForgeNpcActorGameTests.repeatedDespawnIsIdempotent',
+        'ForgeNpcActorGameTests.serviceLookupResolvesHost',
+        'ForgeNpcLifecycleGameTests.newHostDoesNotReuseActorRegistry',
+        'ForgeNpcLifecycleGameTests.shutdownClearsActors',
+        'ForgeNpcLifecycleGameTests.dedicatedServerDoesNotLoadRenderer',
+        'ForgeNpcLifecycleGameTests.actorPinsSpawnDefinition',
+        'ForgeNpcLifecycleGameTests.missingSkinDoesNotBlockServerSpawn',
+        'ForgeNpcLifecycleGameTests.entityHasNoGoalsButNavigationEnabled'
+]
+
+configurations {
+    embeddedExternalRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = true
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
+}
+
+sourceSets {
+    gameTest {
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+base {
+    archivesName = artifact_name
+}
+
+jarJar.enable()
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            lazyToken('minecraft_classpath') {
+                configurations.embeddedExternalRuntime.copyRecursive().resolve()
+                        .collect { it.absolutePath }
+                        .join(File.pathSeparator)
+            }
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    embeddedNpcProjects.each { npcProject ->
+                        source npcProject.sourceSets.main
+                    }
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            mods {
+                "${mod_id}" {
+                    source sourceSets.gameTest
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':npc-contracts')
+    implementation project(':npc-core')
+    implementation project(':npc-persistence')
+    implementation project(':npc-echoscript-adapter')
+    implementation project(':npc-forge-api-1.20.1')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    embeddedExternalRuntime "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-api', version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-language', version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+    testImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedNpcProjects.collect { "${it.path}:classes" }
+    embeddedNpcProjects.each { npcProject ->
+        from(npcProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJar'
+}
+
+tasks.named('jarJar', Jar).configure {
+    dependsOn embeddedNpcProjects.collect { "${it.path}:classes" }
+    embeddedNpcProjects.each { npcProject ->
+        from(npcProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJarJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    description = 'Проверяет содержимое final production JAR Echo NPC.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('reobfJarJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}-all.jar").get().asFile
+        if (!jarFile.isFile()) {
+            throw new GradleException("Production JAR was not created: ${jarFile}")
+        }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def requiredEntries = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echonpc/api/service/NpcService.class',
+                'io/github/kxyr0/echonpc/core/actor/ActorRuntime.class',
+                'io/github/kxyr0/echonpc/persistence/file/ActorFileRepository.class',
+                'io/github/kxyr0/echonpc/echoscript/EchoScriptNpcCompiler.class',
+                'io/github/kxyr0/echonpc/forge/api/EchoNpcServiceLookupEvent.class',
+                'io/github/kxyr0/echonpc/forge/api/navigation/NpcNavigationBody.class',
+                'io/github/kxyr0/echonpc/forge/api/client/render/NpcClientRenderRegistrationEvent.class',
+                'io/github/kxyr0/echonpc/forge/api/client/attachment/NpcBodyAttachmentRenderRegistrationEvent.class',
+                'io/github/kxyr0/echonpc/forge/EchoNpcMod.class',
+                'io/github/kxyr0/echonpc/forge/entity/EchoNpcEntity.class',
+                'io/github/kxyr0/echonpc/forge/client/EchoNpcEntityRenderer.class',
+                'META-INF/jarjar/metadata.json'
+        ]
+        def missing = requiredEntries.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echonpc/forge/gametest/')
+                    || entry.startsWith('io/github/kxyr0/echoscript/')
+                    || entry.startsWith('io/github/kxyr0/echostoryengine/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/')
+                    || entry.startsWith('net/minecraft/')
+                    || entry.startsWith('net/minecraftforge/')
+                    || entry.startsWith('org/junit/')
+                    || entry.startsWith('com/tngtech/archunit/')
+                    || entry.startsWith('com/puppycrawl/tools/checkstyle/')
+                    || entry.startsWith('net/sourceforge/pmd/')
+                    || entry.startsWith('docs/')
+                    || entry.startsWith('build/')
+                    || entry.startsWith('run/')
+                    || entry == 'AGENTS.md'
+                    || entry == 'PLANS.md'
+                    || entry == 'PROGRESS.md'
+        }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            throw new GradleException("Production JAR verification failed."
+                    + "\nmissing entries:\n" + missing.join('\n')
+                    + "\nforbidden entries:\n" + forbidden.take(40).join('\n'))
+        }
+        println "Echo NPC production JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyProductionJarContents')
+    dependsOn tasks.named('gameTestClasses')
+}
+
+tasks.matching { it.name == 'prepareRunGameTestServer' }.configureEach {
+    dependsOn tasks.named('processGameTestResources')
+    doLast {
+        copy {
+            from sourceSets.gameTest.resources
+            include 'gameteststructures/**'
+            into project.file('run')
+        }
+    }
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doLast {
+        def logFile = project.file('run/logs/latest.log')
+        if (!logFile.isFile()) {
+            throw new GradleException("GameTest log was not created: ${logFile}")
+        }
+        def text = logFile.getText('UTF-8')
+        def missing = requiredEchoNpcGameTests.findAll { testName ->
+            !text.contains("ENPC-GAMETEST-RUN ${testName}")
+        }
+        def discovered = firstInt(text, /Running test batch '[^']+' \((\d+) tests\)/)
+        def executed = firstInt(text, /(\d+) tests are now running!/)
+        def passed = firstInt(text, /All (\d+) required tests passed/)
+        if (discovered <= 0 || executed <= 0 || passed <= 0 || !missing.isEmpty()) {
+            throw new GradleException("Echo NPC GameTests were not fully verified."
+                    + "\ndiscovered=${discovered}, executed=${executed}, passed=${passed}"
+                    + "\nmissing markers=${missing.join(', ')}")
+        }
+        println "Echo NPC GameTests verified: discovered=${discovered}, executed=${executed}, passed=${passed}"
+    }
+}
+
+int firstInt(String text, String pattern) {
+    def matcher = text =~ pattern
+    return matcher.find() ? matcher.group(1).toInteger() : 0
+}

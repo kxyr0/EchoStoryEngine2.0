@@ -1,0 +1,5 @@
+base {
+    archivesName = 'effects-contracts'
+}
+
+description = 'Neutral immutable contracts for Echo Effects.'

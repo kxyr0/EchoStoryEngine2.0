@@ -1,0 +1,148 @@
+{
+  "echoMods": [
+    {
+      "id": "echo_animation",
+      "name": "Echo Animation",
+      "version": "0.1.0-SNAPSHOT",
+      "required": true,
+      "filePatterns": [
+        "echo-animation-[0-9]*.jar"
+      ]
+    },
+    {
+      "id": "echo_animation_authoring",
+      "name": "Echo Animation Authoring",
+      "version": "0.1.0-SNAPSHOT",
+      "required": false,
+      "filePatterns": [
+        "echo-animation-authoring-*.jar"
+      ]
+    },
+    {
+      "id": "echo_content_player",
+      "name": "Echo Content Player",
+      "version": "0.1.0",
+      "required": true,
+      "filePatterns": [
+        "echo-content-player-*.jar"
+      ]
+    },
+    {
+      "id": "echo_debug",
+      "name": "Echo Debug",
+      "version": "0.1.0",
+      "required": false,
+      "filePatterns": [
+        "echo-debug-*.jar"
+      ]
+    },
+    {
+      "id": "echo_dialogue",
+      "name": "Echo Dialogue",
+      "version": "0.1.0-SNAPSHOT",
+      "required": true,
+      "filePatterns": [
+        "echo-dialogue-[0-9]*.jar"
+      ]
+    },
+    {
+      "id": "echo_dialogue_npc_adapter",
+      "name": "Echo Dialogue NPC Adapter",
+      "version": "0.1.0-SNAPSHOT",
+      "required": true,
+      "filePatterns": [
+        "echo-dialogue-npc-adapter-*.jar"
+      ]
+    },
+    {
+      "id": "echo_dialogue_trigger_adapter",
+      "name": "Echo Dialogue Trigger Adapter",
+      "version": "0.3.1-Fix",
+      "required": true,
+      "filePatterns": [
+        "echo-dialogue-trigger-adapter-*.jar"
+      ]
+    },
+    {
+      "id": "echo_item_pack",
+      "name": "Echo Item Pack",
+      "version": "0.1.0",
+      "required": true,
+      "filePatterns": [
+        "echo-item-pack-*.jar"
+      ]
+    },
+    {
+      "id": "echo_npc",
+      "name": "Echo NPC",
+      "version": "0.1.0-SNAPSHOT",
+      "required": true,
+      "filePatterns": [
+        "echo-npc-[0-9]*.jar"
+      ]
+    },
+    {
+      "id": "echo_npc_animation_adapter",
+      "name": "Echo NPC Animation Adapter",
+      "version": "0.1.0-SNAPSHOT",
+      "required": true,
+      "filePatterns": [
+        "echo-npc-animation-adapter-*.jar"
+      ]
+    },
+    {
+      "id": "echo_story_animation_adapter",
+      "name": "Echo Story Animation Adapter",
+      "version": "0.1.0-SNAPSHOT",
+      "required": true,
+      "filePatterns": [
+        "echo-story-animation-adapter-*.jar"
+      ]
+    },
+    {
+      "id": "echo_story_content_pack",
+      "name": "Echo Story Content Pack",
+      "version": "0.1.0-SNAPSHOT",
+      "required": true,
+      "filePatterns": [
+        "echo-story-content-pack-[0-9]*.jar"
+      ]
+    },
+    {
+      "id": "echo_story_dialogue_adapter",
+      "name": "Echo Story Dialogue Adapter",
+      "version": "0.1.0-SNAPSHOT",
+      "required": true,
+      "filePatterns": [
+        "echo-story-dialogue-adapter-*.jar"
+      ]
+    },
+    {
+      "id": "echo_story_engine",
+      "name": "Echo Story Engine",
+      "version": "1.0.0",
+      "required": true,
+      "filePatterns": [
+        "echo-story-engine-*.jar"
+      ]
+    },
+    {
+      "id": "echo_story_npc_adapter",
+      "name": "Echo Story NPC Adapter",
+      "version": "0.1.0-SNAPSHOT",
+      "required": true,
+      "filePatterns": [
+        "echo-story-npc-adapter-*.jar"
+      ]
+    },
+    {
+      "id": "echo_trigger",
+      "name": "Echo Trigger",
+      "version": "0.3.1",
+      "required": true,
+      "filePatterns": [
+        "echo-trigger-[0-9]*.jar"
+      ]
+    }
+  ]
+}

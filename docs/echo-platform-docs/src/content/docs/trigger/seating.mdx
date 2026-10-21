@@ -1,0 +1,46 @@
+---
+title: "Seating triggers"
+description: "SeatZoneResource, Player.SeatedIn and Player.SeatedAt for authored seating scenes."
+section: "Trigger"
+pageKind: "architecture"
+status: "review"
+since: "SE1/TS1"
+updated: "2026-08-01"
+relatedIds: ["SeatZoneResource", "Player.SeatedIn", "Player.SeatedAt"]
+relatedPages: ["trigger/reactive-runtime", "platform/story-authoring"]
+sourceRepositories: ["echo-seating", "echo-trigger-seating-adapter", "echo-trigger"]
+sourcePaths: ["D:/JDHSeason/mods/echo-seating/docs/architecture/SEATING_PROJECT_MAP.md"]
+visualIdentity: "trigger-seating"
+interactiveModules: []
+searchKeywords: ["seating", "seat zone", "trigger", "Player.SeatedIn", "Player.SeatedAt"]
+---
+
+# Seating triggers
+
+Echo Seating добавляет authored зоны посадки без привязки к мебельному моду. Runtime не сканирует блоки каждый tick. Источник истины: server-side riding transition, затем resolved `SeatAnchor`, проверка `SeatZoneCatalog` и `SeatSlotMatcher`.
+
+Trigger selectors:
+
+```csharp
+Subscribe(Player.SeatedIn(BreakfastTable));
+Subscribe(Player.SeatedAt(BreakfastTable, MothersSeat));
+Subscribe(Player.StoodUpIn(BreakfastTable));
+Subscribe(Player.StoodUpFrom(BreakfastTable, MothersSeat));
+Subscribe(Player.ChangedSeatIn(BreakfastTable));
+```
+
+`SeatedIn` срабатывает для любого publishable anchor внутри зоны. `SeatedAt` требует exact authored `SeatSlotId`.
+
+Subscription target может быть story или dialogue:
+
+```csharp
+Subscribe(Player.SeatedAt(BreakfastTable, MothersSeat));
+StartDialogue("jdh:dialogue/wrong_mothers_seat");
+
+Subscribe(Player.SeatedAt(BreakfastTable, PlayerSeat));
+StartStory("jdh:chapter_1/breakfast_main_story");
+```
+
+`StartDialogue` запускает Echo Dialogue напрямую на игрока seating event. `StartStory` оставляет полный StoryResource path для сцен, флагов, NPC, cutscene и дальнейших действий.
+
+Контекст Story получает `player`, `seat.zone`, optional `seat.slot`, `seat.event`, `seat.anchor`, `seat.vehicle`, `seat.vehicleType`, `trigger.subscription` и `trigger.execution`.

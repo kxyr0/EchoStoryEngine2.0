@@ -1,0 +1,25 @@
+{
+    "repository": "echo-npc",
+    "publicIds": [
+        "ActorId",
+        "NpcDefinitionId"
+    ],
+    "commands": [
+        "/echo_npc health",
+        "/echo_npc definitions"
+    ],
+    "lifecycleSnapshotFields": [
+        "ActorId",
+        "NpcDefinitionId",
+        "desired presence",
+        "actor revision",
+        "definition fingerprint",
+        "world identifier",
+        "materialization status"
+    ],
+    "architectureConstraints": [
+        "ActorId is durable logical identity.",
+        "ActorId is not Minecraft Entity UUID.",
+        "Adapter integrations use public immutable snapshots."
+    ]
+}

@@ -1,0 +1,18 @@
+{
+  "targets": ["swap"],
+  "passes": [
+    {
+      "name": "echo_concentration:desaturate_fade",
+      "intarget": "minecraft:main",
+      "outtarget": "swap",
+      "uniforms": [
+        { "name": "Direction", "values": [0.0] }
+      ]
+    },
+    {
+      "name": "blit",
+      "intarget": "swap",
+      "outtarget": "minecraft:main"
+    }
+  ]
+}

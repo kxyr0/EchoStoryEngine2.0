@@ -1,0 +1,7 @@
+{
+  "command.echo_void_magic.setup.unavailable": "Сервис Echo Magic недоступен.",
+  "command.echo_void_magic.setup.not_loaded": "Заклинание Void Daggers не загружено.",
+  "command.echo_void_magic.setup.success": "Магия Пустоты открыта для %1$s. Используйте назначенную клавишу «%2$s».",
+  "message.echo_void_magic.step.success": "Пустотный шаг: перемещение завершено",
+  "message.echo_void_magic.step.blocked": "Пустотный шаг: впереди нет безопасной зоны"
+}

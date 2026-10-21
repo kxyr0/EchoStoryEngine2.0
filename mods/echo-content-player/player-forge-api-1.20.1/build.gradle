@@ -1,0 +1,19 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Minimal public Forge-facing API for Echo Content Player.'
+
+base {
+    archivesName = 'player-forge-api-1.20.1'
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':player-contracts')
+    api "io.github.kxyr0.echoscript:echo-script-api:${echo_script_version}"
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}

@@ -1,0 +1,5 @@
+description = 'Immutable public Echo Content Player contracts.'
+
+base {
+    archivesName = 'player-contracts'
+}

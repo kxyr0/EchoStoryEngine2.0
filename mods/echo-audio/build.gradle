@@ -1,0 +1,38 @@
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+group = 'io.github.kxyr0.echoaudio'
+version = audio_version
+allprojects {
+    repositories { mavenCentral(); maven { url = 'https://maven.minecraftforge.net/' } }
+}
+dependencies {
+    api 'io.github.kxyr0.echoscript:echo-script-api:0.5.0-SNAPSHOT'
+    testImplementation 'io.github.kxyr0.echoscript:echo-script-language:0.5.0-SNAPSHOT'
+}
+allprojects {
+    apply plugin: 'java-library'
+    java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+    dependencies {
+        testImplementation platform('org.junit:junit-bom:5.10.3')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+    tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+    tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+}
+tasks.register('sourceShapeCheck') {
+    doLast {
+        def counts = [:].withDefault { 0 }
+        fileTree(rootDir).matching { include '**/src/main/java/**/*.java'; exclude '**/build/**' }.each { file ->
+            counts[file.parent]++
+            if (file.readLines().size() > 180) throw new GradleException("More than 180 lines: ${file}")
+        }
+        if (counts.any { it.value > 7 }) throw new GradleException("Leaf package limit: ${counts}")
+        println 'Java >180 physical lines=0; leaf packages >7=0'
+    }
+}
+tasks.named('check') { dependsOn 'sourceShapeCheck', ':audio-forge-1.20.1:test' }
+tasks.named('build') { dependsOn ':audio-forge-1.20.1:build' }

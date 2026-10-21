@@ -1,0 +1,161 @@
+import org.gradle.jvm.tasks.Jar
+
+import java.util.zip.ZipFile
+
+plugins {
+    id 'base'
+}
+
+group = mod_group_id
+version = mod_version
+
+ext.contentExpansion = [
+        mod_id: mod_id,
+        mod_name: mod_name,
+        mod_license: mod_license,
+        mod_version: mod_version,
+        mod_authors: mod_authors,
+        mod_description: mod_description,
+        loader_version_range: loader_version_range,
+        forge_version_range: forge_version_range,
+        minecraft_version_range: minecraft_version_range,
+        echo_story_engine_mod_id: echo_story_engine_mod_id,
+        echo_story_engine_mod_version_range: echo_story_engine_mod_version_range,
+        echo_dialogue_mod_id: echo_dialogue_mod_id,
+        echo_dialogue_mod_version_range: echo_dialogue_mod_version_range,
+        echo_story_dialogue_adapter_mod_id: echo_story_dialogue_adapter_mod_id,
+        echo_story_dialogue_adapter_mod_version_range: echo_story_dialogue_adapter_mod_version_range,
+        echo_story_animation_adapter_mod_id: echo_story_animation_adapter_mod_id,
+        echo_story_animation_adapter_mod_version_range: echo_story_animation_adapter_mod_version_range,
+        echo_npc_mod_id: echo_npc_mod_id,
+        echo_npc_mod_version_range: echo_npc_mod_version_range,
+        echo_animation_mod_id: echo_animation_mod_id,
+        echo_animation_mod_version_range: echo_animation_mod_version_range,
+        echo_story_npc_adapter_mod_id: echo_story_npc_adapter_mod_id,
+        echo_story_npc_adapter_mod_version_range: echo_story_npc_adapter_mod_version_range,
+        echo_npc_animation_adapter_mod_id: echo_npc_animation_adapter_mod_id,
+        echo_npc_animation_adapter_mod_version_range: echo_npc_animation_adapter_mod_version_range,
+        echo_player_actor_mod_id: echo_player_actor_mod_id,
+        echo_player_actor_mod_version_range: echo_player_actor_mod_version_range,
+        echo_story_player_actor_adapter_mod_id: echo_story_player_actor_adapter_mod_id,
+        echo_story_player_actor_adapter_mod_version_range: echo_story_player_actor_adapter_mod_version_range,
+        echo_player_actor_refurbished_furniture_adapter_mod_id: echo_player_actor_refurbished_furniture_adapter_mod_id,
+        echo_player_actor_refurbished_furniture_adapter_mod_version_range:
+                echo_player_actor_refurbished_furniture_adapter_mod_version_range
+]
+
+tasks.register('contentJar', Jar) {
+    group = 'build'
+    description = 'Собирает content-only Forge JAR без Java classes.'
+    archiveBaseName = artifact_name
+    archiveVersion = mod_version
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    reproducibleFileOrder = true
+    preserveFileTimestamps = false
+
+    from('src/main/resources') {
+        include 'data/**', 'assets/**', 'pack.mcmeta'
+        into 'story/content-pack/jdh'
+    }
+    from('src/main/resources') {
+        include 'assets/**'
+    }
+    from('src/main/resources') {
+        include 'story/configs/**'
+    }
+    from('src/main/resources') {
+        include 'META-INF/mods.toml', 'pack.mcmeta'
+        expand contentExpansion
+        filteringCharset = 'UTF-8'
+    }
+}
+
+tasks.register('acceptanceContentJar', Jar) {
+    group = 'verification'
+    description = 'Собирает test-only acceptance content JAR без production resources.'
+    archiveBaseName = artifact_name
+    archiveVersion = mod_version
+    archiveClassifier = 'acceptance'
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    reproducibleFileOrder = true
+    preserveFileTimestamps = false
+
+    from('src/acceptance/resources') {
+        into 'story/content-pack/jdh'
+    }
+    from('src/acceptance/resources') {
+        include 'assets/**'
+    }
+    from('src/main/resources') {
+        include 'pack.mcmeta'
+        into 'story/content-pack/jdh'
+    }
+    from('src/main/resources') {
+        include 'META-INF/mods.toml', 'pack.mcmeta'
+        expand contentExpansion
+        filteringCharset = 'UTF-8'
+    }
+}
+
+tasks.register('verifyAcceptanceContentJar') {
+    group = 'verification'
+    description = 'Проверяет, что acceptance JAR содержит только acceptance resources и metadata.'
+    dependsOn tasks.named('acceptanceContentJar')
+    doLast {
+        File jar = tasks.named('acceptanceContentJar').get().archiveFile.get().asFile
+        ZipFile zip = new ZipFile(jar)
+        try {
+            Set<String> entries = zip.entries().collect { it.name } as Set
+            [
+                    'META-INF/mods.toml',
+                    'pack.mcmeta',
+                    'story/content-pack/jdh/pack.mcmeta',
+                    'story/content-pack/jdh/data/jdh/echo_story/stories/content_pack/smoke.es',
+                    'story/content-pack/jdh/data/jdh/echo_story/stories/content_pack/smoke_refused.es',
+                    'story/content-pack/jdh/data/jdh/echo_dialogue/dialogues/content_pack/greeting.dialogue.es',
+                    'story/content-pack/jdh/data/jdh/echo_npc/npcs/content_pack/father.npc.es',
+                    'story/content-pack/jdh/assets/jdh/textures/echo_npc/skins/content_pack_father.png',
+                    'story/content-pack/jdh/assets/jdh/textures/echo_dialogue/portraits/content_pack_father.png',
+                    'assets/jdh/textures/echo_npc/skins/content_pack_father.png',
+                    'assets/jdh/textures/echo_dialogue/portraits/content_pack_father.png'
+            ].each { required ->
+                if (!entries.contains(required)) {
+                    throw new GradleException("verifyAcceptanceContentJar: missing ${required}")
+                }
+            }
+            entries.each { entry ->
+                if (entry.endsWith('.class') || entry.endsWith('.jar')) {
+                    throw new GradleException("verifyAcceptanceContentJar: forbidden entry ${entry}")
+                }
+                if (entry.contains('chapter_1/home/home_arrival')) {
+                    throw new GradleException("verifyAcceptanceContentJar: production content leaked into acceptance JAR: ${entry}")
+                }
+            }
+        } finally {
+            zip.close()
+        }
+        println "verifyAcceptanceContentJar: OK ${jar} (${jar.length()} bytes)"
+    }
+}
+
+tasks.register('jar') {
+    group = 'build'
+    description = 'Alias для contentJar.'
+    dependsOn tasks.named('contentJar')
+}
+
+tasks.named('assemble') {
+    dependsOn tasks.named('contentJar')
+}
+
+artifacts {
+    add('archives', tasks.named('contentJar'))
+}
+
+apply from: 'gradle/content-validation.gradle'
+apply from: 'gradle/content-staging.gradle'
+
+tasks.named('build') {
+    dependsOn tasks.named('validateContent')
+    dependsOn tasks.named('verifyContentJar')
+}

@@ -1,0 +1,10 @@
+{
+  "command.echo_blood_magic.setup.unavailable": "Echo Magic service is unavailable.",
+  "command.echo_blood_magic.setup.not_loaded": "Blood spells were not loaded.",
+  "command.echo_blood_magic.setup.success": "The Blood arsenal was granted to %1$s. Use the configured \"%2$s\" control.",
+  "message.echo_blood_magic.rapier.summoned": "Blood Rapier summoned for 12 seconds",
+  "message.echo_blood_magic.rapier.faded": "The Blood Rapier faded",
+  "item.echo_blood_magic.blood_rapier": "Blood Rapier",
+  "item.echo_blood_magic.blood_rapier.temporary": "Temporary summoned weapon",
+  "item.echo_blood_magic.blood_rapier.particle_blade": "The blade is made entirely of particles"
+}

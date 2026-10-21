@@ -1,0 +1,5 @@
+description = 'Platform-neutral public contracts for Echo Cutscene.'
+
+dependencies {
+    api "io.github.kxyr0.echonavigation:navigation-contracts:${echo_navigation_version}"
+}

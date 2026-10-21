@@ -1,0 +1,117 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Forge 1.20.1 development-only Trigger Wand host.'
+
+def embeddedDebugProjects = [
+        project(':debug-core')
+]
+
+base {
+    archivesName = artifact_name
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    embeddedDebugProjects.each { debugProject -> source debugProject.sourceSets.main }
+                }
+            }
+        }
+        client { }
+        server {
+            args '--nogui'
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':debug-core')
+    compileOnly "io.github.kxyr0.echotrigger:trigger-contracts:${echo_trigger_version}"
+    compileOnly "io.github.kxyr0.echotrigger:trigger-forge-api-1.20.1:${echo_trigger_version}"
+    compileOnly "io.github.kxyr0.echonavigation:navigation-contracts:${echo_navigation_version}"
+    compileOnly "io.github.kxyr0.echonavigation:navigation-forge-api-1.20.1:${echo_navigation_version}"
+    compileOnly "io.github.kxyr0.echocutscene:cutscene-contracts:${echo_cutscene_version}"
+    compileOnly "io.github.kxyr0.echocutscene:cutscene-forge-api-1.20.1:${echo_cutscene_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-contracts:${echo_story_engine_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:${echo_story_engine_version}"
+    compileOnly "io.github.kxyr0.echoseating:seating-contracts:${echo_seating_version}"
+    compileOnly "io.github.kxyr0.echoseating:seating-forge-api-1.20.1:${echo_seating_version}"
+    testImplementation "io.github.kxyr0.echoseating:seating-contracts:${echo_seating_version}"
+    testImplementation "io.github.kxyr0.echoseating:seating-forge-api-1.20.1:${echo_seating_version}"
+    testImplementation "io.github.kxyr0.echotrigger:trigger-forge-api-1.20.1:${echo_trigger_version}"
+    testImplementation "io.github.kxyr0.echotrigger:trigger-core:${echo_trigger_version}"
+    testImplementation 'io.github.kxyr0.echoscript:echo-script-language:0.3.0-SNAPSHOT'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedDebugProjects.collect { "${it.path}:classes" }
+    embeddedDebugProjects.each { debugProject -> from(debugProject.sourceSets.main.output) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('verifyDevelopmentJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('reobfJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile
+        if (!jarFile.isFile()) {
+            throw new GradleException("Development JAR was not created: ${jarFile}")
+        }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echotrigger/')
+                    || entry.startsWith('io/github/kxyr0/echoscript/')
+                    || entry.startsWith('io/github/kxyr0/echonavigation/')
+                    || entry.startsWith('io/github/kxyr0/echocutscene/')
+                    || entry.startsWith('io/github/kxyr0/echostoryengine/')
+                    || entry.startsWith('net/minecraft/')
+                    || entry.startsWith('net/minecraftforge/')
+                    || entry.startsWith('org/junit/')
+        }
+        if (!forbidden.isEmpty()) {
+            throw new GradleException("Echo Debug JAR bundles forbidden classes:\n" + forbidden.take(40).join('\n'))
+        }
+        println "Echo Debug development JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyDevelopmentJarContents')
+}

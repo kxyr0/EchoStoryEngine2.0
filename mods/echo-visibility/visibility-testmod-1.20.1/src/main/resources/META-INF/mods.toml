@@ -1,0 +1,17 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="echo_visibility_testmod"
+version="${mod_version}"
+displayName="Echo Visibility Testmod"
+authors="${mod_authors}"
+description='''Development-only VIS1 acceptance scenarios.'''
+
+[[dependencies.echo_visibility_testmod]]
+modId="echo_visibility"
+mandatory=true
+versionRange="[0.1.0,)"
+ordering="AFTER"
+side="BOTH"

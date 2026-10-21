@@ -1,0 +1,71 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Forge 1.20.1 active-camera visibility runtime.'
+
+def embeddedProjects = [
+        project(':visibility-contracts'),
+        project(':visibility-core'),
+        project(':visibility-forge-api-1.20.1'),
+        project(':visibility-script-adapter-1.20.1')
+]
+
+base {
+    archivesName = artifact_name
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    embeddedProjects.each { source it.sourceSets.main }
+                }
+            }
+        }
+        client { }
+        server { args '--nogui' }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':visibility-contracts')
+    implementation project(':visibility-core')
+    implementation project(':visibility-forge-api-1.20.1')
+    implementation project(':visibility-script-adapter-1.20.1')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    compileOnly "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
+    compileOnly "io.github.kxyr0.echonpc:npc-forge-api-1.20.1:${echo_npc_version}"
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def values = [
+            minecraft_version_range: minecraft_version_range,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+    ]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand values + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedProjects.collect { "${it.path}:classes" }
+    embeddedProjects.each { from(it.sourceSets.main.output) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJar'
+}

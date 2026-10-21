@@ -1,0 +1,9 @@
+base {
+    archivesName = 'effects-core'
+}
+
+description = 'Plain Java Echo Effects validation, curves, lifecycle, stacking, and contribution aggregation.'
+
+dependencies {
+    api project(':effects-contracts')
+}

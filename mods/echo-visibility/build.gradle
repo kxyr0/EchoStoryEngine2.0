@@ -1,0 +1,210 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+allprojects {
+    repositories {
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    apply plugin: 'jacoco'
+
+    version = rootProject.version
+    group = rootProject.group
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+        withSourcesJar()
+    }
+
+    sourceSets {
+        architectureTest {
+            java.srcDir 'src/architectureTest/java'
+            resources.srcDir 'src/architectureTest/resources'
+            compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+            runtimeClasspath += output + compileClasspath
+        }
+    }
+
+    configurations {
+        architectureTestImplementation.extendsFrom testImplementation
+        architectureTestRuntimeOnly.extendsFrom testRuntimeOnly
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        architectureTestImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+        architectureTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    checkstyle {
+        toolVersion = checkstyle_version
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    }
+
+    pmd {
+        toolVersion = pmd_version
+        ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+        ruleSets = []
+        consoleOutput = true
+    }
+
+    jacoco {
+        toolVersion = jacoco_version
+    }
+
+    tasks.register('architectureTest', Test) {
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs = sourceSets.architectureTest.output.classesDirs
+        classpath = sourceSets.architectureTest.runtimeClasspath
+        shouldRunAfter tasks.named('test')
+    }
+
+    tasks.named('check') {
+        dependsOn tasks.named('architectureTest')
+    }
+}
+
+configure([
+        project(':visibility-contracts'),
+        project(':visibility-forge-api-1.20.1')
+]) {
+    apply plugin: 'maven-publish'
+    publishing {
+        publications {
+            register('mavenJava', MavenPublication) {
+                from components.java
+            }
+        }
+    }
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks VIS1 Java and EchoScript source shape.'
+    doLast {
+        def violations = []
+        def javaCounts = [:].withDefault { 0 }
+        def scriptCounts = [:].withDefault { 0 }
+        fileTree(rootDir) {
+            include 'visibility-*/src/main/java/**/*.java'
+            exclude '**/build/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            javaCounts[file.parentFile.toPath()] = javaCounts[file.parentFile.toPath()] + 1
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            if (relative =~ /(?i)(^|[\\\/])(misc|helpers?|more|part1|part2|visibility2|camera2|frustum2|debug2|services2|internal2|impl2)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            def logical = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logical > 180) {
+                violations << "${relative}: ${logical} logical lines; max is 180"
+            }
+        }
+        javaCounts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        fileTree(rootDir) {
+            include 'visibility-*/src/main/resources/**/*.es'
+            exclude '**/build/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            scriptCounts[file.parentFile.toPath()] = scriptCounts[file.parentFile.toPath()] + 1
+            def logical = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logical > 180) {
+                violations << "${relative}: ${logical} logical lines; max is 180"
+            }
+        }
+        scriptCounts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} scripts; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+        println 'Java files > 180 logical LOC = 0'
+        println 'EchoScript files > 180 logical LOC = 0'
+        println 'leaf Java packages > 7 files = 0'
+        println 'leaf content folders > 7 files = 0'
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        fileTree(rootDir) {
+            include '**/*.java', '**/*.gradle', '**/*.properties', '**/*.xml', '**/*.md', '**/*.es'
+            include '**/*.toml', '**/*.mcmeta'
+            exclude '**/build/**', '**/.gradle/**', '**/run/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/ || line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}"
+                }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+}

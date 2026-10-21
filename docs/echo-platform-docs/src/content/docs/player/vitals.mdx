@@ -1,0 +1,46 @@
+---
+title: "Vitals игрока"
+description: "Усталость, запас сил, hunger removal и server-authoritative movement modifier."
+section: "Player"
+pageKind: "architecture"
+status: "review"
+since: "PV1"
+updated: "2026-07-29"
+relatedIds: ["PlayerFatigue", "PlayerVitalsSnapshot", "PlayerHungerSnapshot"]
+relatedPages: ["player/hud", "adapters/player-hud", "player/spark"]
+sourceRepositories: ["echo-player-vitals", "echo-player-hud-vitals-adapter"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-vitals", "D:/JDHSeason/mods/echo-player-hud-vitals-adapter"]
+visualIdentity: "player-vitals"
+interactiveModules: []
+searchKeywords: ["Vitals", "усталость", "fatigue", "hunger", "stamina"]
+---
+
+# Vitals игрока
+
+Echo Player Vitals владеет усталостью, запасом сил, отключением hunger-механик и server-authoritative slowdown.
+
+Fatigue хранится как raw `current/maximum`, но HUD получает обратный reserve:
+
+```text
+reserve = maximum - current
+normalized = reserve / maximum
+```
+
+Стадии:
+
+- `RESTED`: reserve больше `50%`, movement `1.0`.
+- `TIRED`: reserve от `25%` до `50%`, movement `0.95`.
+- `EXHAUSTED`: reserve `25%` и ниже, movement `0.85`, nausea snapshot `0.35`.
+
+Vitals не владеет Искрой. Искра остаётся в Echo Content Player и попадает в HUD через отдельный adapter.
+
+## Команды
+
+- `/echo_vitals inspect <player>`
+- `/echo_vitals fatigue get <player>`
+- `/echo_vitals fatigue set <player> <value>`
+- `/echo_vitals fatigue add <player> <value>`
+- `/echo_vitals fatigue reduce <player> <value>`
+- `/echo_vitals fatigue restore <player>`
+- `/echo_vitals hunger status <player>`
+- `/echo_vitals diagnostics`

@@ -1,0 +1,6 @@
+description = 'Plain-Java hierarchy, transform and clip evaluation for Echo Animation.'
+
+dependencies {
+    api project(':animation-contracts')
+}
+

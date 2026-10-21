@@ -1,0 +1,9 @@
+{
+  "echo_item_inspection.title": "Item Inspection",
+  "echo_item_inspection.world.inspect": "Inspect",
+  "echo_item_inspection.prompt.settings": "Prompt: scale %s, minimum width %s (0 = automatic), height %s. Settings saved.",
+  "key.echo_item_inspection.inspect": "Inspect item",
+  "key.categories.echo_item_inspection": "Echo — Item Inspection",
+  "echo_item_inspection.commands.empty": "No item inspection definitions are loaded.",
+  "modmenu.nameTranslation.echo_item_inspection": "Echo Item Inspection"
+}

@@ -1,0 +1,599 @@
+import groovy.json.JsonOutput
+
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.util.zip.ZipFile
+
+def mainResources = layout.projectDirectory.dir('src/main/resources').asFile
+def acceptanceResources = layout.projectDirectory.dir('src/acceptance/resources').asFile
+def namespace = content_namespace
+
+def rel = { File file ->
+    rootDir.toPath().relativize(file.toPath()).toString().replace(File.separatorChar, '/' as char)
+}
+
+def resourceRel = { File base, File file ->
+    base.toPath().relativize(file.toPath()).toString().replace(File.separatorChar, '/' as char)
+}
+
+def filesUnder = { File base ->
+    base.isDirectory() ? fileTree(base).files.findAll { it.isFile() } : []
+}
+
+def failIfAny = { String title, List<String> violations ->
+    if (!violations.isEmpty()) {
+        violations.sort().each { println "ОШИБКА: ${it}" }
+        throw new GradleException("${title}: ${violations.size()} ошибок.")
+    }
+}
+
+def isTextFile = { File file ->
+    def name = file.name
+    def path = rel(file)
+    if (path.startsWith('.git/') || path.startsWith('.gradle/') || path.startsWith('build/') ||
+            path.startsWith('acceptance-harness/.gradle/') || path.startsWith('acceptance-harness/build/')) {
+        return false
+    }
+    if (path == 'gradlew.bat' || path.endsWith('.jar') || path.endsWith('.png')) {
+        return false
+    }
+    return name in ['README.md', 'PROGRESS.md', 'PLANS.md', 'AGENTS.md', '.gitignore', '.gitattributes', 'gradlew'] ||
+            name.endsWith('.md') ||
+            name.endsWith('.gradle') ||
+            name.endsWith('.properties') ||
+            name.endsWith('.toml') ||
+            name.endsWith('.mcmeta') ||
+            name.endsWith('.json') ||
+            name.endsWith('.txt') ||
+            name.endsWith('.es') ||
+            name.endsWith('.template') ||
+            name.endsWith('.ps1') ||
+            name.endsWith('.sh')
+}
+
+def decodeUtf8 = { File file, List<String> violations ->
+    byte[] bytes = file.bytes
+    def decoder = StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+    try {
+        return decoder.decode(ByteBuffer.wrap(bytes)).toString()
+    } catch (RuntimeException exception) {
+        violations << "${rel(file)}: файл не является корректным UTF-8."
+        return ''
+    }
+}
+
+def validateSourceSetLayout = { File base, String label, List<String> violations ->
+    if (!base.isDirectory()) {
+        violations << "${label}: отсутствует каталог ${rel(base)}."
+        return
+    }
+    filesUnder(base).each { file ->
+        String path = resourceRel(base, file)
+        if (path.contains('\\')) {
+            violations << "${label}:${path}: resource path содержит обратный slash."
+        }
+        if ((path.startsWith('data/') || path.startsWith('assets/')) && path =~ /[A-Z ]/) {
+            violations << "${label}:${path}: resource path должен быть lowercase и без пробелов."
+        }
+        if (path.startsWith('data/') || path.startsWith('assets/')) {
+            def parts = path.split('/')
+            if (parts.length < 2 || parts[1] != namespace) {
+                violations << "${label}:${path}: разрешен только resource namespace '${namespace}'."
+            }
+        }
+        if (path.startsWith('story/configs/')) {
+            def parts = path.split('/')
+            if (parts.length < 3 || parts[2] != namespace) {
+                violations << "${label}:${path}: story config namespace должен быть '${namespace}'."
+            }
+        }
+        if (path.endsWith('.face-rig.es') && !path.startsWith("data/${namespace}/echo_animation/face_rigs/")) {
+            violations << "${label}:${path}: .face-rig.es должен лежать в data/${namespace}/echo_animation/face_rigs/."
+        } else if (path.endsWith('.face-pose.es') && !path.startsWith("data/${namespace}/echo_animation/face_poses/")) {
+            violations << "${label}:${path}: .face-pose.es должен лежать в data/${namespace}/echo_animation/face_poses/."
+        } else if (path.endsWith('.face-animation.es') &&
+                !path.startsWith("data/${namespace}/echo_animation/face_animations/")) {
+            violations << "${label}:${path}: .face-animation.es должен лежать в data/${namespace}/echo_animation/face_animations/."
+        } else if (path.endsWith('.animation-rig.es') &&
+                !path.startsWith("data/${namespace}/echo_animation/animation_rigs/")) {
+            violations << "${label}:${path}: .animation-rig.es должен лежать в data/${namespace}/echo_animation/animation_rigs/."
+        } else if (path.endsWith('.animation-clip.es') &&
+                !path.startsWith("data/${namespace}/echo_animation/animation_clips/")) {
+            violations << "${label}:${path}: .animation-clip.es должен лежать в data/${namespace}/echo_animation/animation_clips/."
+        } else if (path.endsWith('.animation.es') &&
+                !path.startsWith("data/${namespace}/echo_animation/animations/")) {
+            violations << "${label}:${path}: .animation.es должен лежать в data/${namespace}/echo_animation/animations/."
+        } else if (path.endsWith('.animation-profile.es') &&
+                !path.startsWith("data/${namespace}/echo_animation/animation_profiles/")) {
+            violations << "${label}:${path}: .animation-profile.es должен лежать в data/${namespace}/echo_animation/animation_profiles/."
+        } else if (path.endsWith('.npc-animation-binding.es') &&
+                !path.startsWith("data/${namespace}/echo_npc_animation/bindings/")) {
+            violations << "${label}:${path}: .npc-animation-binding.es должен лежать в data/${namespace}/echo_npc_animation/bindings/."
+        } else if (path.endsWith('.dialogue.es') && !path.startsWith("data/${namespace}/echo_dialogue/dialogues/")) {
+            violations << "${label}:${path}: .dialogue.es должен лежать в data/${namespace}/echo_dialogue/dialogues/."
+        } else if (path.endsWith('.npc.es') && !path.startsWith("data/${namespace}/echo_npc/npcs/")) {
+            violations << "${label}:${path}: .npc.es должен лежать в data/${namespace}/echo_npc/npcs/."
+        } else if (path.endsWith('.portrait-overlay.es') &&
+                !path.startsWith("story/configs/${namespace}/echo_animation/portrait_overlays/")) {
+            violations << "${label}:${path}: .portrait-overlay.es должен лежать в story/configs/${namespace}/echo_animation/portrait_overlays/."
+        } else if (path.endsWith('.dialogue-overlay.es') &&
+                !path.startsWith("story/configs/${namespace}/echo_dialogue/client_overlay/")) {
+            violations << "${label}:${path}: .dialogue-overlay.es должен лежать в story/configs/${namespace}/echo_dialogue/client_overlay/."
+        } else if (path.endsWith('.thought-space.es') &&
+                !path.startsWith("story/configs/${namespace}/echo_thought_space/")) {
+            violations << "${label}:${path}: .thought-space.es должен лежать в story/configs/${namespace}/echo_thought_space/."
+        } else if (path.endsWith('.es') && !path.endsWith('.dialogue.es') && !path.endsWith('.npc.es') &&
+                !path.endsWith('.face-rig.es') && !path.endsWith('.face-pose.es') &&
+                !path.endsWith('.face-animation.es') && !path.endsWith('.portrait-overlay.es') &&
+                !path.endsWith('.animation-rig.es') && !path.endsWith('.animation-clip.es') &&
+                !path.endsWith('.animation.es') &&
+                !path.endsWith('.animation-profile.es') &&
+                !path.endsWith('.npc-animation-binding.es') &&
+                !path.endsWith('.dialogue-overlay.es') &&
+                !path.endsWith('.thought-space.es') &&
+                !path.startsWith("data/${namespace}/echo_magic/spells/") &&
+                !path.startsWith("data/${namespace}/echo_story/stories/")) {
+            violations << "${label}:${path}: .es Story должен лежать в data/${namespace}/echo_story/stories/."
+        }
+        if (path.startsWith("data/${namespace}/echo_story/stories/") && !path.endsWith('.es')) {
+            violations << "${label}:${path}: Story resource должен иметь расширение .es."
+        }
+        if (path.startsWith("data/${namespace}/echo_magic/spells/") && !path.endsWith('.es')) {
+            violations << "${label}:${path}: Magic spell resource должен иметь расширение .es."
+        }
+        if (path.startsWith("data/${namespace}/echo_dialogue/dialogues/") && !path.endsWith('.dialogue.es')) {
+            violations << "${label}:${path}: Dialogue resource должен иметь расширение .dialogue.es."
+        }
+        if (path.startsWith("data/${namespace}/echo_npc/npcs/") && !path.endsWith('.npc.es')) {
+            violations << "${label}:${path}: NPC resource должен иметь расширение .npc.es."
+        }
+        if (path.startsWith("data/${namespace}/echo_animation/face_rigs/") && !path.endsWith('.face-rig.es')) {
+            violations << "${label}:${path}: Face rig resource должен иметь расширение .face-rig.es."
+        }
+        if (path.startsWith("data/${namespace}/echo_animation/face_poses/") && !path.endsWith('.face-pose.es')) {
+            violations << "${label}:${path}: Face pose resource должен иметь расширение .face-pose.es."
+        }
+        if (path.startsWith("data/${namespace}/echo_animation/face_animations/") &&
+                !path.endsWith('.face-animation.es')) {
+            violations << "${label}:${path}: Facial animation resource должен иметь расширение .face-animation.es."
+        }
+        if (path.startsWith("data/${namespace}/echo_animation/animation_rigs/") &&
+                !path.endsWith('.animation-rig.es')) {
+            violations << "${label}:${path}: Body rig resource должен иметь расширение .animation-rig.es."
+        }
+        if (path.startsWith("data/${namespace}/echo_animation/animation_clips/") &&
+                !path.endsWith('.animation-clip.es')) {
+            violations << "${label}:${path}: Body clip resource должен иметь расширение .animation-clip.es."
+        }
+        if (path.startsWith("data/${namespace}/echo_animation/animations/") &&
+                !path.endsWith('.animation.es')) {
+            violations << "${label}:${path}: Animation lifecycle resource должен иметь расширение .animation.es."
+        }
+        if (path.startsWith("data/${namespace}/echo_animation/animation_profiles/") &&
+                !path.endsWith('.animation-profile.es')) {
+            violations << "${label}:${path}: Animation profile resource должен иметь расширение .animation-profile.es."
+        }
+        if (path.startsWith("data/${namespace}/echo_npc_animation/bindings/") &&
+                !path.endsWith('.npc-animation-binding.es')) {
+            violations << "${label}:${path}: NPC animation binding resource должен иметь расширение .npc-animation-binding.es."
+        }
+    }
+}
+
+def validateScriptLimit = { File base, String label, List<String> violations ->
+    def scripts = filesUnder(base).findAll {
+        def path = resourceRel(base, it)
+        path.endsWith('.es') || path.endsWith('.dialogue.es') || path.endsWith('.npc.es')
+    }
+    scripts.groupBy { it.parentFile.canonicalFile }.each { dir, files ->
+        if (files.size() > 7) {
+            violations << "${label}:${resourceRel(base, dir)}: ${files.size()} script files; максимум 7."
+        }
+    }
+}
+
+def pngSize = { File file, List<String> violations ->
+    byte[] bytes = file.bytes
+    byte[] signature = [(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A] as byte[]
+    if (bytes.length < 24 || !(0..<8).every { bytes[it] == signature[it] }) {
+        violations << "${rel(file)}: PNG signature некорректна."
+        return null
+    }
+    int width = ((bytes[16] & 0xFF) << 24) | ((bytes[17] & 0xFF) << 16) |
+            ((bytes[18] & 0xFF) << 8) | (bytes[19] & 0xFF)
+    int height = ((bytes[20] & 0xFF) << 24) | ((bytes[21] & 0xFF) << 16) |
+            ((bytes[22] & 0xFF) << 8) | (bytes[23] & 0xFF)
+    return [width, height]
+}
+
+tasks.register('validateContentLayout') {
+    group = 'verification'
+    description = 'Проверяет canonical content layout, paths, namespaces и script limits.'
+    doLast {
+        List<String> violations = []
+        if (layout.projectDirectory.dir('src/main/java').asFile.exists()) {
+            violations << 'src/main/java: production Java запрещен для content-only pack.'
+        }
+        ['META-INF/mods.toml', 'pack.mcmeta'].each { required ->
+            if (!new File(mainResources, required).isFile()) {
+                violations << "src/main/resources/${required}: обязательный metadata file отсутствует."
+            }
+        }
+        validateSourceSetLayout(mainResources, 'main', violations)
+        validateSourceSetLayout(acceptanceResources, 'acceptance', violations)
+        validateScriptLimit(mainResources, 'main', violations)
+        validateScriptLimit(acceptanceResources, 'acceptance', violations)
+        [mainResources, acceptanceResources].each { base ->
+            filesUnder(base).each { file ->
+                String path = resourceRel(base, file)
+                String lower = path.toLowerCase(Locale.ROOT)
+                if (file.name.startsWith('.') || file.name in ['Thumbs.db'] ||
+                        lower.endsWith('.bak') || lower.endsWith('.tmp') || lower.endsWith('.swp') ||
+                        lower.endsWith('~')) {
+                    violations << "${rel(file)}: временный/editor file запрещен."
+                }
+                if (lower.endsWith('.psd') || lower.endsWith('.xcf') || lower.endsWith('.kra') ||
+                        lower.endsWith('.aseprite') || lower.endsWith('.blend')) {
+                    violations << "${rel(file)}: source-art формат запрещен внутри resources."
+                }
+                if (lower.endsWith('.jar') || lower.endsWith('.class')) {
+                    violations << "${rel(file)}: JAR/class file запрещен внутри resources."
+                }
+                if (lower.endsWith('.ttf') || lower.endsWith('.otf') || lower.endsWith('.woff') ||
+                        lower.endsWith('.woff2')) {
+                    violations << "${rel(file)}: font file запрещен внутри content pack."
+                }
+            }
+            filesUnder(base).groupBy { resourceRel(base, it).toLowerCase(Locale.ROOT) }.each { key, same ->
+                if (same.size() > 1) {
+                    violations << "${key}: duplicate case-insensitive resource paths: ${same.collect { rel(it) }}"
+                }
+            }
+        }
+        filesUnder(mainResources).findAll { it.name.endsWith('.es') }.each { file ->
+            String text = file.getText('UTF-8')
+            if (text.contains('content_pack_') || text.contains('echo_story_npc_test') ||
+                    text.contains('echo_dialogue_test') || text.contains('sample:')) {
+                violations << "${rel(file)}: production resources не должны содержать test/sample IDs."
+            }
+        }
+        [mainResources, acceptanceResources].each { base ->
+            filesUnder(base).findAll {
+                resourceRel(base, it).startsWith("data/${namespace}/echo_story/stories/") && it.name.endsWith('.es')
+            }.each { file ->
+                String text = file.getText('UTF-8')
+                ['StoryResourceDef', 'Build()', 'private void Nodes()', 'Start("', 'Finish("', 'next:'].each { marker ->
+                    if (text.contains(marker)) {
+                        violations << "${rel(file)}: legacy Story marker '${marker}' запрещен; используйте ES2 OnStart()."
+                    }
+                }
+            }
+        }
+        failIfAny('validateContentLayout', violations)
+        println 'validateContentLayout: OK'
+    }
+}
+
+tasks.register('validateContentUtf8') {
+    group = 'verification'
+    description = 'Проверяет UTF-8, LF, trailing whitespace, tabs, mojibake и hardcoded local paths.'
+    doLast {
+        List<String> violations = []
+        List<String> mojibakeMarkers = ['вЂ', 'в†', 'Г—', 'Рљ', 'Р°', 'Рё', 'Рѕ', 'Рµ', 'РЅ', 'СЂ', 'СЃ', 'С‚', 'СЊ']
+        fileTree(rootDir).files.findAll { it.isFile() && isTextFile(it) }.each { file ->
+            String text = decodeUtf8(file, violations)
+            if (text.isEmpty() && file.length() > 0) {
+                return
+            }
+            String path = rel(file)
+            if (text.contains('\r\n')) {
+                violations << "${path}: используйте LF line endings."
+            }
+            if (!text.endsWith('\n')) {
+                violations << "${path}: отсутствует final newline."
+            }
+            int lineNo = 0
+            text.eachLine { line ->
+                lineNo++
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${path}:${lineNo}: trailing whitespace запрещен."
+                }
+                if (line.contains('\t')) {
+                    violations << "${path}:${lineNo}: tabs запрещены в authored text."
+                }
+            }
+            if (path != 'gradle/content-validation.gradle') {
+                mojibakeMarkers.findAll { text.contains(it) }.unique().each { marker ->
+                    violations << "${path}: найден mojibake marker '${marker}'."
+                }
+            }
+            if ((text =~ /(?i)\b[A-Z]:\\|(^|\s)\/(home|Users)\//).find()) {
+                violations << "${path}: hardcoded absolute machine path запрещен."
+            }
+        }
+        failIfAny('validateContentUtf8', violations)
+        println 'validateContentUtf8: OK'
+    }
+}
+
+tasks.register('validateContentAssets') {
+    group = 'verification'
+    description = 'Проверяет PNG assets и обязательные authored fallback visuals.'
+    doLast {
+        List<String> violations = []
+        [mainResources, acceptanceResources].each { base ->
+            filesUnder(base).findAll { it.name.toLowerCase(Locale.ROOT).endsWith('.png') }.each { file ->
+                if (file.length() > 1024 * 1024) {
+                    violations << "${rel(file)}: PNG больше 1 MiB."
+                }
+                def size = pngSize(file, violations)
+                if (size == null) {
+                    return
+                }
+                String path = resourceRel(base, file)
+                if (path.startsWith("assets/${namespace}/textures/echo_npc/skins/") ||
+                        path.startsWith("assets/${namespace}/textures/echo_dialogue/skins/")) {
+                    if (size[0] != 64 || size[1] != 64) {
+                        violations << "${rel(file)}: Minecraft skin/SkinHead должен быть 64x64, сейчас ${size[0]}x${size[1]}."
+                    }
+                }
+                if (path.startsWith("assets/${namespace}/textures/echo_dialogue/portraits/")) {
+                    if (size[0] < 16 || size[1] < 16 || size[0] > 512 || size[1] > 512) {
+                        violations << "${rel(file)}: portrait должен быть 16..512 px по каждой стороне, сейчас ${size[0]}x${size[1]}."
+                    }
+                }
+            }
+        }
+        [
+                [mainResources, 'assets/jdh/textures/echo_npc/skins/john_father.png'],
+                [mainResources, 'assets/jdh/textures/echo_dialogue/portraits/john_father.png'],
+                [acceptanceResources, 'assets/jdh/textures/echo_npc/skins/content_pack_father.png'],
+                [acceptanceResources, 'assets/jdh/textures/echo_dialogue/portraits/content_pack_father.png']
+        ].each { pair ->
+            File required = new File(pair[0] as File, pair[1] as String)
+            if (!required.isFile()) {
+                violations << "${rel(required)}: обязательный asset для canonical slice отсутствует."
+            }
+        }
+        failIfAny('validateContentAssets', violations)
+        println 'validateContentAssets: OK'
+    }
+}
+
+tasks.register('validateContentReferences') {
+    group = 'verification'
+    description = 'Проверяет известную C1 vertical slice без дублирования runtime binder logic.'
+    doLast {
+        List<String> violations = []
+        Map<String, String> requiredText = [
+                'src/acceptance/resources/data/jdh/echo_npc/npcs/content_pack/father.npc.es': 'jdh:content_pack_father',
+                'src/acceptance/resources/data/jdh/echo_dialogue/dialogues/content_pack/greeting.dialogue.es': 'jdh:content_pack_greeting',
+                'src/acceptance/resources/data/jdh/echo_story/stories/content_pack/smoke.es': 'jdh:content_pack_smoke',
+                'src/acceptance/resources/data/jdh/echo_story/stories/content_pack/smoke_refused.es': 'jdh:content_pack_smoke_refused'
+        ]
+        requiredText.each { path, marker ->
+            File file = new File(rootDir, path)
+            if (!file.isFile()) {
+                violations << "${path}: canonical acceptance file отсутствует."
+            } else if (!file.getText('UTF-8').contains(marker)) {
+                violations << "${path}: canonical ID ${marker} не найден."
+            }
+        }
+        Map<String, List<String>> requiredStoryMarkers = [
+                'src/acceptance/resources/data/jdh/echo_story/stories/content_pack/smoke.es': [
+                        'output: "result"', 'output: "outcome"',
+                        'Story.Require("outcome", "jdh:content_pack_accepted")'],
+                'src/acceptance/resources/data/jdh/echo_story/stories/content_pack/smoke_refused.es': [
+                        'output: "result"', 'output: "outcome"',
+                        'Story.Require("outcome", "jdh:content_pack_refused")']
+        ]
+        requiredStoryMarkers.each { path, markers ->
+            File file = new File(rootDir, path)
+            if (file.isFile()) {
+                String text = file.getText('UTF-8')
+                markers.each { marker ->
+                    if (!text.contains(marker)) {
+                        violations << "${path}: canonical marker ${marker} не найден."
+                    }
+                }
+            }
+        }
+        failIfAny('validateContentReferences', violations)
+        println 'validateContentReferences: OK'
+    }
+}
+
+tasks.register('contentDoctor', Exec) {
+    group = 'verification'
+    description = 'Компилирует production EchoScript реальными binders и проверяет cross-resource graph.'
+    File doctorRoot = new File(rootDir, '../echo-content-doctor').canonicalFile
+    File sceneResources = new File(rootDir, '../echo-scene/scene-forge-1.20.1/src/main/resources').canonicalFile
+    File scenarioResources = new File(rootDir,
+            '../echo-dev-scenarios/dev-scenarios-forge-1.20.1/src/main/resources').canonicalFile
+    File migrationResources = new File(rootDir,
+            '../echo-save-migration/save-migration-forge-1.20.1/src/main/resources').canonicalFile
+    File report = layout.buildDirectory.file('reports/echo-content-doctor.json').get().asFile
+    inputs.files(fileTree(mainResources) { include '**/*.es' })
+    inputs.files(fileTree(sceneResources) { include '**/*.es', '**/*.json' })
+    inputs.files(fileTree(scenarioResources) { include '**/*.es', '**/*.json' })
+    inputs.files(fileTree(migrationResources) { include '**/*.es' })
+    inputs.files(fileTree(doctorRoot) {
+        include 'build.gradle', 'settings.gradle', 'gradle.properties'
+        include 'src/main/java/**/*.java'
+        exclude '**/build/**'
+    })
+    outputs.file(report)
+    doFirst {
+        File wrapper = new File(doctorRoot, System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
+                ? 'gradlew.bat' : 'gradlew')
+        if (!wrapper.isFile()) {
+            throw new GradleException("Echo Content Doctor wrapper не найден: ${wrapper}")
+        }
+        workingDir doctorRoot
+        String roots = [mainResources, sceneResources, scenarioResources, migrationResources]
+                .collect { it.absolutePath }.join(File.pathSeparator)
+        commandLine wrapper.absolutePath, 'contentDoctor',
+                "-PcontentRoot=${roots}",
+                "-PcontentReport=${report.absolutePath}", '--console=plain'
+    }
+}
+
+tasks.register('validateContent') {
+    group = 'verification'
+    description = 'Запускает все build-time проверки content pack.'
+    dependsOn tasks.named('validateContentLayout')
+    dependsOn tasks.named('validateContentUtf8')
+    dependsOn tasks.named('validateContentAssets')
+    dependsOn tasks.named('validateContentReferences')
+    dependsOn tasks.named('contentDoctor')
+}
+
+tasks.named('contentJar') {
+    dependsOn tasks.named('validateContent')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('validateContent')
+}
+
+tasks.register('verifyContentJar') {
+    group = 'verification'
+    description = 'Инспектирует фактический content JAR и запрещает runtime/API/EchoScript/test/source-art payload.'
+    dependsOn tasks.named('contentJar')
+    doLast {
+        File jarFile = tasks.named('contentJar').get().archiveFile.get().asFile
+        List<String> violations = []
+        if (!jarFile.isFile()) {
+            violations << "${rel(jarFile)}: JAR не найден."
+            failIfAny('verifyContentJar', violations)
+        }
+        ZipFile zip = new ZipFile(jarFile)
+        try {
+            List<String> entries = zip.entries().toList().findAll { !it.directory }.collect { it.name }.sort()
+            ['META-INF/mods.toml', 'pack.mcmeta', 'story/content-pack/jdh/pack.mcmeta',
+             'story/content-pack/jdh/data/jdh/echo_story/stories/chapter_1/home/home_arrival.es',
+             'story/content-pack/jdh/data/jdh/echo_dialogue/dialogues/chapter_1/home/home_arrival.dialogue.es',
+             'story/content-pack/jdh/data/jdh/echo_npc/npcs/chapter_1/family/john_father.npc.es',
+             'story/content-pack/jdh/data/jdh/echo_animation/face_rigs/chapter_1/family/john_father.face-rig.es',
+             'story/content-pack/jdh/data/jdh/echo_animation/face_poses/chapter_1/family/john_father_neutral.face-pose.es',
+             'story/content-pack/jdh/data/jdh/echo_animation/face_animations/shared/blink.face-animation.es',
+             'story/content-pack/jdh/data/jdh/echo_animation/animation_profiles/chapter_1/family/standard_humanoid.animation-profile.es',
+             'story/content-pack/jdh/data/jdh/echo_npc_animation/bindings/chapter_1/family/john_father.npc-animation-binding.es',
+             'story/configs/jdh/echo_animation/portrait_overlays/john_father.portrait-overlay.es',
+             'story/configs/jdh/echo_dialogue/client_overlay/dialogue_overlay.dialogue-overlay.es',
+             'story/configs/jdh/echo_thought_space/thought_space.thought-space.es',
+             'story/content-pack/jdh/assets/jdh/textures/echo_npc/skins/john_father.png',
+             'story/content-pack/jdh/assets/jdh/textures/echo_dialogue/portraits/john_father.png',
+             'assets/jdh/textures/echo_npc/skins/john_father.png',
+             'assets/jdh/textures/echo_dialogue/portraits/john_father.png'].each { required ->
+                if (!entries.contains(required)) {
+                    violations << "${required}: отсутствует в production content JAR."
+                }
+            }
+            entries.each { entry ->
+                String lower = entry.toLowerCase(Locale.ROOT)
+                if (!(entry == 'META-INF/MANIFEST.MF' || entry == 'META-INF/mods.toml' ||
+                        entry == 'pack.mcmeta' || entry == 'story/content-pack/jdh/pack.mcmeta' ||
+                        entry.startsWith('story/content-pack/jdh/data/') ||
+                        entry.startsWith('story/content-pack/jdh/assets/') ||
+                        entry.startsWith("assets/${namespace}/") ||
+                        entry.startsWith('story/configs/jdh/'))) {
+                    violations << "${entry}: unexpected archive entry."
+                }
+                if ((entry.startsWith('story/content-pack/jdh/data/') ||
+                        entry.startsWith('story/content-pack/jdh/assets/') ||
+                        entry.startsWith("assets/${namespace}/") ||
+                        entry.startsWith('story/configs/jdh/')) && entry =~ /[A-Z ]/) {
+                    violations << "${entry}: archive resource path должен быть lowercase и без пробелов."
+                }
+                if (lower.endsWith('.class') || lower.endsWith('.jar')) {
+                    violations << "${entry}: class/JAR запрещен в content JAR."
+                }
+                if (lower.endsWith('.psd') || lower.endsWith('.xcf') || lower.endsWith('.kra') ||
+                        lower.endsWith('.aseprite') || lower.endsWith('.blend')) {
+                    violations << "${entry}: source-art file запрещен в content JAR."
+                }
+                if (lower.endsWith('.ttf') || lower.endsWith('.otf') || lower.endsWith('.woff') ||
+                        lower.endsWith('.woff2')) {
+                    violations << "${entry}: font file запрещен в content JAR."
+                }
+                if (entry.startsWith('docs/') || entry.startsWith('authoring/') || entry.startsWith('art-source/') ||
+                        entry.startsWith('src/') || entry.startsWith('gradle/') || entry.startsWith('build/')) {
+                    violations << "${entry}: repository-only file не должен входить в JAR."
+                }
+                if (entry.contains('echoscript') || entry.contains('echostoryengine') ||
+                        entry.contains('echodialogue') || entry.contains('echonpc')) {
+                    violations << "${entry}: runtime/API/EchoScript copy запрещена."
+                }
+            }
+            entries.findAll { it.endsWith('.es') }.each { entry ->
+                String text = new String(zip.getInputStream(zip.getEntry(entry)).readAllBytes(), StandardCharsets.UTF_8)
+                if (text.contains('content_pack_') || text.contains('echo_story_npc_test') ||
+                        text.contains('echo_dialogue_test') || text.contains('sample:')) {
+                    violations << "${entry}: acceptance/test/sample ID попал в production JAR."
+                }
+            }
+        } finally {
+            zip.close()
+        }
+        failIfAny('verifyContentJar', violations)
+        println "verifyContentJar: OK ${rel(jarFile)} (${jarFile.length()} bytes)"
+    }
+}
+
+tasks.register('contentReport') {
+    group = 'verification'
+    description = 'Создает author-facing индекс ресурсов под build/reports/content/.'
+    dependsOn tasks.named('validateContent')
+    doLast {
+        File reportDir = layout.buildDirectory.dir('reports/content').get().asFile
+        reportDir.mkdirs()
+        def storyResources = filesUnder(mainResources).findAll { resourceRel(mainResources, it).startsWith("data/${namespace}/echo_story/stories/") && it.name.endsWith('.es') }
+        def dialogueResources = filesUnder(mainResources).findAll { resourceRel(mainResources, it).startsWith("data/${namespace}/echo_dialogue/dialogues/") && it.name.endsWith('.dialogue.es') }
+        def npcResources = filesUnder(mainResources).findAll { resourceRel(mainResources, it).startsWith("data/${namespace}/echo_npc/npcs/") && it.name.endsWith('.npc.es') }
+        def animationResources = filesUnder(mainResources).findAll { resourceRel(mainResources, it).startsWith("data/${namespace}/echo_animation/") && it.name.endsWith('.es') }
+        def assets = filesUnder(mainResources).findAll { resourceRel(mainResources, it).startsWith("assets/${namespace}/") }
+        File md = new File(reportDir, 'content-report.md')
+        md.text = """# Echo Story Content Pack content report
+
+Статус build-time validation: OK.
+
+## Production resource files
+
+Story files:
+${storyResources.collect { "- `${resourceRel(mainResources, it)}`" }.join('\n')}
+
+Dialogue files:
+${dialogueResources.collect { "- `${resourceRel(mainResources, it)}`" }.join('\n')}
+
+NPC files:
+${npcResources.collect { "- `${resourceRel(mainResources, it)}`" }.join('\n')}
+
+Echo Animation files:
+${animationResources.collect { "- `${resourceRel(mainResources, it)}`" }.join('\n')}
+
+Assets:
+${assets.collect { "- `${resourceRel(mainResources, it)}` (${it.length()} bytes)" }.join('\n')}
+
+## Semantic index
+
+Реальные Story/Dialogue/NPC/Animation binders и cross-resource graph проверены задачей
+`contentDoctor`. Машиночитаемый отчёт: `build/reports/echo-content-doctor.json`.
+""" + '\n'
+        File json = new File(reportDir, 'content-report.json')
+        json.text = JsonOutput.prettyPrint(JsonOutput.toJson([
+                validation: 'OK',
+                semanticIndex: 'build/reports/echo-content-doctor.json',
+                storyResources: storyResources.collect { resourceRel(mainResources, it) },
+                dialogueResources: dialogueResources.collect { resourceRel(mainResources, it) },
+                npcResources: npcResources.collect { resourceRel(mainResources, it) },
+                animationResources: animationResources.collect { resourceRel(mainResources, it) },
+                assets: assets.collect { [path: resourceRel(mainResources, it), bytes: it.length()] }
+        ])) + '\n'
+        println "contentReport: ${rel(md)}"
+    }
+}

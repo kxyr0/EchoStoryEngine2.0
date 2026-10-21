@@ -1,0 +1,7 @@
+pluginManagement { repositories { gradlePluginPortal(); mavenCentral(); maven { url = 'https://maven.minecraftforge.net/' } } }
+rootProject.name = 'echo-audio'
+include 'audio-forge-1.20.1'
+includeBuild '../echo-script'
+includeBuild '../echo-voice'
+includeBuild '../echo-dialogue'
+includeBuild '../echo-story-engine'

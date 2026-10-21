@@ -1,0 +1,22 @@
+---
+title: "Rotate"
+description: "Абсолютный yaw/pitch для body и головы игрока."
+section: "Player"
+pageKind: "api"
+status: "review"
+since: "PA1"
+updated: "2026-07-28"
+relatedIds: ["PlayerActorRotationRequest", "PlayerRotationProgress"]
+relatedPages: ["player-actor/look-at"]
+sourceRepositories: ["echo-player-actor"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-actor/player-actor-core"]
+visualIdentity: "player-rotate"
+interactiveModules: []
+searchKeywords: ["Rotate", "yaw", "pitch", "interpolation"]
+---
+
+# Rotate
+
+`Player.Rotate(yaw, pitch)` задаёт абсолютный yaw/pitch. С `duration` команда становится blocking и прогрессирует по server tick с `LINEAR`, `SMOOTH` или `CUBIC`.
+
+Команда относится к body игрока, не к detached camera.

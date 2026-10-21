@@ -1,0 +1,29 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-story-engine'
+
+include 'story-contracts'
+include 'story-core'
+include 'story-definition'
+include 'story-echoscript-adapter'
+include 'echo-envimproment'
+include 'story-extension-api'
+include 'story-extension-forge-1.20.1'
+include 'story-persistence'
+include 'story-forge-1.20.1'
+
+includeBuild '../echo-script'
+includeBuild '../echo-audio'

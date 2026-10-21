@@ -1,0 +1,274 @@
+diff --git a/animation-forge-1.20.1/src/main/java/io/github/kxyr0/echoanimation/forge/client/humanoid/HumanoidRenderDispatcher.java b/animation-forge-1.20.1/src/main/java/io/github/kxyr0/echoanimation/forge/client/humanoid/HumanoidRenderDispatcher.java
+index 60e1511..30e356f 100644
+--- a/animation-forge-1.20.1/src/main/java/io/github/kxyr0/echoanimation/forge/client/humanoid/HumanoidRenderDispatcher.java
++++ b/animation-forge-1.20.1/src/main/java/io/github/kxyr0/echoanimation/forge/client/humanoid/HumanoidRenderDispatcher.java
+@@ -147,12 +147,54 @@ public final class HumanoidRenderDispatcher {
+                 return rig;
+             }
+         }
++
++        Optional<AnimationRigDefinition> activeClipRig = resolveActiveClipRig(context);
++        if (activeClipRig.isPresent()) {
++            return activeClipRig;
++        }
++
+         return catalogState.current().animationRigs().stream()
+                 .filter(definition -> definition.id().equals(FALLBACK_SEGMENTED_RIG))
+                 .filter(definition -> definition.kind() == AnimationRigKind.SEGMENTED_HUMANOID)
+                 .findFirst();
+     }
+ 
++    private Optional<AnimationRigDefinition> resolveActiveClipRig(
++            AnimationHumanoidRenderContext context) {
++
++        var snapshot = AnimationClientSyncState.current(context.subjectId());
++        if (snapshot.isEmpty()) {
++            return Optional.empty();
++        }
++
++        for (var channel : snapshot.orElseThrow().channels()) {
++            Optional<AnimationRigDefinition> current = channel.clipId()
++                    .flatMap(this::rigForClip);
++            if (current.isPresent()) {
++                return current;
++            }
++
++            Optional<AnimationRigDefinition> previous = channel.previousClipId()
++                    .flatMap(this::rigForClip);
++            if (previous.isPresent()) {
++                return previous;
++            }
++        }
++        return Optional.empty();
++    }
++
++    private Optional<AnimationRigDefinition> rigForClip(AnimationClipId clipId) {
++        Optional<AnimationRigId> rigId = catalogState.current().animationClips().stream()
++                .filter(clip -> clip.id().equals(clipId))
++                .flatMap(clip -> clip.rigId().stream())
++                .findFirst();
++
++        return rigId.flatMap(id -> catalogState.current().animationRigs().stream()
++                .filter(rig -> rig.id().equals(id))
++                .filter(rig -> rig.kind() == AnimationRigKind.SEGMENTED_HUMANOID)
++                .findFirst());
++    }
++
+     private Optional<AnimationRigDefinition> resolveDebugRig() {
+         AnimationRigId debugRig = debugRigId();
+         return catalogState.current().animationRigs().stream()
+diff --git a/animation-forge-1.20.1/src/main/java/io/github/kxyr0/echoanimation/forge/command/EchoAnimationCommands.java b/animation-forge-1.20.1/src/main/java/io/github/kxyr0/echoanimation/forge/command/EchoAnimationCommands.java
+index c114ecc..2702043 100644
+--- a/animation-forge-1.20.1/src/main/java/io/github/kxyr0/echoanimation/forge/command/EchoAnimationCommands.java
++++ b/animation-forge-1.20.1/src/main/java/io/github/kxyr0/echoanimation/forge/command/EchoAnimationCommands.java
+@@ -3,15 +3,26 @@ package io.github.kxyr0.echoanimation.forge.command;
+ import com.mojang.brigadier.CommandDispatcher;
+ import com.mojang.brigadier.arguments.IntegerArgumentType;
+ import com.mojang.brigadier.arguments.StringArgumentType;
++import io.github.kxyr0.echoanimation.api.clip.AnimationClipId;
++import io.github.kxyr0.echoanimation.api.clip.definition.AnimationBoneTrackDefinition;
++import io.github.kxyr0.echoanimation.api.clip.definition.AnimationClipDefinition;
+ import io.github.kxyr0.echoanimation.api.diagnostic.AnimationDiagnostic;
+ import io.github.kxyr0.echoanimation.api.id.FaceRigId;
++import io.github.kxyr0.echoanimation.api.math.Vec3;
++import io.github.kxyr0.echoanimation.api.profile.definition.AnimationProfileDefinition;
++import io.github.kxyr0.echoanimation.api.rig.AnimationRigId;
++import io.github.kxyr0.echoanimation.api.rig.definition.AnimationRigDefinition;
++import io.github.kxyr0.echoanimation.api.subject.AnimationSubjectId;
+ import io.github.kxyr0.echoanimation.definition.resource.FaceRigDefinition;
++import io.github.kxyr0.echoanimation.forge.playback.AnimationRuntimeRecords.PlaybackRecord;
++import io.github.kxyr0.echoanimation.forge.playback.AnimationRuntimeSavedData;
+ import io.github.kxyr0.echoanimation.forge.resource.AnimationCatalogState;
+ import java.util.Comparator;
+ import java.util.List;
+ import java.util.Optional;
+ import net.minecraft.commands.CommandSourceStack;
+ import net.minecraft.commands.Commands;
++import net.minecraft.commands.arguments.ResourceLocationArgument;
+ import net.minecraft.network.chat.Component;
+ 
+ /**
+@@ -36,9 +47,21 @@ public final class EchoAnimationCommands {
+                 .then(Commands.literal("face_poses").executes(context -> listPoses(context.getSource())))
+                 .then(Commands.literal("face_animations").executes(context -> listAnimations(context.getSource())))
+                 .then(Commands.literal("body_rigs").executes(context -> listBodyRigs(context.getSource())))
++                .then(Commands.literal("body_rig")
++                        .then(Commands.argument("id", StringArgumentType.greedyString())
++                                .executes(context -> describeBodyRig(context.getSource(),
++                                        StringArgumentType.getString(context, "id")))))
+                 .then(Commands.literal("body_clips").executes(context -> listBodyClips(context.getSource())))
++                .then(Commands.literal("body_clip")
++                        .then(Commands.argument("id", StringArgumentType.greedyString())
++                                .executes(context -> describeBodyClip(context.getSource(),
++                                        StringArgumentType.getString(context, "id")))))
+                 .then(Commands.literal("animations").executes(context -> listHighLevelAnimations(context.getSource())))
+                 .then(Commands.literal("profiles").executes(context -> listProfiles(context.getSource())))
++                .then(Commands.literal("subject")
++                        .then(Commands.argument("subject_id", ResourceLocationArgument.id())
++                                .executes(context -> describeSubject(context.getSource(),
++                                        ResourceLocationArgument.getId(context, "subject_id").toString()))))
+                 .then(new EchoAnimationAcceptanceCommands(catalogState).node())
+                 .then(new EchoAnimationDebugCommands().node())
+                 .then(Commands.literal("diagnostics").executes(context -> listDiagnostics(context.getSource(), 20))
+@@ -123,6 +146,161 @@ public final class EchoAnimationCommands {
+         return ids.size();
+     }
+ 
++    private int describeBodyRig(CommandSourceStack source, String rawId) {
++        AnimationRigId id;
++        try {
++            id = AnimationRigId.parse(rawId);
++        } catch (IllegalArgumentException exception) {
++            source.sendFailure(Component.literal(exception.getMessage()));
++            return 0;
++        }
++        Optional<AnimationRigDefinition> rig = catalogState.current().animationRigs().stream()
++                .filter(candidate -> candidate.id().equals(id))
++                .findFirst();
++        if (rig.isEmpty()) {
++            source.sendFailure(Component.literal("Body rig not found: " + id));
++            return 0;
++        }
++        AnimationRigDefinition definition = rig.orElseThrow();
++        String bones = definition.bones().stream()
++                .map(bone -> bone.id().value())
++                .reduce((left, right) -> left + "," + right)
++                .orElse("none");
++        source.sendSuccess(() -> Component.literal("Echo Animation body_rig " + id
++                + ": kind=" + definition.kind()
++                + ", skin=" + definition.skinVariant()
++                + ", bones=" + definition.bones().size()
++                + " [" + bones + "]"), false);
++        return 1;
++    }
++
++    private int describeBodyClip(CommandSourceStack source, String rawId) {
++        AnimationClipId id;
++        try {
++            id = AnimationClipId.parse(rawId);
++        } catch (IllegalArgumentException exception) {
++            source.sendFailure(Component.literal(exception.getMessage()));
++            return 0;
++        }
++        Optional<AnimationClipDefinition> clip = catalogState.current().animationClips().stream()
++                .filter(candidate -> candidate.id().equals(id))
++                .findFirst();
++        if (clip.isEmpty()) {
++            source.sendFailure(Component.literal("Body clip not found: " + id));
++            return 0;
++        }
++        AnimationClipDefinition definition = clip.orElseThrow();
++        int keys = definition.tracks().stream().mapToInt(track -> track.keyframes().size()).sum();
++        List<String> rotating = definition.tracks().stream()
++                .filter(this::hasNonZeroRotation)
++                .map(track -> track.boneId().value())
++                .toList();
++        List<String> translating = definition.tracks().stream()
++                .filter(this::hasNonZeroTranslation)
++                .map(track -> track.boneId().value())
++                .toList();
++        List<String> scaling = definition.tracks().stream()
++                .filter(this::hasNonIdentityScale)
++                .map(track -> track.boneId().value())
++                .toList();
++        long matrixTracks = definition.tracks().stream().filter(AnimationBoneTrackDefinition::matrixTrack).count();
++        source.sendSuccess(() -> Component.literal("Echo Animation body_clip " + id
++                + ": rig=" + definition.rigId().map(Object::toString).orElse("none")
++                + ", duration=" + definition.durationTicks()
++                + ", tracks=" + definition.tracks().size()
++                + ", keys=" + keys
++                + ", matrixTracks=" + matrixTracks
++                + ", rotating=" + rotating
++                + ", translating=" + translating
++                + ", scaling=" + scaling), false);
++        return 1;
++    }
++
++    private boolean hasNonZeroRotation(AnimationBoneTrackDefinition track) {
++        return track.keyframes().stream()
++                .flatMap(frame -> frame.rotationDegrees().stream())
++                .anyMatch(this::nonZero);
++    }
++
++    private boolean hasNonZeroTranslation(AnimationBoneTrackDefinition track) {
++        return track.keyframes().stream()
++                .flatMap(frame -> frame.translation().stream())
++                .anyMatch(this::nonZero);
++    }
++
++    private boolean hasNonIdentityScale(AnimationBoneTrackDefinition track) {
++        return track.keyframes().stream()
++                .flatMap(frame -> frame.scale().stream())
++                .anyMatch(value -> Math.abs(value.x() - 1.0D) > 1.0E-6D
++                        || Math.abs(value.y() - 1.0D) > 1.0E-6D
++                        || Math.abs(value.z() - 1.0D) > 1.0E-6D);
++    }
++
++    private boolean nonZero(Vec3 value) {
++        return Math.abs(value.x()) > 1.0E-6D
++                || Math.abs(value.y()) > 1.0E-6D
++                || Math.abs(value.z()) > 1.0E-6D;
++    }
++
++    private int describeSubject(CommandSourceStack source, String rawSubjectId) {
++        AnimationSubjectId subjectId = new AnimationSubjectId(rawSubjectId);
++        AnimationRuntimeSavedData data = AnimationRuntimeSavedData.load(source.getServer());
++        var subject = data.subjects.get(subjectId);
++        if (subject == null) {
++            source.sendFailure(Component.literal("Animation subject not found: " + subjectId));
++            return 0;
++        }
++
++        Optional<AnimationProfileDefinition> profile = subject.profileId.flatMap(profileId ->
++                catalogState.current().animationProfiles().stream()
++                        .filter(candidate -> candidate.id().equals(profileId))
++                        .findFirst());
++        Optional<AnimationRigDefinition> rig = profile.flatMap(definition ->
++                catalogState.current().animationRigs().stream()
++                        .filter(candidate -> candidate.id().equals(definition.rigId()))
++                        .findFirst());
++
++        String profileText = subject.profileId.map(Object::toString).orElse("none");
++        String rigText = profile.map(definition -> definition.rigId().toString()).orElse("none");
++        String renderText = profile.map(definition -> definition.renderModelKind().name()).orElse("none");
++        String rigDetails = rig.map(definition -> definition.kind() + "/" + definition.bones().size() + " bones")
++                .orElse("missing");
++        String channels = subject.channelStates.entrySet().stream()
++                .map(entry -> entry.getKey() + "=" + entry.getValue())
++                .reduce((left, right) -> left + "," + right)
++                .orElse("none");
++
++        List<PlaybackRecord> playbacks = data.activePlaybacks.values().stream()
++                .filter(playback -> playback.subjectId.equals(subjectId))
++                .toList();
++        String playbackText = playbacks.stream()
++                .map(playback -> playback.animationId
++                        + " phase=" + playback.phase
++                        + " clip=" + activeClip(playback)
++                        + " elapsed=" + playback.phaseElapsedTicks
++                        + " speed=" + playback.playbackSpeed)
++                .reduce((left, right) -> left + " | " + right)
++                .orElse("none");
++
++        source.sendSuccess(() -> Component.literal("Echo Animation subject " + subjectId
++                + ": profile=" + profileText
++                + ", rig=" + rigText
++                + " (" + rigDetails + ")"
++                + ", render=" + renderText
++                + ", channels=[" + channels + "]"
++                + ", active=[" + playbackText + "]"), false);
++        return 1;
++    }
++
++    private String activeClip(PlaybackRecord playback) {
++        return switch (playback.phase) {
++            case ENTER -> playback.entryClipId.toString();
++            case MAIN -> playback.mainClipId.toString();
++            case EXIT -> playback.exitClipId.map(Object::toString).orElse("none");
++            case TERMINAL -> "none";
++        };
++    }
++
+     private int listBodyClips(CommandSourceStack source) {
+         List<String> ids = catalogState.current().animationClips().stream()
+                 .map(clip -> clip.id() + clip.rigId().map(id -> " rig=" + id).orElse(""))

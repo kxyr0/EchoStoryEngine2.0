@@ -1,0 +1,31 @@
+---
+title: "Предметы и инвентарь"
+description: "Item ID, Item Tag, count predicates и inventory events в Echo Trigger T2."
+section: "Trigger"
+pageKind: "reference"
+status: "review"
+since: "T2"
+updated: "2026-07-24"
+relatedIds: ["ItemMatcher", "ItemId", "ItemTagId"]
+relatedPages: ["trigger/predicate-event", "trigger/t2-reference"]
+sourceRepositories: ["echo-trigger"]
+sourcePaths: ["D:/JDHSeason/mods/echo-trigger/docs/authoring/TRIGGER_ITEMS.md"]
+visualIdentity: "trigger-inventory"
+interactiveModules: ["InventoryTriggerLab"]
+searchKeywords: ["HasItem", "ItemAdded", "ItemTag", "inventory", "count"]
+---
+import { InventoryTriggerLab } from "../../../components/VanillaTriggerLabs";
+
+# Предметы и инвентарь
+
+`HasItem` читает hotbar, main inventory и offhand. Armor, Ender Chest, открытый container и cursor stack не входят.
+
+`"minecraft:diamond"` означает Item ID. `"#minecraft:planks"` означает Item Tag. Echo Item Pack виден через обычный
+Forge registry ID, без прямой зависимости.
+
+<InventoryTriggerLab client:load />
+
+```csharp
+Trigger.Wait(HasItem("minecraft:diamond", count: 3));
+Trigger.Wait(ItemAdded("#minecraft:wool", count: 2));
+```

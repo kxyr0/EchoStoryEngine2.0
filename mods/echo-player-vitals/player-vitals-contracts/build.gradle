@@ -1,0 +1,5 @@
+description = 'Immutable public Echo Player Vitals contracts.'
+
+base {
+    archivesName = 'player-vitals-contracts'
+}

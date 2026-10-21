@@ -1,0 +1,30 @@
+---
+title: "Обзор системы"
+description: "Карта основных контрактов Echo во время игры: durable ID, авторитет сервера, граница адаптера и generated contracts."
+section: "Platform"
+pageKind: "concept"
+status: "review"
+since: "A4"
+updated: "2026-07-22"
+relatedIds: ["ActorId", "AnimationSubjectId", "AnimationProfileId"]
+relatedPages: ["animation/a4-npc-lifecycle-integration", "platform/dependency-rules"]
+sourceRepositories: ["echo-animation", "echo-npc", "echo-npc-animation-adapter", "echo-story-content-pack"]
+sourcePaths: ["D:/JDHSeason/mods/echo-animation", "D:/JDHSeason/mods/echo-npc-animation-adapter"]
+visualIdentity: "continuum-overview"
+interactiveModules: ["DependencyField", "ContractMatrix"]
+searchKeywords: ["обзор", "A4", "EchoScript", "ActorId", "/echo_animation"]
+---
+import { ContractTable } from "../../../components/ContractTable";
+import { DependencyBoundary } from "../../../components/DependencyBoundary";
+
+# Обзор системы
+
+Echo делит состояние во время игры по владельцам. NPC отвечает за durable actor и materialization. Animation отвечает за subject, playback и lease. Адаптер связывает оба домена через публичный API и не переносит приватные сущности между модулями.
+
+<DependencyBoundary client:load />
+
+## Точка опоры
+
+Главный инвариант: логические ID переживают физическое состояние. `ActorId` не равен UUID сущности. `AnimationSubjectId` не выводится из текущей сущности. `AnimationPlaybackId` описывает конкретное проигрывание, а не персонажа.
+
+<ContractTable client:load />

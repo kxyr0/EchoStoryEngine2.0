@@ -1,0 +1,208 @@
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'checkstyle'
+    id 'pmd'
+    id 'jacoco'
+}
+
+version = mod_version
+group = mod_group_id
+
+def hudRoot = file('../echo-player-hud')
+def playerRoot = file('../echo-content-player')
+def hudIntegrationMaven = new File(hudRoot, 'build/integration-maven')
+def playerIntegrationMaven = new File(playerRoot, 'build/integration-maven')
+def playerExternalMaven = new File(playerRoot, 'build/external-maven')
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+    maven {
+        name = 'PlayerHudIntegration'
+        url = hudIntegrationMaven.toURI()
+    }
+    maven {
+        name = 'EchoContentPlayerIntegration'
+        url = playerIntegrationMaven.toURI()
+    }
+    maven {
+        name = 'EchoContentPlayerExternal'
+        url = playerExternalMaven.toURI()
+        content {
+            includeGroup 'io.github.kxyr0.echoscript'
+        }
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    withSourcesJar()
+}
+
+base {
+    archivesName = artifact_name
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+        client { }
+        server {
+            args '--nogui'
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly "io.github.kxyr0.echoplayerhud:player-hud-forge-api-1.20.1:${hud_api_version}"
+    compileOnly "io.github.kxyr0.echoplayer:player-forge-api-1.20.1:${player_api_version}"
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation "io.github.kxyr0.echoplayerhud:player-hud-forge-api-1.20.1:${hud_api_version}"
+    testImplementation "io.github.kxyr0.echoplayer:player-forge-api-1.20.1:${player_api_version}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+checkstyle {
+    toolVersion = checkstyle_version
+    configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+}
+
+pmd {
+    toolVersion = pmd_version
+    ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+    ruleSets = []
+    consoleOutput = true
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+            hud_mod_version_range: hud_mod_version_range,
+            player_mod_version_range: player_mod_version_range,
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.register('publishPlayerHudPublicArtifacts', Exec) {
+    workingDir hudRoot
+    commandLine gradleWrapper(hudRoot), 'publishPlayerHudIntegrationArtifacts', '--console=plain'
+}
+
+tasks.register('publishEchoContentPlayerPublicArtifacts', Exec) {
+    workingDir playerRoot
+    commandLine gradleWrapper(playerRoot), 'publishPlayerIntegrationArtifacts', '--console=plain'
+}
+
+tasks.matching { it.name in ['compileJava', 'compileTestJava'] }.configureEach {
+    dependsOn tasks.named('publishPlayerHudPublicArtifacts')
+    dependsOn tasks.named('publishEchoContentPlayerPublicArtifacts')
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks adapter source shape.'
+    doLast {
+        def violations = []
+        fileTree(rootDir) {
+            include 'src/main/java/**/*.java'
+            exclude '**/build/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            if (text.contains('echoplayer.core') || text.contains('echoplayerhud.core')) {
+                violations << "${relative}: adapter imported runtime core"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        fileTree(rootDir) {
+            include '*.gradle', 'gradle.properties', 'src/**/*.java', 'src/**/*.toml', 'src/**/*.mcmeta'
+            include 'README.md', 'CHANGELOG.md'
+            exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: trailing whitespace"
+                }
+                if (line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: tab"
+                }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    finalizedBy 'reobfJar'
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+}
+
+String gradleWrapper(File root) {
+    return new File(root, org.gradle.internal.os.OperatingSystem.current().isWindows()
+            ? 'gradlew.bat' : 'gradlew').absolutePath
+}

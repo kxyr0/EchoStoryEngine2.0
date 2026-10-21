@@ -1,0 +1,26 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-player-sleep'
+
+include 'player-sleep-contracts'
+include 'player-sleep-core'
+include 'player-sleep-forge-api-1.20.1'
+include 'player-sleep-forge-1.20.1'
+include 'player-sleep-script-adapter-1.20.1'
+include 'player-sleep-testmod-1.20.1'
+
+includeBuild '../echo-story-engine'
+includeBuild '../echo-script'

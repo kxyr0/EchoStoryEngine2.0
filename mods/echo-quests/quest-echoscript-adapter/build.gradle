@@ -1,0 +1,8 @@
+description = 'EchoScript 2 semantic compiler for QuestResource definitions.'
+
+dependencies {
+    api project(':quest-contracts')
+    implementation project(':quest-core')
+    implementation "io.github.kxyr0.echoscript:echo-script-api:${echo_script_version}"
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}

@@ -1,0 +1,34 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+base {
+    archivesName = 'echo-seating-testmod-1.20.1'
+}
+
+description = 'Minimal test mod for Echo Seating manual acceptance.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':seating-contracts')
+    implementation project(':seating-forge-api-1.20.1')
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version_range: minecraft_version_range,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}

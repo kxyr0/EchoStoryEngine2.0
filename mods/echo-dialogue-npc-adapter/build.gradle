@@ -1,0 +1,1444 @@
+import org.apache.tools.ant.taskdefs.condition.Os
+
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.zip.ZipFile
+
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = artifact_name
+}
+
+repositories {
+    maven {
+        name = 'EchoDialogueIntegration'
+        url = uri('../echo-dialogue/build/integration-maven')
+    }
+    maven {
+        name = 'EchoNpcIntegration'
+        url = uri('../echo-npc/build/integration-maven')
+    }
+    maven {
+        name = 'EchoNpcExternal'
+        url = uri('../echo-npc/build/external-maven')
+        content {
+            includeGroup 'io.github.kxyr0.echoscript'
+        }
+    }
+    mavenCentral()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    withSourcesJar()
+}
+
+def siblingDir = { String propertyName ->
+    File configured = file(project.findProperty(propertyName) ?: '')
+    configured.isAbsolute() ? configured : new File(rootDir, configured.path).canonicalFile
+}
+
+def gameTestModClasses = { String runtimeModId, File runtimeRoot, List<String> relativePaths ->
+    relativePaths.collect { relative -> "${runtimeModId}%%${new File(runtimeRoot, relative).absolutePath}" }
+            .join(File.pathSeparator)
+}
+
+def dialogueGameTestRuntimePaths = [
+        'dialogue-forge-1.20.1/build/resources/main',
+        'dialogue-forge-1.20.1/build/classes/java/main',
+        'dialogue-contracts/build/classes/java/main',
+        'dialogue-presentation-api/build/classes/java/main',
+        'dialogue-core/build/classes/java/main',
+        'dialogue-persistence/build/classes/java/main',
+        'dialogue-echoscript-adapter/build/classes/java/main',
+        'dialogue-forge-api-1.20.1/build/classes/java/main',
+]
+
+def npcGameTestRuntimePaths = [
+        'npc-forge-1.20.1/build/resources/main',
+        'npc-forge-1.20.1/build/classes/java/main',
+        'npc-contracts/build/classes/java/main',
+        'npc-core/build/classes/java/main',
+        'npc-persistence/build/classes/java/main',
+        'npc-echoscript-adapter/build/classes/java/main',
+        'npc-forge-api-1.20.1/build/classes/java/main',
+]
+
+def dialogueImplementationClasspath = {
+    File root = siblingDir('echo_dialogue_project_dir')
+    files(dialogueGameTestRuntimePaths.collect { new File(root, it) })
+}
+
+def dialogueGameTestModClasses = {
+    File root = siblingDir('echo_dialogue_project_dir')
+    gameTestModClasses('echo_dialogue', root, dialogueGameTestRuntimePaths)
+}
+
+def npcGameTestModClasses = {
+    File root = siblingDir('echo_npc_project_dir')
+    gameTestModClasses('echo_npc', root, npcGameTestRuntimePaths)
+}
+
+def adapterGameTestModClasses = {
+    gameTestModClasses(mod_id, rootDir, [
+            'build/resources/main',
+            'build/classes/java/main',
+            'build/resources/gameTest',
+            'build/classes/java/gameTest',
+    ])
+}
+
+def adapterMainModClasses = {
+    gameTestModClasses(mod_id, rootDir, [
+            'build/resources/main',
+            'build/classes/java/main',
+    ])
+}
+
+def clientAcceptanceHarnessModClasses = {
+    gameTestModClasses('echo_dialogue_npc_adapter_client_acceptance', rootDir, [
+            'build/resources/clientAcceptanceHarness',
+            'build/classes/java/clientAcceptanceHarness',
+    ])
+}
+
+def clientDialogueAccessModClasses = {
+    gameTestModClasses('echo_dialogue', rootDir, [
+            'build/classes/java/clientDialogueAccess',
+    ])
+}
+
+def siblingGameTestModClasses = {
+    [dialogueGameTestModClasses(), npcGameTestModClasses()].join(File.pathSeparator)
+}
+
+def allGameTestModClasses = {
+    [siblingGameTestModClasses(), adapterGameTestModClasses()].join(File.pathSeparator)
+}
+
+def allClientAcceptanceModClasses = {
+    [
+            dialogueGameTestModClasses(),
+            clientDialogueAccessModClasses(),
+            npcGameTestModClasses(),
+            adapterMainModClasses(),
+            clientAcceptanceHarnessModClasses()
+    ].join(File.pathSeparator)
+}
+
+def requiredGameTestRuntimeDirs = {
+    File dialogueRoot = siblingDir('echo_dialogue_project_dir')
+    File npcRoot = siblingDir('echo_npc_project_dir')
+    def dialogueDirs = dialogueGameTestRuntimePaths.collect { new File(dialogueRoot, it) }
+    def npcDirs = npcGameTestRuntimePaths.collect { new File(npcRoot, it) }
+    dialogueDirs + npcDirs
+}
+
+sourceSets {
+    architectureTest {
+        java.srcDir 'src/architectureTest/java'
+        resources.srcDir 'src/architectureTest/resources'
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+    gameTest {
+        compileClasspath += sourceSets.main.output + configurations.compileClasspath + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+    acceptanceHarness {
+        compileClasspath += sourceSets.main.output + configurations.compileClasspath + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+    clientDialogueAccess {
+        compileClasspath += sourceSets.main.output + configurations.compileClasspath + configurations.testRuntimeClasspath
+        compileClasspath += dialogueImplementationClasspath()
+        compileClasspath += files(new File(siblingDir('echo_ui_animations_project_dir'),
+                "build/libs/echo-ui-animations-${echo_ui_animations_version}.jar"))
+        runtimeClasspath += output + compileClasspath
+    }
+    clientAcceptanceHarness {
+        compileClasspath += sourceSets.main.output + sourceSets.clientDialogueAccess.output
+        compileClasspath += configurations.compileClasspath + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+    productionClientHarness {
+        compileClasspath += sourceSets.main.output + configurations.compileClasspath + configurations.testRuntimeClasspath
+        compileClasspath += dialogueImplementationClasspath()
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+configurations {
+    architectureTestImplementation.extendsFrom testImplementation
+    architectureTestRuntimeOnly.extendsFrom testRuntimeOnly
+    gameTestEmbeddedExternalRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = true
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
+    forgeServerInstaller {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+        client {
+            if (project.hasProperty('n4ClientVisualAcceptance')) {
+                workingDirectory project.file('run-client-visual')
+                args '--username', 'N4Visual'
+                property 'echoDialogueNpcAdapterClientAcceptance.auto', 'true'
+                lazyToken('minecraft_classpath') {
+                    configurations.gameTestEmbeddedExternalRuntime.copyRecursive().resolve()
+                            .collect { it.absolutePath }
+                            .join(File.pathSeparator)
+                }
+                environment 'MOD_CLASSES', allClientAcceptanceModClasses()
+                mods {
+                    "echo_dialogue_npc_adapter_client_acceptance" {
+                        source sourceSets.clientAcceptanceHarness
+                    }
+                }
+            }
+        }
+        server {
+            args '--nogui'
+        }
+
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            lazyToken('minecraft_classpath') {
+                configurations.gameTestEmbeddedExternalRuntime.copyRecursive().resolve()
+                        .collect { it.absolutePath }
+                        .join(File.pathSeparator)
+            }
+            environment 'MOD_CLASSES', allGameTestModClasses()
+            mods {
+                "${mod_id}" {
+                    source sourceSets.gameTest
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    compileOnly "io.github.kxyr0.echodialogue:dialogue-contracts:${echo_dialogue_version}"
+    compileOnly "io.github.kxyr0.echodialogue:dialogue-presentation-api:${echo_dialogue_version}"
+    compileOnly "io.github.kxyr0.echodialogue:dialogue-forge-api-1.20.1:${echo_dialogue_version}"
+    compileOnly "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
+    compileOnly "io.github.kxyr0.echonpc:npc-forge-api-1.20.1:${echo_npc_version}"
+
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation "io.github.kxyr0.echodialogue:dialogue-contracts:${echo_dialogue_version}"
+    testImplementation "io.github.kxyr0.echodialogue:dialogue-presentation-api:${echo_dialogue_version}"
+    testImplementation "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
+    architectureTestImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+    architectureTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    gameTestEmbeddedExternalRuntime "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    gameTestEmbeddedExternalRuntime files("${echo_ui_animations_project_dir}/build/libs/echo-ui-animations-${echo_ui_animations_version}.jar")
+    forgeServerInstaller "net.minecraftforge:forge:${minecraft_version}-${forge_version}:installer"
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+            echo_dialogue_mod_version_range: echo_dialogue_mod_version_range,
+            echo_npc_mod_version_range: echo_npc_mod_version_range,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes([
+                'Automatic-Module-Name': mod_id,
+                'Implementation-Version': mod_version,
+        ])
+    }
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('architectureTest', Test) {
+    description = 'Запускает архитектурные проверки adapter.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = sourceSets.architectureTest.output.classesDirs
+    classpath = sourceSets.architectureTest.runtimeClasspath
+    shouldRunAfter tasks.named('test')
+}
+
+tasks.register('acceptanceHarnessJar', Jar) {
+    description = 'Собирает test-only N4 acceptance harness mod JAR.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    archiveBaseName = "${artifact_name}-acceptance-harness"
+    archiveVersion = mod_version
+    from sourceSets.acceptanceHarness.output
+    manifest {
+        attributes([
+                'Automatic-Module-Name': "${mod_id}.acceptance",
+                'Implementation-Version': mod_version,
+        ])
+    }
+}
+
+tasks.register('productionClientHarnessJar', Jar) {
+    description = 'Собирает test-only N4 production-client visual harness mod JAR.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    archiveBaseName = "${artifact_name}-production-client-harness"
+    archiveVersion = mod_version
+    from sourceSets.productionClientHarness.output
+    manifest {
+        attributes([
+                'Automatic-Module-Name': "${mod_id}.productionclientacceptance",
+                'Implementation-Version': mod_version,
+        ])
+    }
+}
+
+reobf {
+    productionClientHarnessJar {}
+}
+
+tasks.named('productionClientHarnessJar', Jar).configure {
+    finalizedBy tasks.named('reobfProductionClientHarnessJar')
+}
+
+tasks.register('sourceShapeCheck') {
+    description = 'Проверяет размер production classes и seven-file limit.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        def productionJava = fileTree(rootDir) {
+            include 'src/main/java/**/*.java'
+            exclude '**/build/**'
+        }
+        productionJava.files.groupBy { it.parentFile }.each { dir, files ->
+            if (files.size() > 7) {
+                violations << "${rootDir.toPath().relativize(dir.toPath())}: ${files.size()} java files; max is 7"
+            }
+        }
+        productionJava.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            if ((text =~ /(?m)\bstatic\s+(?!final\b)(?:[^;{=()]+)[;=]/).find()) {
+                violations << "${relative}: mutable static field candidate"
+            }
+            if (relative =~ /(?i)(^|[\\\/])(part1|part2|common|misc|helpers?|utils?|internal2|more)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            if ((text =~ /(?m)^\s*public\s+(?:final\s+)?(?:class|interface|record|enum)\s+.*(?:Manager|Helper|Utils|Common|Processor|Handler|Impl)\b/).find()) {
+                violations << "${relative}: forbidden vague production type name"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+                        && !trimmed.startsWith('/**') && !trimmed.startsWith('*/')
+            }
+            if (logicalLines > 180) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 180"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    description = 'Проверяет trailing whitespace, tabs и финальный newline.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        fileTree(rootDir) {
+            include '*.gradle', 'gradle.properties', '.gitignore', '.gitattributes'
+            include 'src/**/*.java', 'src/**/*.toml', 'src/**/*.mcmeta', 'src/**/*.snbt'
+            include 'AGENTS.md', 'PLANS.md', 'PROGRESS.md', 'README.md', 'docs/**/*.md'
+            exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: trailing whitespace"
+                }
+                if (line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: tab character"
+                }
+            }
+            if (!text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('verifyProductionJarContents') {
+    description = 'Проверяет содержимое production adapter JAR.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('reobfJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile
+        if (!jarFile.isFile()) {
+            throw new GradleException("Production JAR не создан: ${jarFile}")
+        }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echodialogue/api/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/presentation/api/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/forge/api/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/api/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/forge/api/')
+                    || entry.startsWith('io/github/kxyr0/echostoryengine/')
+                    || entry.startsWith('io/github/kxyr0/echostorydialogueadapter/')
+                    || entry.startsWith('io/github/kxyr0/echostorynpcadapter/')
+                    || entry.startsWith('io/github/kxyr0/echoscript/')
+                    || entry.startsWith('software/bernie/geckolib/')
+                    || entry.startsWith('org/junit/')
+                    || entry.startsWith('com/tngtech/archunit/')
+                    || entry.startsWith('docs/')
+                    || entry == 'AGENTS.md'
+                    || entry == 'PLANS.md'
+                    || entry == 'PROGRESS.md'
+        }
+        if (!entries.contains('META-INF/mods.toml') || !forbidden.isEmpty()) {
+            throw new GradleException("Adapter JAR verification failed."
+                    + "\nforbidden entries:\n" + forbidden.take(40).join('\n'))
+        }
+        println "Echo Dialogue NPC Adapter JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.register('publishDialogueIntegrationArtifacts', GradleBuild) {
+    description = 'Публикует public Echo Dialogue artifacts для isolated adapter build.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dir = file(echo_dialogue_project_dir)
+    tasks = ['publishDialogueIntegrationArtifacts']
+}
+
+tasks.register('publishEchoNpcIntegrationArtifacts', GradleBuild) {
+    description = 'Публикует public Echo NPC artifacts для isolated adapter build.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dir = file(echo_npc_project_dir)
+    tasks = ['publishNpcIntegrationArtifacts', 'verifyPublicationMetadata']
+}
+
+tasks.register('verifySiblingPublicArtifacts') {
+    description = 'Проверяет наличие ожидаемых Dialogue/NPC public artifacts в generated Maven repositories.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('publishDialogueIntegrationArtifacts')
+    dependsOn tasks.named('publishEchoNpcIntegrationArtifacts')
+    doLast {
+        def dialogueRepo = file("${echo_dialogue_project_dir}/build/integration-maven/io/github/kxyr0/echodialogue")
+        def npcRepo = file("${echo_npc_project_dir}/build/integration-maven/io/github/kxyr0/echonpc")
+        def required = [
+                [dialogueRepo, 'dialogue-contracts', echo_dialogue_version],
+                [dialogueRepo, 'dialogue-presentation-api', echo_dialogue_version],
+                [dialogueRepo, 'dialogue-forge-api-1.20.1', echo_dialogue_version],
+                [npcRepo, 'npc-contracts', echo_npc_version],
+                [npcRepo, 'npc-forge-api-1.20.1', echo_npc_version],
+        ]
+        def missing = []
+        required.each { spec ->
+            def versionDir = file("${spec[0]}/${spec[1]}/${spec[2]}")
+            def exact = file("${versionDir}/${spec[1]}-${spec[2]}.jar")
+            def jars = versionDir.isDirectory()
+                    ? versionDir.listFiles().findAll { it.name.endsWith('.jar') && !it.name.contains('-sources') }
+                    : []
+            if (!exact.isFile() && jars.isEmpty()) {
+                missing << exact
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Public artifacts не найдены:\n" + missing.join('\n'))
+        }
+        println "Dialogue/NPC public artifacts verified: ${required.size()} coordinates."
+    }
+}
+
+def wrapperFor = { File dir ->
+    File wrapper = new File(dir, Os.isFamily(Os.FAMILY_WINDOWS) ? 'gradlew.bat' : 'gradlew')
+    if (!wrapper.isFile()) {
+        throw new GradleException("Gradle wrapper не найден: ${wrapper}")
+    }
+    return wrapper.absolutePath
+}
+
+def requireProductionJar = { String label, File file ->
+    if (!file.isFile()) {
+        throw new GradleException("${label}: final production JAR не найден: ${file}")
+    }
+    String lower = file.name.toLowerCase(Locale.ROOT)
+    if (lower.contains('sources') || lower.contains('javadoc') || lower.contains('gametest')
+            || lower.contains('acceptance') || lower.contains('-api') || lower.contains('-contracts')
+            || lower.contains('-core') || lower.contains('echo-script')) {
+        throw new GradleException("${label}: выбран не production runtime JAR: ${file.name}")
+    }
+    return file
+}
+
+def modMetadata = { File jar ->
+    ZipFile zip = new ZipFile(jar)
+    try {
+        def entry = zip.getEntry('META-INF/mods.toml')
+        if (entry == null) {
+            return [modId: 'unknown', version: 'unknown']
+        }
+        String text = new String(zip.getInputStream(entry).readAllBytes(), 'UTF-8')
+        def modId = (text =~ /(?m)^\s*modId="([^"]+)"/)
+        def version = (text =~ /(?m)^\s*version="([^"]+)"/)
+        return [
+                modId: modId.find() ? modId.group(1) : 'unknown',
+                version: version.find() ? version.group(1) : 'unknown'
+        ]
+    } finally {
+        zip.close()
+    }
+}
+
+tasks.register('buildEchoDialogueDevClasses', Exec) {
+    description = 'Собирает sibling Echo Dialogue dev classes для N4 client visual acceptance.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    workingDir siblingDir('echo_dialogue_project_dir')
+    commandLine wrapperFor(workingDir as File), ':dialogue-forge-1.20.1:classes', '--console=plain'
+    environment 'GRADLE_OPTS', ((System.getenv('GRADLE_OPTS') ?: '')
+            + ' -Dnet.minecraftforge.gradle.check.certs=false').trim()
+}
+
+tasks.register('buildEchoNpcDevClasses', Exec) {
+    description = 'Собирает sibling Echo NPC dev classes для N4 client visual acceptance.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    workingDir siblingDir('echo_npc_project_dir')
+    commandLine wrapperFor(workingDir as File), ':npc-forge-1.20.1:classes', '--console=plain'
+    environment 'GRADLE_OPTS', ((System.getenv('GRADLE_OPTS') ?: '')
+            + ' -Dnet.minecraftforge.gradle.check.certs=false').trim()
+}
+
+tasks.register('buildEchoDialogueProductionJar', Exec) {
+    description = 'Собирает sibling Echo Dialogue final jarJar artifact для N4 smoke.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    workingDir siblingDir('echo_dialogue_project_dir')
+    commandLine wrapperFor(workingDir as File), ':dialogue-forge-1.20.1:jarJar', '--console=plain'
+    environment 'GRADLE_OPTS', ((System.getenv('GRADLE_OPTS') ?: '')
+            + ' -Dnet.minecraftforge.gradle.check.certs=false').trim()
+}
+
+tasks.register('buildEchoNpcProductionJar', Exec) {
+    description = 'Собирает sibling Echo NPC final jarJar artifact для N4 smoke.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    onlyIf { !project.hasProperty('skipSiblingBuild') }
+    workingDir siblingDir('echo_npc_project_dir')
+    commandLine wrapperFor(workingDir as File), ':npc-forge-1.20.1:jarJar', '--console=plain'
+    environment 'GRADLE_OPTS', ((System.getenv('GRADLE_OPTS') ?: '')
+            + ' -Dnet.minecraftforge.gradle.check.certs=false').trim()
+}
+
+tasks.register('buildEchoUiAnimationsJar', Exec) {
+    description = 'Собирает Echo UI Animations JAR для Forge GameTest runtime classpath.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    workingDir siblingDir('echo_ui_animations_project_dir')
+    commandLine wrapperFor(workingDir as File), 'jar', '--console=plain'
+}
+
+tasks.named('processClientAcceptanceHarnessResources', ProcessResources).configure {
+    File skin = new File(siblingDir('echo_story_content_pack_project_dir'),
+            'src/main/resources/assets/jdh/textures/echo_npc/skins/john_father.png')
+    inputs.file skin
+    from(skin) {
+        into 'assets/jdh/textures/echo_npc/skins'
+    }
+    doFirst {
+        if (!skin.isFile()) {
+            throw new GradleException("N4 client acceptance skin не найден: ${skin}")
+        }
+    }
+}
+
+tasks.matching { it.name == 'compileClientAcceptanceHarnessJava' }.configureEach {
+    dependsOn tasks.named('clientDialogueAccessClasses')
+    dependsOn tasks.named('verifySiblingPublicArtifacts')
+}
+
+tasks.matching { it.name == 'compileClientDialogueAccessJava' }.configureEach {
+    dependsOn tasks.named('buildEchoDialogueDevClasses')
+    dependsOn tasks.named('buildEchoUiAnimationsJar')
+}
+
+tasks.register('stageN4ClientVisualAcceptanceRuntime') {
+    description = 'Готовит exploded dev-client runtime для N4 visual acceptance.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('classes')
+    dependsOn tasks.named('clientDialogueAccessClasses')
+    dependsOn tasks.named('clientAcceptanceHarnessClasses')
+    dependsOn tasks.named('buildEchoDialogueDevClasses')
+    dependsOn tasks.named('buildEchoNpcDevClasses')
+    dependsOn tasks.named('buildEchoUiAnimationsJar')
+    doLast {
+        def missingDirs = requiredGameTestRuntimeDirs().findAll { !it.isDirectory() }
+        if (!missingDirs.isEmpty()) {
+            throw new GradleException("N4 client acceptance runtime dirs не найдены:\n" + missingDirs.join('\n'))
+        }
+        File output = project.file('run-client-visual/n4-client-acceptance')
+        if (output.isDirectory()) {
+            delete output
+        }
+        println "stageN4ClientVisualAcceptanceRuntime: exploded Dialogue/NPC runtime prepared."
+        println "MOD_CLASSES=${allClientAcceptanceModClasses()}"
+    }
+}
+
+tasks.register('stageIsolatedProductionMods') {
+    description = 'Складывает ровно Echo Dialogue, Echo NPC и N4 adapter final JARs.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dependsOn tasks.named('buildEchoDialogueProductionJar')
+    dependsOn tasks.named('buildEchoNpcProductionJar')
+    dependsOn tasks.named('reobfJar')
+    doLast {
+        File dialogueRoot = siblingDir('echo_dialogue_project_dir')
+        File npcRoot = siblingDir('echo_npc_project_dir')
+        File dialogueJar = requireProductionJar('Echo Dialogue', new File(dialogueRoot,
+                "dialogue-forge-1.20.1/build/libs/echo-dialogue-${echo_dialogue_version}-all.jar"))
+        File npcJar = requireProductionJar('Echo NPC', new File(npcRoot,
+                "npc-forge-1.20.1/build/libs/echo-npc-${echo_npc_version}-all.jar"))
+        File adapterJar = requireProductionJar('Echo Dialogue NPC Adapter',
+                layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile)
+        File output = layout.buildDirectory.dir('isolated-production-smoke').get().asFile
+        File mods = new File(output, 'mods')
+        delete output
+        mods.mkdirs()
+        [dialogueJar, npcJar, adapterJar].each { jar ->
+            copy {
+                from jar
+                into mods
+            }
+        }
+        List<String> names = mods.listFiles({ File file -> file.name.endsWith('.jar') } as FileFilter)
+                .collect { it.name }
+                .sort()
+        List<String> expected = [
+                "echo-dialogue-${echo_dialogue_version}-all.jar",
+                "echo-npc-${echo_npc_version}-all.jar",
+                "${artifact_name}-${mod_version}.jar"
+        ].sort()
+        if (names != expected) {
+            throw new GradleException("N4 isolated mods mismatch. Expected ${expected}, got ${names}")
+        }
+        Map<String, String> modIds = names.collectEntries { name ->
+            File jar = new File(mods, name)
+            [(name): modMetadata(jar).modId]
+        }
+        if (!modIds.values().containsAll(['echo_dialogue', 'echo_npc', mod_id])) {
+            throw new GradleException("N4 isolated mods have unexpected mod IDs: ${modIds}")
+        }
+        new File(output, 'README.txt').setText(
+                "N4 isolated production smoke mods: Echo Dialogue, Echo NPC, Echo Dialogue NPC Adapter.\n",
+                'UTF-8')
+        println "stageIsolatedProductionMods: ${mods.canonicalPath}"
+        names.each { println " - ${it}" }
+    }
+}
+
+def runtimeServerDir = { String name ->
+    layout.buildDirectory.dir(name).get().asFile
+}
+
+def assertBuildRuntimeDir = { File runDir ->
+    String buildPath = layout.buildDirectory.get().asFile.canonicalPath
+    String runPath = runDir.canonicalPath
+    if (!(runPath == buildPath || runPath.startsWith(buildPath + File.separator))) {
+        throw new GradleException("Refusing to reset runtime dir outside buildDir: ${runPath}")
+    }
+}
+
+def installForgeServer = { File runDir ->
+    runDir.mkdirs()
+    String argsName = Os.isFamily(Os.FAMILY_WINDOWS) ? 'win_args.txt' : 'unix_args.txt'
+    File argsFile = new File(runDir, "libraries/net/minecraftforge/forge/${minecraft_version}-${forge_version}/${argsName}")
+    if (argsFile.isFile()) {
+        return argsFile
+    }
+    File installer = configurations.forgeServerInstaller.singleFile
+    exec {
+        workingDir runDir
+        commandLine 'java', '-jar', installer.absolutePath, '--installServer', runDir.absolutePath
+    }
+    if (!argsFile.isFile()) {
+        throw new GradleException("Forge server install did not create ${argsFile}")
+    }
+    return argsFile
+}
+
+def prepareServerRunDir = { File runDir, File stagedMods ->
+    assertBuildRuntimeDir(runDir)
+    installForgeServer(runDir)
+    ['mods', 'logs', 'world', 'config', 'defaultconfigs'].each { child ->
+        delete new File(runDir, child)
+    }
+    ['banned-ips.json', 'banned-players.json', 'ops.json', 'usercache.json', 'whitelist.json'].each { child ->
+        delete new File(runDir, child)
+    }
+    File mods = new File(runDir, 'mods')
+    mods.mkdirs()
+    copy {
+        from stagedMods
+        into mods
+    }
+    new File(runDir, 'user_jvm_args.txt').setText(
+            '-Dfile.encoding=UTF-8\n-Dsun.stdout.encoding=UTF-8\n-Dsun.stderr.encoding=UTF-8\n',
+            'UTF-8')
+    new File(runDir, 'eula.txt').setText('eula=true\n', 'UTF-8')
+    new File(runDir, 'server.properties').setText(
+            'online-mode=false\nlevel-name=world\nmotd=N4 isolated smoke\nserver-port=0\nenable-query=false\n'
+                    + 'enable-rcon=false\n',
+            'UTF-8')
+}
+
+def prepareServerRunDirKeepingWorld = { File runDir, File stagedMods ->
+    assertBuildRuntimeDir(runDir)
+    installForgeServer(runDir)
+    ['mods', 'logs', 'config', 'defaultconfigs'].each { child ->
+        delete new File(runDir, child)
+    }
+    ['banned-ips.json', 'banned-players.json', 'ops.json', 'usercache.json', 'whitelist.json'].each { child ->
+        delete new File(runDir, child)
+    }
+    File mods = new File(runDir, 'mods')
+    mods.mkdirs()
+    copy {
+        from stagedMods
+        into mods
+    }
+    new File(runDir, 'user_jvm_args.txt').setText(
+            '-Dfile.encoding=UTF-8\n-Dsun.stdout.encoding=UTF-8\n-Dsun.stderr.encoding=UTF-8\n',
+            'UTF-8')
+    new File(runDir, 'eula.txt').setText('eula=true\n', 'UTF-8')
+    new File(runDir, 'server.properties').setText(
+            'online-mode=false\nlevel-name=world\nmotd=N4 restart acceptance\nserver-port=0\nenable-query=false\n'
+                    + 'enable-rcon=false\n',
+            'UTF-8')
+}
+
+def runForgeServer = { File runDir, String taskName, List<String> commands ->
+    File argsFile = installForgeServer(runDir)
+    List<String> command = ['java', '@user_jvm_args.txt', "@${argsFile.absolutePath}", '--nogui']
+            .collect { it.toString() }
+    Process process = new ProcessBuilder(command)
+            .directory(runDir)
+            .redirectErrorStream(true)
+            .start()
+    StringBuilder output = new StringBuilder()
+    AtomicBoolean commandBlockSent = new AtomicBoolean(false)
+    AtomicBoolean doneSeen = new AtomicBoolean(false)
+    Thread reader = new Thread({
+        process.inputStream.withReader('UTF-8') { reader ->
+            String line = reader.readLine()
+            while (line != null) {
+                println line
+                output.append(line).append(System.lineSeparator())
+                if (line.contains('Done (') && commandBlockSent.compareAndSet(false, true)) {
+                    commands.each { commandText ->
+                        process.outputStream.write((commandText + System.lineSeparator()).getBytes('UTF-8'))
+                        process.outputStream.flush()
+                        Thread.sleep(300)
+                    }
+                    Thread.sleep(1000)
+                    process.outputStream.write(('stop' + System.lineSeparator()).getBytes('UTF-8'))
+                    process.outputStream.flush()
+                    doneSeen.set(true)
+                }
+                line = reader.readLine()
+            }
+        }
+    } as Runnable, "${taskName}-stdout")
+    reader.start()
+    if (!process.waitFor(180, TimeUnit.SECONDS)) {
+        process.destroyForcibly()
+        throw new GradleException("${taskName}: Forge server did not exit before timeout.\n${output}")
+    }
+    reader.join(5000)
+    if (process.exitValue() != 0) {
+        throw new GradleException("${taskName}: Forge server exited with ${process.exitValue()}.\n${output}")
+    }
+    if (!doneSeen.get()) {
+        throw new GradleException("${taskName}: Forge server never reached Done.\n${output}")
+    }
+}
+
+def verifyLogContains = { File logFile, String taskName, List<String> markers ->
+    if (!logFile.isFile()) {
+        throw new GradleException("${taskName}: log file not found: ${logFile}")
+    }
+    String log = logFile.getText('UTF-8')
+    markers.each { marker ->
+        if (!log.contains(marker)) {
+            throw new GradleException("${taskName}: log marker not found: ${marker}")
+        }
+    }
+}
+
+def verifyLogClean = { File logFile, String taskName ->
+    String log = logFile.getText('UTF-8')
+    ['FATAL', 'NoClassDefFoundError', 'ClassNotFoundException', 'NoSuchMethodError',
+     'Unknown or incomplete command', 'Failed to start', 'encountered an error', '????', '�'].each { marker ->
+        if (log.contains(marker)) {
+            throw new GradleException("${taskName}: forbidden log marker found: ${marker}")
+        }
+    }
+}
+
+def runForgeServerUntilMarkers = { File runDir, String taskName, List<String> jvmArgs, List<String> markers ->
+    File argsFile = installForgeServer(runDir)
+    List<String> command = (['java'] + jvmArgs + ['@user_jvm_args.txt', "@${argsFile.absolutePath}", '--nogui'])
+            .collect { it.toString() }
+    Process process = new ProcessBuilder(command)
+            .directory(runDir)
+            .redirectErrorStream(true)
+            .start()
+    StringBuilder output = new StringBuilder()
+    Set<String> seenMarkers = Collections.synchronizedSet(new LinkedHashSet<String>())
+    AtomicBoolean doneSeen = new AtomicBoolean(false)
+    AtomicBoolean stopSent = new AtomicBoolean(false)
+    Thread reader = new Thread({
+        process.inputStream.withReader('UTF-8') { reader ->
+            String line = reader.readLine()
+            while (line != null) {
+                println line
+                output.append(line).append(System.lineSeparator())
+                if (line.contains('Done (')) {
+                    doneSeen.set(true)
+                }
+                markers.each { marker ->
+                    if (line.contains(marker)) {
+                        seenMarkers.add(marker)
+                    }
+                }
+                if (seenMarkers.containsAll(markers) && stopSent.compareAndSet(false, true)) {
+                    process.outputStream.write(('stop' + System.lineSeparator()).getBytes('UTF-8'))
+                    process.outputStream.flush()
+                }
+                line = reader.readLine()
+            }
+        }
+    } as Runnable, "${taskName}-stdout")
+    reader.start()
+    if (!process.waitFor(240, TimeUnit.SECONDS)) {
+        process.destroyForcibly()
+        throw new GradleException("${taskName}: Forge server did not exit before timeout."
+                + "\nseenMarkers=${seenMarkers}\n${output}")
+    }
+    reader.join(5000)
+    if (process.exitValue() != 0) {
+        throw new GradleException("${taskName}: Forge server exited with ${process.exitValue()}.\n${output}")
+    }
+    if (!doneSeen.get()) {
+        throw new GradleException("${taskName}: Forge server never reached Done.\n${output}")
+    }
+    if (!seenMarkers.containsAll(markers)) {
+        throw new GradleException("${taskName}: not all acceptance markers were seen."
+                + "\nrequired=${markers}\nseen=${seenMarkers}\n${output}")
+    }
+}
+
+def runForgeServerCommandsUntilMarkers = { File runDir, String taskName, List<String> jvmArgs, List<String> commands,
+                                           List<String> markers ->
+    File argsFile = installForgeServer(runDir)
+    List<String> command = (['java'] + jvmArgs + ['@user_jvm_args.txt', "@${argsFile.absolutePath}", '--nogui'])
+            .collect { it.toString() }
+    Process process = new ProcessBuilder(command)
+            .directory(runDir)
+            .redirectErrorStream(true)
+            .start()
+    StringBuilder output = new StringBuilder()
+    Set<String> seenMarkers = Collections.synchronizedSet(new LinkedHashSet<String>())
+    AtomicBoolean doneSeen = new AtomicBoolean(false)
+    AtomicBoolean commandsSent = new AtomicBoolean(false)
+    AtomicBoolean stopSent = new AtomicBoolean(false)
+    Thread reader = new Thread({
+        process.inputStream.withReader('UTF-8') { reader ->
+            String line = reader.readLine()
+            while (line != null) {
+                println line
+                output.append(line).append(System.lineSeparator())
+                if (line.contains('Done (')) {
+                    doneSeen.set(true)
+                    if (commandsSent.compareAndSet(false, true)) {
+                        commands.each { commandText ->
+                            process.outputStream.write((commandText + System.lineSeparator()).getBytes('UTF-8'))
+                            process.outputStream.flush()
+                            Thread.sleep(300)
+                        }
+                    }
+                }
+                markers.each { marker ->
+                    if (line.contains(marker)) {
+                        seenMarkers.add(marker)
+                    }
+                }
+                if (seenMarkers.containsAll(markers) && stopSent.compareAndSet(false, true)) {
+                    process.outputStream.write(('stop' + System.lineSeparator()).getBytes('UTF-8'))
+                    process.outputStream.flush()
+                }
+                line = reader.readLine()
+            }
+        }
+    } as Runnable, "${taskName}-stdout")
+    reader.start()
+    if (!process.waitFor(240, TimeUnit.SECONDS)) {
+        process.destroyForcibly()
+        throw new GradleException("${taskName}: Forge server did not exit before timeout."
+                + "\nseenMarkers=${seenMarkers}\n${output}")
+    }
+    reader.join(5000)
+    if (process.exitValue() != 0) {
+        throw new GradleException("${taskName}: Forge server exited with ${process.exitValue()}.\n${output}")
+    }
+    if (!doneSeen.get()) {
+        throw new GradleException("${taskName}: Forge server never reached Done.\n${output}")
+    }
+    if (!seenMarkers.containsAll(markers)) {
+        throw new GradleException("${taskName}: not all acceptance markers were seen."
+                + "\nrequired=${markers}\nseen=${seenMarkers}\n${output}")
+    }
+}
+
+def copyRuntimeLog = { File runDir, String reportName ->
+    File logFile = new File(runDir, 'logs/latest.log')
+    File reportDir = layout.buildDirectory.dir('reports/runtime').get().asFile
+    reportDir.mkdirs()
+    File reportFile = new File(reportDir, reportName)
+    reportFile.setText(logFile.getText('UTF-8'), 'UTF-8')
+    return reportFile
+}
+
+tasks.register('verifyN4ClientVisualAcceptanceOutputs') {
+    description = 'Проверяет PNG screenshots и log markers после N4 client visual acceptance.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        File runDir = project.file('run-client-visual')
+        File logFile = new File(runDir, 'logs/latest.log')
+        File line = new File(runDir, 'n4-client-acceptance/n4-client-line.png')
+        File choice = new File(runDir, 'n4-client-acceptance/n4-client-choice.png')
+        if (!logFile.isFile()) {
+            throw new GradleException("N4 client acceptance log не найден: ${logFile}")
+        }
+        [line, choice].each { file ->
+            if (!file.isFile() || file.length() <= 0) {
+                throw new GradleException("N4 client acceptance screenshot не создан: ${file}")
+            }
+        }
+        String text = logFile.getText('UTF-8')
+        verifyLogContains(logFile, 'verifyN4ClientVisualAcceptanceOutputs',
+                ['EDNA-CLIENT-ACCEPTANCE START',
+                 'EDNA-CLIENT-ACCEPTANCE SCREENSHOT phase=LINE',
+                 'EDNA-CLIENT-ACCEPTANCE SCREENSHOT phase=CHOICE',
+                 'EDNA-CLIENT-ACCEPTANCE PASS',
+                 'display="Отец"',
+                 'visual=jdh:john_father',
+                 'assets/jdh/textures/echo_npc/skins/john_father.png'])
+        if (text.contains('EDNA-CLIENT-ACCEPTANCE FAIL')) {
+            throw new GradleException("N4 client acceptance содержит FAIL marker.")
+        }
+        copyRuntimeLog(runDir, 'n4-client-visual-acceptance-latest.log')
+        println "verifyN4ClientVisualAcceptanceOutputs: OK"
+        println " - ${line.canonicalPath} (${line.length()} bytes)"
+        println " - ${choice.canonicalPath} (${choice.length()} bytes)"
+    }
+}
+
+tasks.register('verifyN4ProductionClientVisualAcceptanceOutputs') {
+    description = 'Проверяет PNG screenshots и log markers после N4 production final-JAR client acceptance.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        File runDir = layout.buildDirectory.dir('n4-production-client-run').get().asFile
+        File logFile = new File(runDir, 'logs/latest.log')
+        File line = new File(runDir, 'n4-production-client-acceptance/n4-production-client-line.png')
+        File choice = new File(runDir, 'n4-production-client-acceptance/n4-production-client-choice.png')
+        if (!logFile.isFile()) {
+            throw new GradleException("N4 production client acceptance log не найден: ${logFile}")
+        }
+        [line, choice].each { file ->
+            if (!file.isFile() || file.length() <= 0) {
+                throw new GradleException("N4 production client acceptance screenshot не создан: ${file}")
+            }
+        }
+        String text = logFile.getText('UTF-8')
+        verifyLogContains(logFile, 'verifyN4ProductionClientVisualAcceptanceOutputs',
+                ['EDNA-PROD-CLIENT-ACCEPTANCE START',
+                 'EDNA-PROD-CLIENT-ACCEPTANCE SCREENSHOT phase=LINE',
+                 'EDNA-PROD-CLIENT-ACCEPTANCE SCREENSHOT phase=CHOICE',
+                 'EDNA-PROD-CLIENT-ACCEPTANCE PASS',
+                 'display="Отец"',
+                 'visual=jdh:john_father',
+                 'assets/jdh/textures/echo_npc/skins/john_father.png'])
+        ['EDNA-PROD-CLIENT-ACCEPTANCE FAIL',
+         'NoSuchMethodError',
+         'ResolutionException',
+         'ClassNotFoundException',
+         'NoClassDefFoundError'].each { marker ->
+            if (text.contains(marker)) {
+                throw new GradleException("N4 production client acceptance содержит forbidden marker: ${marker}")
+            }
+        }
+        File crashReports = new File(runDir, 'crash-reports')
+        if (crashReports.isDirectory() && crashReports.listFiles().any { it.isFile() }) {
+            throw new GradleException("N4 production client acceptance создал crash reports: ${crashReports}")
+        }
+        copyRuntimeLog(runDir, 'n4-production-client-visual-acceptance-latest.log')
+        println "verifyN4ProductionClientVisualAcceptanceOutputs: OK"
+        println " - ${line.canonicalPath} (${line.length()} bytes)"
+        println " - ${choice.canonicalPath} (${choice.length()} bytes)"
+    }
+}
+
+tasks.register('runIsolatedProductionSmokeServer') {
+    description = 'Runs clean Forge server with exactly Echo Dialogue, Echo NPC and N4 adapter production JARs.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('stageIsolatedProductionMods')
+    doLast {
+        File runDir = runtimeServerDir('isolated-production-server')
+        prepareServerRunDir(runDir, layout.buildDirectory.dir('isolated-production-smoke/mods').get().asFile)
+        runForgeServer(runDir, 'runIsolatedProductionSmokeServer',
+                ['echo_dialogue health', 'echo_dialogue providers', 'echo_npc health', 'echo_npc definitions'])
+        File logFile = new File(runDir, 'logs/latest.log')
+        verifyLogContains(logFile, 'runIsolatedProductionSmokeServer',
+                ['Done (', 'echo_dialogue_npc_adapter', 'echo_dialogue_npc_adapter:npc_presentation',
+                 'Stopping server'])
+        verifyLogClean(logFile, 'runIsolatedProductionSmokeServer')
+        copyRuntimeLog(runDir, 'isolated-production-smoke-latest.log')
+        println "runIsolatedProductionSmokeServer: OK ${runDir.canonicalPath}"
+    }
+}
+
+tasks.register('stageGameTestRuntimeMods') {
+    description = 'Готовит exploded runtime mods Echo Dialogue и Echo NPC для Forge GameTest сервера.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('buildEchoDialogueProductionJar')
+    dependsOn tasks.named('buildEchoNpcProductionJar')
+    dependsOn tasks.named('buildEchoUiAnimationsJar')
+    doLast {
+        File mods = project.file('run/mods')
+        delete mods
+        mods.mkdirs()
+        def missingDirs = requiredGameTestRuntimeDirs().findAll { !it.isDirectory() }
+        if (!missingDirs.isEmpty()) {
+            throw new GradleException("N4 GameTest runtime dirs не найдены:\n" + missingDirs.join('\n'))
+        }
+        def runtimeJars = configurations.gameTestEmbeddedExternalRuntime.copyRecursive().resolve()
+        def missingJars = runtimeJars.findAll { !it.isFile() }
+        if (!missingJars.isEmpty()) {
+            throw new GradleException("N4 GameTest external runtime jars не найдены:\n" + missingJars.join('\n'))
+        }
+        def stagedJars = mods.listFiles({ File file -> file.name.endsWith('.jar') } as FileFilter)
+        if (stagedJars != null && stagedJars.length > 0) {
+            throw new GradleException("N4 GameTest run/mods должен быть пустым для exploded runtime: "
+                    + stagedJars.collect { it.name }.join(', '))
+        }
+        println "stageGameTestRuntimeMods: exploded Dialogue/NPC runtime prepared."
+        println "MOD_CLASSES=${allGameTestModClasses()}"
+        println "minecraft_classpath external jars=${runtimeJars.size()}"
+    }
+}
+
+tasks.register('stageSiblingAcceptanceStoryPack', Exec) {
+    description = 'Собирает sibling Echo Story Content Pack acceptance runtime для N4 checks.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    workingDir siblingDir('echo_story_content_pack_project_dir')
+    doFirst {
+        List<String> args = [wrapperFor(workingDir as File), 'stageAcceptanceStoryPack', '--console=plain']
+        if (project.hasProperty('skipSiblingBuild')) {
+            args.add(1, '-PskipSiblingBuild')
+        }
+        commandLine args
+    }
+}
+
+tasks.register('stageSiblingProductionStoryPack', Exec) {
+    description = 'Собирает sibling Echo Story Content Pack production runtime для N4 compatibility smoke.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    workingDir siblingDir('echo_story_content_pack_project_dir')
+    doFirst {
+        List<String> args = [wrapperFor(workingDir as File), 'stageStoryPack', '--console=plain']
+        if (project.hasProperty('skipSiblingBuild')) {
+            args.add(1, '-PskipSiblingBuild')
+        }
+        commandLine args
+    }
+}
+
+tasks.register('stageN4ProductionStoryPack') {
+    description = 'Складывает production C1 Story pack и N4 adapter для compatibility smoke/client acceptance.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('stageSiblingProductionStoryPack')
+    dependsOn tasks.named('reobfJar')
+    doLast {
+        File contentRoot = siblingDir('echo_story_content_pack_project_dir')
+        File contentMods = new File(contentRoot, 'build/story-pack/mods')
+        if (!contentMods.isDirectory()) {
+            throw new GradleException("Content Pack production mods не найдены: ${contentMods}")
+        }
+        File adapterJar = requireProductionJar('Echo Dialogue NPC Adapter',
+                layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile)
+        File output = layout.buildDirectory.dir('n4-production-story-pack').get().asFile
+        File mods = new File(output, 'mods')
+        delete output
+        mods.mkdirs()
+        copy {
+            from contentMods
+            into mods
+        }
+        copy {
+            from adapterJar
+            into mods
+        }
+        List<String> stagedNames = mods.listFiles({ File file -> file.name.endsWith('.jar') } as FileFilter)
+                .collect { it.name }
+                .sort()
+        List<String> requiredNames = [
+                "echo-dialogue-${echo_dialogue_version}-all.jar",
+                "echo-npc-${echo_npc_version}-all.jar",
+                "echo-story-content-pack-0.1.0-SNAPSHOT.jar",
+                "${artifact_name}-${mod_version}.jar"
+        ].collect { it.toString() }
+        def missing = requiredNames.findAll { !stagedNames.contains(it) }
+        if (!missing.isEmpty() || stagedNames.size() != 8) {
+            throw new GradleException("stageN4ProductionStoryPack: unexpected mod set."
+                    + "\nmissing=${missing}\nstaged=${stagedNames}")
+        }
+        new File(output, 'README.txt').setText(
+                "N4 production story pack: C1 production content plus Echo Dialogue NPC Adapter.\n"
+                        + "Этот набор можно использовать для real client visual acceptance.\n",
+                'UTF-8')
+        println "stageN4ProductionStoryPack: ${output.canonicalPath}"
+        stagedNames.each { println " - ${it}" }
+    }
+}
+
+tasks.register('stageN4ProductionClientVisualAcceptance') {
+    description = 'Складывает C1 production final JARs, N4 adapter и test-only client visual harness.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('stageN4ProductionStoryPack')
+    dependsOn tasks.named('productionClientHarnessJar')
+    doLast {
+        File storyPackMods = layout.buildDirectory.dir('n4-production-story-pack/mods').get().asFile
+        File harnessJar = tasks.named('productionClientHarnessJar').get().archiveFile.get().asFile
+        File output = layout.buildDirectory.dir('n4-production-client-visual').get().asFile
+        File mods = new File(output, 'mods')
+        delete output
+        mods.mkdirs()
+        copy {
+            from storyPackMods
+            into mods
+        }
+        copy {
+            from harnessJar
+            into mods
+        }
+        List<String> stagedNames = mods.listFiles({ File file -> file.name.endsWith('.jar') } as FileFilter)
+                .collect { it.name }
+                .sort()
+        String expectedHarness = "${artifact_name}-production-client-harness-${mod_version}.jar".toString()
+        if (stagedNames.size() != 9
+                || !stagedNames.contains(expectedHarness)) {
+            throw new GradleException("stageN4ProductionClientVisualAcceptance: unexpected mod set."
+                    + "\nstaged=${stagedNames}")
+        }
+        new File(output, 'README.txt').setText(
+                "N4 production client visual acceptance: C1 production final JARs plus test-only client harness.\n",
+                'UTF-8')
+        println "stageN4ProductionClientVisualAcceptance: ${output.canonicalPath}"
+        stagedNames.each { println " - ${it}" }
+    }
+}
+
+tasks.register('runN4ProductionStoryPackSmokeServer') {
+    description = 'Runs production C1 Story pack plus N4 adapter on a clean Forge dedicated server.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('stageN4ProductionStoryPack')
+    doLast {
+        File runDir = runtimeServerDir('n4-production-story-pack-server')
+        prepareServerRunDir(runDir, layout.buildDirectory.dir('n4-production-story-pack/mods').get().asFile)
+        runForgeServer(runDir, 'runN4ProductionStoryPackSmokeServer',
+                ['echo_story health', 'echo_story stories', 'echo_dialogue health', 'echo_dialogue dialogues',
+                 'echo_dialogue providers', 'echo_npc health', 'echo_npc definitions',
+                 'echo_animation health', 'echo_animation face_rigs', 'echo_animation diagnostics'])
+        File logFile = new File(runDir, 'logs/latest.log')
+        verifyLogContains(logFile, 'runN4ProductionStoryPackSmokeServer',
+                ['Done (', 'echo_dialogue_npc_adapter:npc_presentation', 'jdh:chapter_1_home_arrival',
+                 'jdh:john_father', 'Echo Animation diagnostics: none', 'Stopping server'])
+        verifyLogClean(logFile, 'runN4ProductionStoryPackSmokeServer')
+        copyRuntimeLog(runDir, 'n4-production-story-pack-smoke-latest.log')
+        println "runN4ProductionStoryPackSmokeServer: OK ${runDir.canonicalPath}"
+    }
+}
+
+tasks.register('stageN4AcceptanceStoryPack') {
+    description = 'Складывает Story acceptance runtime, N4 adapter и N4 acceptance harness.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('stageSiblingAcceptanceStoryPack')
+    dependsOn tasks.named('reobfJar')
+    dependsOn tasks.named('acceptanceHarnessJar')
+    doLast {
+        File contentRoot = siblingDir('echo_story_content_pack_project_dir')
+        File contentMods = new File(contentRoot, 'build/acceptance-story-pack/mods')
+        if (!contentMods.isDirectory()) {
+            throw new GradleException("Content Pack acceptance mods не найдены: ${contentMods}")
+        }
+        File adapterJar = requireProductionJar('Echo Dialogue NPC Adapter',
+                layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile)
+        File harnessJar = tasks.named('acceptanceHarnessJar').get().archiveFile.get().asFile
+        File output = layout.buildDirectory.dir('n4-acceptance-story-pack').get().asFile
+        File mods = new File(output, 'mods')
+        delete output
+        mods.mkdirs()
+        copy {
+            from contentMods
+            into mods
+        }
+        copy {
+            from adapterJar
+            into mods
+        }
+        copy {
+            from harnessJar
+            into mods
+        }
+        List<String> stagedNames = mods.listFiles({ File file -> file.name.endsWith('.jar') } as FileFilter)
+                .collect { it.name }
+                .sort()
+        List<String> requiredNames = [
+                "echo-dialogue-${echo_dialogue_version}-all.jar",
+                "echo-npc-${echo_npc_version}-all.jar",
+                "${artifact_name}-${mod_version}.jar",
+                "${artifact_name}-acceptance-harness-${mod_version}.jar"
+        ].collect { it.toString() }
+        def missing = requiredNames.findAll { !stagedNames.contains(it) }
+        if (!missing.isEmpty() || stagedNames.size() != 10) {
+            throw new GradleException("stageN4AcceptanceStoryPack: unexpected mod set."
+                    + "\nmissing=${missing}\nstaged=${stagedNames}")
+        }
+        new File(output, 'README.txt').setText(
+                "N4 acceptance runtime: Story acceptance pack plus Echo Dialogue NPC Adapter.\n"
+                        + "Этот набор test-only и не является production packaging proof.\n",
+                'UTF-8')
+        println "stageN4AcceptanceStoryPack: ${output.canonicalPath}"
+        stagedNames.each { println " - ${it}" }
+    }
+}
+
+tasks.register('runN4AcceptanceStoryPackServer') {
+    description = 'Runs Story acceptance server plus N4 harness against real NpcService and spawned actor.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('stageN4AcceptanceStoryPack')
+    doLast {
+        File runDir = runtimeServerDir('n4-acceptance-runtime-server')
+        prepareServerRunDir(runDir, layout.buildDirectory.dir('n4-acceptance-story-pack/mods').get().asFile)
+        List<String> markers = [
+                'EDNA-ACCEPTANCE PASS dynamic-line-choice',
+                'ESCPC-ACCEPTANCE AUTO_PASS scenarios=accepted,refused'
+        ]
+        runForgeServerUntilMarkers(runDir, 'runN4AcceptanceStoryPackServer',
+                ['-DechoDialogueNpcAdapterAcceptance.autoMode=dynamic',
+                 '-DechoStoryContentPackAcceptance.autoMode=acceptance'],
+                markers)
+        File logFile = new File(runDir, 'logs/latest.log')
+        verifyLogContains(logFile, 'runN4AcceptanceStoryPackServer',
+                ['Done (', 'echo_dialogue_npc_adapter:npc_presentation'] + markers)
+        verifyLogClean(logFile, 'runN4AcceptanceStoryPackServer')
+        copyRuntimeLog(runDir, 'n4-acceptance-story-pack-server-latest.log')
+        println "runN4AcceptanceStoryPackServer: OK ${runDir.canonicalPath}"
+    }
+}
+
+tasks.register('runN4AcceptanceRestartChoiceServer') {
+    description = 'Runs N4 acceptance restart at CHOICE using the same persisted server world.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('stageN4AcceptanceStoryPack')
+    doLast {
+        File runDir = runtimeServerDir('n4-acceptance-restart-choice-server')
+        File stagedMods = layout.buildDirectory.dir('n4-acceptance-story-pack/mods').get().asFile
+        String executionId = 'jdh:n4_restart_choice'
+        prepareServerRunDir(runDir, stagedMods)
+        runForgeServerCommandsUntilMarkers(runDir, 'runN4AcceptanceRestartChoiceServer:first',
+                ['-DechoDialogueNpcAdapterAcceptance.autoMode=dynamic'],
+                ["echo_story_content_pack_acceptance run_until_choice accepted ${executionId}"],
+                ['EDNA-ACCEPTANCE PASS dynamic-line-choice',
+                 'ESCPC-ACCEPTANCE PAUSE_CHOICE scenario=accepted'])
+        File firstLog = copyRuntimeLog(runDir, 'n4-acceptance-restart-choice-first.log')
+        prepareServerRunDirKeepingWorld(runDir, stagedMods)
+        runForgeServerCommandsUntilMarkers(runDir, 'runN4AcceptanceRestartChoiceServer:second',
+                ['-DechoDialogueNpcAdapterAcceptance.autoMode=dynamic'],
+                ["echo_story_content_pack_acceptance resume_choice accepted ${executionId}"],
+                ['EDNA-ACCEPTANCE PASS dynamic-line-choice',
+                 'ESCPC-ACCEPTANCE RESUME_CHOICE scenario=accepted',
+                 'ESCPC-ACCEPTANCE PASS scenario=accepted'])
+        File secondLog = copyRuntimeLog(runDir, 'n4-acceptance-restart-choice-second.log')
+        verifyLogContains(firstLog, 'runN4AcceptanceRestartChoiceServer:first',
+                ['story-action/jdh:n4_restart_choice/play_greeting', 'revision=2',
+                 'ESCPC-ACCEPTANCE PAUSE_CHOICE scenario=accepted'])
+        verifyLogContains(secondLog, 'runN4AcceptanceRestartChoiceServer:second',
+                ['story-action/jdh:n4_restart_choice/play_greeting',
+                 'ESCPC-ACCEPTANCE PASS scenario=accepted',
+                 'outcome=jdh:content_pack_accepted'])
+        verifyLogClean(firstLog, 'runN4AcceptanceRestartChoiceServer:first')
+        verifyLogClean(secondLog, 'runN4AcceptanceRestartChoiceServer:second')
+        println "runN4AcceptanceRestartChoiceServer: OK ${runDir.canonicalPath}"
+    }
+}
+
+def requiredN4GameTests = [
+        'DialogueNpcPresentationGameTests.dynamicLineUsesNpcPresentation',
+        'DialogueNpcPresentationGameTests.dynamicChoiceUsesNpcPresentation',
+        'DialogueNpcPresentationGameTests.actorWithoutSkinKeepsAuthoredVisual',
+        'DialogueNpcPresentationGameTests.missingActorDoesNotClaimSpeaker',
+        'DialogueNpcPresentationGameTests.unavailableNpcServiceDoesNotClaimSpeaker',
+        'DialogueNpcPresentationGameTests.absentActorDoesNotClaimSpeaker',
+        'DialogueNpcPresentationGameTests.stoppedNpcServiceUsesTemporaryFallback',
+        'DialogueNpcPresentationGameTests.failedNpcQueryUsesFailureFallback',
+        'DialogueNpcPresentationGameTests.blockedActorUsesFailureFallback'
+]
+
+tasks.matching { it.name == 'compileGameTestJava' }.configureEach {
+    dependsOn tasks.named('verifySiblingPublicArtifacts')
+}
+
+tasks.matching { it.name == 'prepareRunGameTestServer' }.configureEach {
+    dependsOn tasks.named('stageGameTestRuntimeMods')
+    dependsOn tasks.named('processGameTestResources')
+    doLast {
+        copy {
+            from sourceSets.gameTest.resources
+            include 'gameteststructures/**'
+            into project.file('run')
+        }
+    }
+}
+
+tasks.matching { it.name == 'prepareRunClient' }.configureEach {
+    if (project.hasProperty('n4ClientVisualAcceptance')) {
+        dependsOn tasks.named('stageN4ClientVisualAcceptanceRuntime')
+    }
+}
+
+tasks.matching { it.name == 'runClient' }.configureEach {
+    if (project.hasProperty('n4ClientVisualAcceptance')) {
+        dependsOn tasks.named('stageN4ClientVisualAcceptanceRuntime')
+        finalizedBy tasks.named('verifyN4ClientVisualAcceptanceOutputs')
+    }
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doLast {
+        def logFile = project.file('run/logs/latest.log')
+        if (!logFile.isFile()) {
+            throw new GradleException("GameTest log was not created: ${logFile}")
+        }
+        def text = logFile.getText('UTF-8')
+        def missing = requiredN4GameTests.findAll { testName ->
+            !text.contains("EDNA-GAMETEST-RUN ${testName}")
+        }
+        def discovered = firstInt(text, /Running test batch '[^']+' \((\d+) tests\)/)
+        def executed = firstInt(text, /(\d+) tests are now running!/)
+        def passed = firstInt(text, /All (\d+) required tests passed/)
+        if (discovered <= 0 || executed <= 0 || passed <= 0 || !missing.isEmpty()) {
+            throw new GradleException("N4 GameTests were not fully verified."
+                    + "\ndiscovered=${discovered}, executed=${executed}, passed=${passed}"
+                    + "\nmissing markers=${missing.join(', ')}")
+        }
+        println "N4 GameTests verified: discovered=${discovered}, executed=${executed}, passed=${passed}"
+    }
+}
+
+int firstInt(String text, String pattern) {
+    def matcher = text =~ pattern
+    return matcher.find() ? matcher.group(1).toInteger() : 0
+}
+
+tasks.register('n4IntegrationBuild') {
+    description = 'Публикует public artifacts Dialogue/NPC, собирает adapter и проверяет production JAR.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dependsOn tasks.named('verifySiblingPublicArtifacts')
+    dependsOn tasks.named('build')
+}
+
+tasks.named('build') {
+    mustRunAfter tasks.named('verifySiblingPublicArtifacts')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('architectureTest')
+    dependsOn tasks.named('gameTestClasses')
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyProductionJarContents')
+}

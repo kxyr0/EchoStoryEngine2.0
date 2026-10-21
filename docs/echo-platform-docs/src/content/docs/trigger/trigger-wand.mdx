@@ -1,0 +1,46 @@
+---
+title: "Trigger Wand"
+description: "Development-only инструмент Echo Debug для создания T3 trigger areas из Minecraft."
+section: "Trigger"
+pageKind: "tutorial"
+status: "review"
+since: "ED1"
+updated: "2026-07-25"
+relatedIds: ["echo_debug:trigger_wand", "AreaCatalogView", "TriggerAuthoringService"]
+relatedPages: ["trigger/reactive-geometry", "trigger/reactive-runtime", "platform/hot-reload"]
+sourceRepositories: ["echo-debug", "echo-trigger"]
+sourcePaths: ["D:/JDHSeason/mods/echo-debug/docs/architecture/ECHO_DEBUG_PROJECT_MAP.md"]
+visualIdentity: "trigger-wand"
+interactiveModules: []
+searchKeywords: ["trigger wand", "echo debug", "authoring", "story/triggers"]
+---
+
+# Trigger Wand
+
+`echo_debug:trigger_wand` — development-only item из `D:/JDHSeason/mods/echo-debug`.
+Он включается через `echo-debug.enabled` и требует permission level 2.
+
+Команда выдачи:
+
+```text
+/echo_debug give_trigger_wand [player]
+```
+
+Wand работает только в руке. Без wand overlay не строится, key mappings не меняют selection, а server requests
+не отправляются.
+
+Формы:
+
+- Box — 2 точки, `max` upper-exclusive.
+- Sphere — center и radius point.
+- Cylinder — center, radius point, height point.
+- Polygon — минимум 3 footprint points, default height 3 blocks при одном Y.
+
+Создание trigger выполняет сервер:
+
+```text
+selection -> source -> Echo Trigger parser/binder -> atomic file -> reload -> catalog verification -> success ACK
+```
+
+Файл пишется под `<gameDir>/story/triggers/<namespace>/<path>.trigger.es`.
+Клиент не пишет filesystem и не объявляет SUCCESS самостоятельно.

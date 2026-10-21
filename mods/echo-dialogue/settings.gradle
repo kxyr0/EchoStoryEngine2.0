@@ -1,0 +1,30 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-dialogue'
+
+include 'dialogue-contracts'
+include 'dialogue-presentation-api'
+include 'dialogue-core'
+include 'dialogue-persistence'
+include 'dialogue-echoscript-extension-api'
+include 'dialogue-echoscript-adapter'
+include 'dialogue-forge-api-1.20.1'
+include 'dialogue-forge-1.20.1'
+
+includeBuild '../echo-script'
+includeBuild '../echo-audio'
+
+includeBuild '../echo-events'

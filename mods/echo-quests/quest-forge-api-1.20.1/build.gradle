@@ -1,0 +1,9 @@
+plugins { id 'net.minecraftforge.gradle' }
+description = 'Forge-facing Echo Quests service lookup API.'
+
+minecraft { mappings channel: mapping_channel, version: mapping_version }
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':quest-contracts')
+}

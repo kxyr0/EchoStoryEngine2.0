@@ -1,0 +1,470 @@
+import groovy.json.JsonSlurper
+import java.security.MessageDigest
+import java.util.Locale
+
+plugins {
+    id 'java'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+}
+
+def adapterRoot = file('../..')
+def runDir = file('run')
+def modsDir = file("${runDir}/mods")
+def savesDir = file("${runDir}/saves")
+def productionRuntimeDir = file("${adapterRoot}/build/n3-production-client-runtime")
+def productionGameDir = file("${adapterRoot}/build/n3-production-client-acceptance/game")
+def productionModsDir = file("${productionGameDir}/mods")
+def productionSavesDir = file("${productionGameDir}/saves")
+def productionNativesDir = file("${adapterRoot}/build/n3-production-client-acceptance/natives")
+def productionForgeVersionId = "${minecraft_version}-forge-${forge_version}"
+def productionForgeVersionJson = file("${productionRuntimeDir}/versions/${productionForgeVersionId}/${productionForgeVersionId}.json")
+def productionForgeClientJar = file("${productionRuntimeDir}/libraries/net/minecraftforge/forge/${minecraft_version}-${forge_version}/forge-${minecraft_version}-${forge_version}-client.jar")
+def productionForgeUniversalJar = file("${productionRuntimeDir}/libraries/net/minecraftforge/forge/${minecraft_version}-${forge_version}/forge-${minecraft_version}-${forge_version}-universal.jar")
+def vanillaVersionJson = file('build/downloadMCMeta/version.json')
+def forgeGradleAssetsDir = file("${System.getProperty('user.home')}/.gradle/caches/forge_gradle/assets")
+def worldTemplate = file("${adapterRoot}/build/n3-isolated-three-mod-server-20260720-075705/world")
+def worldA = 'N3ClientWorldA'
+def worldB = 'N3ClientWorldB'
+def requiredMods = [
+        file("${adapterRoot}/../echo-story-engine/story-forge-1.20.1/build/libs/echo-story-engine-0.1.0-all.jar"),
+        file("${adapterRoot}/../echo-npc/npc-forge-1.20.1/build/libs/echo-npc-0.1.0-SNAPSHOT-all.jar"),
+        file("${adapterRoot}/build/libs/echo-story-npc-adapter-0.1.0-SNAPSHOT.jar"),
+        file("${adapterRoot}/integration-tests/echo-story-npc-acceptance-mod/build/libs/echo-story-npc-acceptance-1.0.0.jar"),
+]
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+
+    runs {
+        client {
+            workingDirectory runDir
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            property 'echo_story_npc_acceptance.clientAuto', 'true'
+            property 'echo_story_npc_acceptance.worldA', worldA
+            property 'echo_story_npc_acceptance.worldB', worldB
+            args '--quickPlaySingleplayer', worldA
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+}
+
+def parseJson = { File source ->
+    new JsonSlurper().parse(source)
+}
+
+def sha1 = { File source ->
+    MessageDigest digest = MessageDigest.getInstance('SHA-1')
+    source.withInputStream { input ->
+        byte[] buffer = new byte[8192]
+        int read = input.read(buffer)
+        while (read != -1) {
+            digest.update(buffer, 0, read)
+            read = input.read(buffer)
+        }
+    }
+    digest.digest().encodeHex().toString()
+}
+
+def currentWindowsNativeClassifier = {
+    String arch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
+    if (arch.contains('aarch64') || arch.contains('arm64')) {
+        return 'natives-windows-arm64'
+    }
+    if (arch == 'x86' || arch.contains('i386') || arch.contains('i686')) {
+        return 'natives-windows-x86'
+    }
+    'natives-windows'
+}
+
+def osRuleMatches = { Map rule ->
+    Map os = rule.os as Map
+    if (os == null) {
+        return true
+    }
+    if (os.name != null && os.name != 'windows') {
+        return false
+    }
+    if (os.arch == null) {
+        return true
+    }
+    String arch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
+    if (os.arch == 'x86') {
+        return arch == 'x86' || arch.contains('i386') || arch.contains('i686')
+    }
+    true
+}
+
+def rulesAllow = { Object value ->
+    List rules = value instanceof Map && value.rules instanceof List ? value.rules : null
+    if (rules == null || rules.isEmpty()) {
+        return true
+    }
+    boolean allowed = false
+    rules.each { Object rawRule ->
+        Map rule = rawRule as Map
+        if (osRuleMatches(rule)) {
+            allowed = rule.action == 'allow'
+        }
+    }
+    allowed
+}
+
+def replacePlaceholders = { String text, Map values ->
+    String result = text
+    values.each { String key, Object value ->
+        result = result.replace('${' + key + '}', value.toString())
+    }
+    result
+}
+
+def expandArguments = { List entries, Map values ->
+    List expanded = []
+    entries.each { Object entry ->
+        Object value = entry
+        if (entry instanceof Map) {
+            if (!rulesAllow(entry)) {
+                return
+            }
+            value = entry.value
+        }
+        if (value instanceof List) {
+            value.each { Object item -> expanded.add(replacePlaceholders(item.toString(), values)) }
+        } else {
+            expanded.add(replacePlaceholders(value.toString(), values))
+        }
+    }
+    expanded
+}
+
+def artifactPath = { Map library ->
+    library.downloads?.artifact?.path
+}
+
+def artifactUrl = { Map library ->
+    library.downloads?.artifact?.url
+}
+
+def artifactSha1 = { Map library ->
+    library.downloads?.artifact?.sha1
+}
+
+def isCurrentNativeArtifact = { String path ->
+    if (!path.contains('natives-windows')) {
+        return true
+    }
+    path.endsWith("${currentWindowsNativeClassifier()}.jar")
+}
+
+def launchLibraryFiles = { Map json ->
+    LinkedHashSet<File> result = new LinkedHashSet<>()
+    json.libraries.each { Object rawLibrary ->
+        Map library = rawLibrary as Map
+        String path = artifactPath(library)
+        if (path != null && rulesAllow(library) && isCurrentNativeArtifact(path)) {
+            result.add(file("${productionRuntimeDir}/libraries/${path}"))
+        }
+    }
+    result as List
+}
+
+def productionClientExtraJars = {
+    if (!productionRuntimeDir.isDirectory()) {
+        return []
+    }
+    fileTree("${productionRuntimeDir}/libraries/net/minecraft/client")
+            .matching { include '**/client-*-extra.jar' }
+            .files
+            .sort { it.absolutePath }
+}
+
+def productionClasspathFiles = {
+    Map vanillaJson = parseJson(vanillaVersionJson) as Map
+    Map forgeJson = parseJson(productionForgeVersionJson) as Map
+    LinkedHashSet<File> classpath = new LinkedHashSet<>()
+    classpath.addAll(launchLibraryFiles(vanillaJson))
+    classpath.addAll(launchLibraryFiles(forgeJson))
+    classpath.addAll(productionClientExtraJars())
+    classpath.add(productionForgeClientJar)
+    classpath.add(productionForgeUniversalJar)
+    classpath.findAll { it.isFile() } as List
+}
+
+tasks.register('downloadProductionClientLibraries') {
+    description = 'Скачивает недостающие vanilla client libraries в isolated production Forge runtime.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dependsOn tasks.named('downloadMCMeta')
+    doLast {
+        if (!productionForgeVersionJson.isFile() || !productionForgeClientJar.isFile()) {
+            throw new GradleException("Production Forge client runtime не установлен: ${productionRuntimeDir}."
+                    + "\nПодготовьте его командой:"
+                    + "\njava -jar build/n3-production-client-tools/forge-${minecraft_version}-${forge_version}-installer.jar --installClient build/n3-production-client-runtime")
+        }
+        [parseJson(vanillaVersionJson), parseJson(productionForgeVersionJson)].each { Object rawJson ->
+            Map json = rawJson as Map
+            json.libraries.each { Object rawLibrary ->
+                Map library = rawLibrary as Map
+                String path = artifactPath(library)
+                String url = artifactUrl(library)
+                if (path == null || url == null || !rulesAllow(library) || !isCurrentNativeArtifact(path)) {
+                    return
+                }
+                File target = file("${productionRuntimeDir}/libraries/${path}")
+                String expectedSha1 = artifactSha1(library)
+                if (target.isFile() && (expectedSha1 == null || sha1(target) == expectedSha1)) {
+                    return
+                }
+                target.parentFile.mkdirs()
+                logger.lifecycle("Скачивается client library: ${path}")
+                new URL(url).withInputStream { input ->
+                    target.withOutputStream { output -> output << input }
+                }
+                if (expectedSha1 != null && sha1(target) != expectedSha1) {
+                    throw new GradleException("SHA-1 не совпал для ${target}")
+                }
+            }
+        }
+    }
+}
+
+tasks.register('extractProductionClientNatives') {
+    description = 'Извлекает Windows natives для isolated production client.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dependsOn tasks.named('downloadProductionClientLibraries')
+    doLast {
+        delete productionNativesDir
+        productionNativesDir.mkdirs()
+        Map vanillaJson = parseJson(vanillaVersionJson) as Map
+        String classifier = currentWindowsNativeClassifier()
+        vanillaJson.libraries.each { Object rawLibrary ->
+            Map library = rawLibrary as Map
+            String path = artifactPath(library)
+            if (path != null && rulesAllow(library) && path.endsWith("${classifier}.jar")) {
+                copy {
+                    from zipTree(file("${productionRuntimeDir}/libraries/${path}"))
+                    into productionNativesDir
+                    exclude 'META-INF/**'
+                }
+            }
+        }
+        if (fileTree(productionNativesDir).matching { include '**/*.dll' }.files.isEmpty()) {
+            throw new GradleException("Windows natives не извлечены: ${productionNativesDir}")
+        }
+    }
+}
+
+tasks.register('prepareFinalJarClientAcceptance') {
+    description = 'Готовит isolated client run directory с final JARs и двумя чистыми мирами.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    doLast {
+        def missing = requiredMods.findAll { !it.isFile() }
+        if (!worldTemplate.isDirectory() || !missing.isEmpty()) {
+            throw new GradleException("Client acceptance prerequisites отсутствуют."
+                    + "\nworldTemplate=${worldTemplate}"
+                    + "\nmissingMods=${missing.join('\n')}")
+        }
+        delete modsDir
+        delete savesDir
+        modsDir.mkdirs()
+        savesDir.mkdirs()
+        file('build/resources/main').mkdirs()
+        file('build/classes/java/main').mkdirs()
+        copy {
+            from requiredMods
+            into modsDir
+        }
+        [worldA, worldB].each { worldName ->
+            copy {
+                from worldTemplate
+                into file("${savesDir}/${worldName}")
+            }
+        }
+        println "Client acceptance run prepared: ${runDir}"
+        println "Client acceptance mods:"
+        fileTree(modsDir).matching { include '*.jar' }.files.sort { it.name }.each {
+            println " - ${it.name} (${it.length()} bytes)"
+        }
+    }
+}
+
+tasks.register('prepareProductionClientAcceptance') {
+    description = 'Готовит isolated production Forge client с final JARs и двумя чистыми мирами.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dependsOn tasks.named('downloadAssets')
+    dependsOn tasks.named('extractProductionClientNatives')
+    doLast {
+        def missing = requiredMods.findAll { !it.isFile() }
+        if (!worldTemplate.isDirectory() || !missing.isEmpty()) {
+            throw new GradleException("Production client acceptance prerequisites отсутствуют."
+                    + "\nworldTemplate=${worldTemplate}"
+                    + "\nmissingMods=${missing.join('\n')}")
+        }
+        if (!forgeGradleAssetsDir.isDirectory() || !file("${forgeGradleAssetsDir}/indexes/5.json").isFile()) {
+            throw new GradleException("Minecraft assets не найдены: ${forgeGradleAssetsDir}")
+        }
+        delete productionGameDir
+        productionModsDir.mkdirs()
+        productionSavesDir.mkdirs()
+        copy {
+            from requiredMods
+            into productionModsDir
+        }
+        [worldA, worldB].each { worldName ->
+            copy {
+                from worldTemplate
+                into file("${productionSavesDir}/${worldName}")
+            }
+        }
+        file("${productionGameDir}/options.txt").setText([
+                'lang:ru_ru',
+                'renderDistance:4',
+                'simulationDistance:5',
+                'fullscreen:false'
+        ].join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
+        println "Production client acceptance prepared: ${productionGameDir}"
+        println "Production client acceptance mods:"
+        fileTree(productionModsDir).matching { include '*.jar' }.files.sort { it.name }.each {
+            println " - ${it.name} (${it.length()} bytes)"
+        }
+    }
+}
+
+tasks.register('runProductionClientAcceptance', JavaExec) {
+    description = 'Запускает isolated production Forge client acceptance с final JARs.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('prepareProductionClientAcceptance')
+    workingDir productionGameDir
+    mainClass = 'cpw.mods.bootstraplauncher.BootstrapLauncher'
+    ignoreExitValue = true
+    executable = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(17)
+    }.get().executablePath.asFile.absolutePath
+    doFirst {
+        Map forgeJson = parseJson(productionForgeVersionJson) as Map
+        Map vanillaJson = parseJson(vanillaVersionJson) as Map
+        List classpathFiles = productionClasspathFiles()
+        if (!classpathFiles.contains(productionForgeClientJar)) {
+            throw new GradleException("Production classpath не содержит Forge client JAR: ${productionForgeClientJar}")
+        }
+        classpath = files(classpathFiles)
+        Map placeholders = [
+                version_name       : productionForgeVersionId,
+                library_directory  : file("${productionRuntimeDir}/libraries").absolutePath.replace('\\', '/'),
+                classpath_separator: File.pathSeparator,
+                natives_directory  : productionNativesDir.absolutePath,
+                launcher_name      : 'echo-production-client',
+                launcher_version   : 'n3',
+        ]
+        List vanillaJvm = expandArguments(vanillaJson.arguments.jvm as List, placeholders)
+        List filteredVanillaJvm = []
+        for (int index = 0; index < vanillaJvm.size(); index++) {
+            if (vanillaJvm[index] == '-cp') {
+                index++
+            } else {
+                filteredVanillaJvm.add(vanillaJvm[index])
+            }
+        }
+        jvmArgs = []
+        jvmArgs filteredVanillaJvm
+        jvmArgs expandArguments(forgeJson.arguments.jvm as List, placeholders)
+        jvmArgs '-Dforge.logging.markers=REGISTRIES'
+        jvmArgs '-Dforge.logging.console.level=debug'
+        jvmArgs '-Decho_story_npc_acceptance.clientAuto=true'
+        jvmArgs "-Decho_story_npc_acceptance.worldA=${worldA}"
+        jvmArgs "-Decho_story_npc_acceptance.worldB=${worldB}"
+        args = []
+        args expandArguments(forgeJson.arguments.game as List, placeholders)
+        args '--username', 'EchoTesterN3'
+        args '--version', productionForgeVersionId
+        args '--gameDir', productionGameDir.absolutePath
+        args '--assetsDir', forgeGradleAssetsDir.absolutePath
+        args '--assetIndex', '5'
+        args '--uuid', '00000000-0000-0000-0000-000000000003'
+        args '--accessToken', '0'
+        args '--clientId', '0'
+        args '--xuid', '0'
+        args '--userType', 'legacy'
+        args '--versionType', 'release'
+        args '--width', '854'
+        args '--height', '480'
+        args '--quickPlaySingleplayer', worldA
+        println "Production client classpath entries: ${classpathFiles.size()}"
+    }
+    doLast {
+        def logFile = file("${productionGameDir}/logs/latest.log")
+        if (!logFile.isFile()) {
+            throw new GradleException("Production client acceptance log не создан: ${logFile}")
+        }
+        def text = logFile.getText('UTF-8')
+        if (text.contains('ESNPC-CLIENT-ACCEPTANCE FAIL') || !text.contains('ESNPC-CLIENT-ACCEPTANCE PASS')) {
+            throw new GradleException("Production client acceptance не подтвержден. См. ${logFile}")
+        }
+        def forbiddenMarkers = [
+                'NoSuchMethodError',
+                'ClassNotFoundException',
+                'NoClassDefFoundError',
+                'Cound not schedule mailbox',
+                'RejectedExecutionException'
+        ]
+        def foundForbidden = forbiddenMarkers.findAll { text.contains(it) }
+        if (!foundForbidden.isEmpty()) {
+            throw new GradleException("Production client acceptance содержит запрещённые маркеры: ${foundForbidden}. См. ${logFile}")
+        }
+        ['n3-client-spawn-visible.png',
+         'n3-client-recovery-visible.png',
+         'n3-client-teleport-visible.png'].each { name ->
+            def screenshot = file("${productionGameDir}/screenshots/${name}")
+            if (!screenshot.isFile() || screenshot.length() <= 0L) {
+                throw new GradleException("Production client acceptance screenshot не создан: ${screenshot}")
+            }
+        }
+        if (executionResult.get().exitValue != 0) {
+            throw new GradleException("Production client завершился с кодом ${executionResult.get().exitValue}")
+        }
+        println "Echo Story NPC production client acceptance verified: pass marker and screenshots found."
+    }
+}
+
+tasks.matching { it.name == 'prepareRunClient' }.configureEach {
+    dependsOn tasks.named('prepareFinalJarClientAcceptance')
+}
+
+tasks.matching { it.name == 'runClient' }.configureEach {
+    dependsOn tasks.named('prepareFinalJarClientAcceptance')
+    doLast {
+        def logFile = file("${runDir}/logs/latest.log")
+        if (!logFile.isFile()) {
+            throw new GradleException("Client acceptance log не создан: ${logFile}")
+        }
+        def text = logFile.getText('UTF-8')
+        if (text.contains('ESNPC-CLIENT-ACCEPTANCE FAIL') || !text.contains('ESNPC-CLIENT-ACCEPTANCE PASS')) {
+            throw new GradleException("Client acceptance не подтвержден. См. ${logFile}")
+        }
+        ['n3-client-spawn-visible.png',
+         'n3-client-recovery-visible.png',
+         'n3-client-teleport-visible.png'].each { name ->
+            def screenshot = file("${runDir}/screenshots/${name}")
+            if (!screenshot.isFile() || screenshot.length() <= 0L) {
+                throw new GradleException("Client acceptance screenshot не создан: ${screenshot}")
+            }
+        }
+        println "Echo Story NPC client acceptance verified: pass marker and screenshots found."
+    }
+}

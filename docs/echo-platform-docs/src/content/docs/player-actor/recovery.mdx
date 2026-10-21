@@ -1,0 +1,22 @@
+---
+title: "Recovery"
+description: "Idempotency, restart boundaries и emergency release."
+section: "Player"
+pageKind: "lifecycle"
+status: "review"
+since: "PA1"
+updated: "2026-07-28"
+relatedIds: ["PlayerActorCommandLedger", "PlayerControlLeaseRegistry"]
+relatedPages: ["player-actor/control-lease", "player-actor/errors"]
+sourceRepositories: ["echo-player-actor"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-actor/player-actor-core"]
+visualIdentity: "player-recovery"
+interactiveModules: ["InteractionRecoveryLab"]
+searchKeywords: ["recovery", "idempotency", "emergency release"]
+---
+
+# Recovery
+
+Core содержит command ledger и lease registry. Runtime W1 хранит active movement/rotation in-memory и предоставляет `/echo_player_actor control release <player>` для аварийного возврата human control.
+
+SavedData recovery должен сохранять lease, active command и receipts до dispatch.

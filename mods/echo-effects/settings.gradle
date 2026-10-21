@@ -1,0 +1,23 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-effects'
+
+include 'effects-contracts'
+include 'effects-core'
+include 'effects-forge-api-1.20.1'
+include 'effects-forge-1.20.1'
+include 'effects-script-adapter-1.20.1'
+include 'effects-testmod-1.20.1'

@@ -1,0 +1,6 @@
+{
+  "command.echo_air_magic.setup.unavailable": "Сервис Echo Magic недоступен.",
+  "command.echo_air_magic.setup.not_loaded": "Заклинание Air Bolt не загружено.",
+  "command.echo_air_magic.setup.success": "Air Bolt выбран для %1$s. Используйте назначенную клавишу «%2$s»."
+}
+

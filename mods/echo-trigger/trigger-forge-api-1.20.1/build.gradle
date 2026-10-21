@@ -1,0 +1,15 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Minimal public Forge-facing API for Echo Trigger.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}
+
+dependencies {
+    api 'io.github.kxyr0.echoevents:echo-events:0.1.0'
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':trigger-contracts')
+}

@@ -1,0 +1,31 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="echo_player_actor_test"
+version="${mod_version}"
+displayName="Echo Player Actor Testmod"
+authors="${mod_authors}"
+description='''Development-only fixtures for Echo Player Actor.'''
+
+[[dependencies.echo_player_actor_test]]
+modId="forge"
+mandatory=true
+versionRange="${forge_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.echo_player_actor_test]]
+modId="minecraft"
+mandatory=true
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.echo_player_actor_test]]
+modId="${mod_id}"
+mandatory=true
+versionRange="[${mod_version},)"
+ordering="AFTER"
+side="BOTH"

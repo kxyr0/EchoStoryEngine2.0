@@ -1,0 +1,101 @@
+modLoader="lowcodefml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="${mod_authors}"
+description='''${mod_description}'''
+
+[[dependencies.${mod_id}]]
+    modId="forge"
+    mandatory=true
+    versionRange="${forge_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="${echo_story_engine_mod_id}"
+    mandatory=true
+    versionRange="${echo_story_engine_mod_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="${echo_dialogue_mod_id}"
+    mandatory=true
+    versionRange="${echo_dialogue_mod_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="${echo_story_dialogue_adapter_mod_id}"
+    mandatory=true
+    versionRange="${echo_story_dialogue_adapter_mod_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="${echo_story_animation_adapter_mod_id}"
+    mandatory=true
+    versionRange="${echo_story_animation_adapter_mod_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="${echo_npc_mod_id}"
+    mandatory=true
+    versionRange="${echo_npc_mod_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="${echo_animation_mod_id}"
+    mandatory=true
+    versionRange="${echo_animation_mod_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="${echo_story_npc_adapter_mod_id}"
+    mandatory=true
+    versionRange="${echo_story_npc_adapter_mod_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="${echo_npc_animation_adapter_mod_id}"
+    mandatory=true
+    versionRange="${echo_npc_animation_adapter_mod_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="${echo_player_actor_mod_id}"
+    mandatory=true
+    versionRange="${echo_player_actor_mod_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="${echo_story_player_actor_adapter_mod_id}"
+    mandatory=true
+    versionRange="${echo_story_player_actor_adapter_mod_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="${echo_player_actor_refurbished_furniture_adapter_mod_id}"
+    mandatory=true
+    versionRange="${echo_player_actor_refurbished_furniture_adapter_mod_version_range}"
+    ordering="AFTER"
+    side="BOTH"

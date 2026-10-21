@@ -1,0 +1,875 @@
+---
+title: "Сюжет .es"
+description: "Cookbook для StoryResource: как собрать сюжетную цепочку, вызвать NPC, диалог, анимацию, сохранить output и проверить результат."
+section: "Platform"
+pageKind: "syntax"
+status: "review"
+since: "current"
+updated: "2026-07-24"
+relatedIds: ["StoryId", "NodeId", "ActionExecutionId", "DialogueId", "DialogueOutcomeId", "ActorId", "AnimationProfileId"]
+relatedPages: ["platform/dialogue-authoring", "platform/console-commands", "platform/content-workspace", "adapters/story-npc", "adapters/dialogue-npc", "animation/animation-overview"]
+sourceRepositories: ["echo-story-engine", "echo-story-content-pack", "echo-story-dialogue-adapter", "echo-story-npc-adapter", "echo-story-animation-adapter"]
+sourcePaths: ["D:/JDHSeason/mods/echo-story-engine", "D:/JDHSeason/mods/echo-story-content-pack"]
+visualIdentity: "state-lines"
+interactiveModules: []
+searchKeywords: ["StoryResource", "Story", "Start", "Action", "Set", "Require", "Finish", "if else", "echo_dialogue:play", "echo_npc:spawn", "echo_animation:play_animation", "/echo_story"]
+---
+
+# Сюжет .es
+
+`StoryResource` описывает не реплики, а порядок событий: старт сцены, spawn NPC, запуск диалога, ожидание output, установка переменной и завершение. Реплики живут в `DialogueResource`, NPC - в NPC resource, а Story связывает их через ID.
+
+## Куда класть файл
+
+Story loader читает `.es` под `echo_story/stories`.
+
+```text
+data/<namespace>/echo_story/stories/**/*.es
+```
+
+Пример:
+
+```text
+src/main/resources/data/jdh/echo_story/stories/chapter_1/home/home_arrival.es
+```
+
+## Минимальный StoryResource
+
+```echoscript
+namespace JDH.Chapter1.Home;
+
+class HomeArrivalStory : StoryResource
+{
+    public override StoryResourceDef Build()
+    {
+        return Story("jdh:chapter_1_home_arrival", start: "start");
+    }
+
+    private void Nodes()
+    {
+        Start("start", next: "finish");
+        Finish("finish");
+    }
+}
+```
+
+Что обязательно:
+
+| Часть | Что делает |
+| --- | --- |
+| `class ... : StoryResource` | Помечает файл как story resource |
+| `Build()` | Возвращает `Story("namespace:path", start: "...")` |
+| `Nodes()` | Объявляет все story nodes |
+| `Start(...)` | Стартовый node graph |
+| `Finish(...)` | Успешное завершение execution |
+
+## Поддерживаемые Story intrinsics
+
+| Вызов | Назначение | Форма |
+| --- | --- | --- |
+| `Start` | Начальный node | `Start("start", next: "next_node")` |
+| `Set` | Записать переменную | `Set("node", variable: "name", value: true, next: "next")` |
+| `Require` | Проверить переменную | `Require("node", variable: "name", value: "expected", next: "next")` |
+| `Action` | Вызвать adapter action | `Action("node", type: "namespace:action", output: "key", next: "next", ...)` |
+| `Finish` | Завершить story | `Finish("finish")` |
+
+Все node IDs в Story сейчас строки. Это отдельный DSL от method-based диалогов.
+
+```echoscript
+Start("start", next: "spawn_father");
+Action("spawn_father", type: "echo_npc:spawn", next: "play_dialogue");
+Set("mark_seen", variable: "jdh.chapter_1.seen", value: true, next: "finish");
+Finish("finish");
+```
+
+## Полный flow: spawn NPC, сыграть диалог, отметить флаг
+
+```echoscript
+namespace JDH.Chapter1.Home;
+
+class HomeArrivalStory : StoryResource
+{
+    public override StoryResourceDef Build()
+    {
+        return Story("jdh:chapter_1_home_arrival", start: "start");
+    }
+
+    private void Nodes()
+    {
+        Start("start", next: "spawn_father");
+        Action(
+            "spawn_father",
+            type: "echo_npc:spawn",
+            actorId: "jdh:john_father",
+            definitionId: "jdh:john_father",
+            worldId: "minecraft:overworld",
+            x: "0",
+            y: "64",
+            z: "0",
+            yaw: "180",
+            pitch: "0",
+            output: "result",
+            next: "play_dialogue");
+        Action(
+            "play_dialogue",
+            type: "echo_dialogue:play",
+            dialogueId: "jdh:chapter_1_home_arrival",
+            audienceId: "jdh:local_author",
+            output: "outcome",
+            next: "mark_dialogue_seen");
+        Set(
+            "mark_dialogue_seen",
+            variable: "jdh.chapter_1.home_arrival_dialogue_seen",
+            value: true,
+            next: "finish");
+        Finish("finish");
+    }
+}
+```
+
+Связанные файлы:
+
+```text
+data/jdh/echo_story/stories/chapter_1/home/home_arrival.es
+data/jdh/echo_dialogue/dialogues/chapter_1/home/home_arrival.dialogue.es
+data/jdh/echo_npc/npcs/chapter_1/family/john_father.npc.es
+```
+
+## `Action(...)`: общая форма
+
+```echoscript
+Action(
+    "node_id",
+    type: "namespace:action",
+    argName: "argValue",
+    output: "adapter_output_key",
+    next: "next_node");
+```
+
+Правила:
+
+- первый аргумент - Story node ID;
+- `type` обязателен;
+- `next` обязателен, если action должна продолжить execution;
+- `output` необязателен;
+- `type`, `output`, `next` - reserved names;
+- остальные named arguments уходят adapter-у как flat `Map<String, String>`;
+- `string`, `integer` и `boolean` literals принимаются;
+- decimal лучше писать строкой: `x: "1.5"`;
+- вложенные calls, arrays и objects в action payload не принимаются.
+
+Можно:
+
+```echoscript
+Action(
+    "spawn_father",
+    type: "echo_npc:spawn",
+    actorId: "jdh:john_father",
+    x: "1.5",
+    y: 64,
+    z: "0",
+    next: "finish");
+```
+
+Нельзя:
+
+```echoscript
+Action(
+    "spawn_father",
+    type: "echo_npc:spawn",
+    actorId: Actor("jdh:john_father"),
+    position: [0, 64, 0],
+    next: "finish");
+```
+
+## Запуск диалога из Story
+
+```echoscript
+Action(
+    "play_greeting",
+    type: "echo_dialogue:play",
+    dialogueId: "jdh:content_pack_greeting",
+    audienceId: "jdh:local_author",
+    output: "outcome",
+    next: "require_accepted");
+```
+
+Payload:
+
+| Аргумент | Что писать |
+| --- | --- |
+| `dialogueId` | `DialogueId` из `Id(...)` в `.dialogue.es` |
+| `audienceId` | audience/player ID, для acceptance часто UUID |
+| `output` | обычно `"outcome"`, чтобы сохранить `DialogueOutcomeId` |
+| `next` | следующий Story node |
+
+Диалог должен существовать в dialogue catalog после `/reload`:
+
+```text
+/echo_dialogue dialogues
+```
+
+## Проверка outcome
+
+Dialogue возвращает outcome:
+
+```echoscript
+private void Accepted()
+{
+    Complete("jdh:content_pack_accepted");
+}
+
+private void Refused()
+{
+    Complete("jdh:content_pack_refused");
+}
+```
+
+Story сохраняет outcome:
+
+```echoscript
+Action(
+    "play_greeting",
+    type: "echo_dialogue:play",
+    dialogueId: "jdh:content_pack_greeting",
+    audienceId: "jdh:local_author",
+    output: "outcome",
+    next: "require_accepted");
+```
+
+Story проверяет outcome:
+
+```echoscript
+Require(
+    "require_accepted",
+    variable: "outcome",
+    value: "jdh:content_pack_accepted",
+    next: "mark_accepted_branch");
+```
+
+Если `outcome` не равен `jdh:content_pack_accepted`, текущий execution завершится failed. `Require` не является `if/else`.
+
+## Две разные ветки через два StoryResource
+
+Accepted story:
+
+```echoscript
+class ContentPackSmokeStory : StoryResource
+{
+    public override StoryResourceDef Build()
+    {
+        return Story("jdh:content_pack_smoke", start: "start");
+    }
+
+    private void Nodes()
+    {
+        Start("start", next: "play_greeting");
+        Action(
+            "play_greeting",
+            type: "echo_dialogue:play",
+            dialogueId: "jdh:content_pack_greeting",
+            audienceId: "jdh:local_author",
+            output: "outcome",
+            next: "require_accepted");
+        Require(
+            "require_accepted",
+            variable: "outcome",
+            value: "jdh:content_pack_accepted",
+            next: "mark_accepted_branch");
+        Set(
+            "mark_accepted_branch",
+            variable: "jdh.content_pack.accepted_branch",
+            value: true,
+            next: "finish");
+        Finish("finish");
+    }
+}
+```
+
+Refused story:
+
+```echoscript
+class ContentPackSmokeRefusedStory : StoryResource
+{
+    public override StoryResourceDef Build()
+    {
+        return Story("jdh:content_pack_smoke_refused", start: "start");
+    }
+
+    private void Nodes()
+    {
+        Start("start", next: "play_greeting");
+        Action(
+            "play_greeting",
+            type: "echo_dialogue:play",
+            dialogueId: "jdh:content_pack_greeting",
+            audienceId: "jdh:local_author",
+            output: "outcome",
+            next: "require_refused");
+        Require(
+            "require_refused",
+            variable: "outcome",
+            value: "jdh:content_pack_refused",
+            next: "mark_refused_branch");
+        Set(
+            "mark_refused_branch",
+            variable: "jdh.content_pack.refused_branch",
+            value: true,
+            next: "finish");
+        Finish("finish");
+    }
+}
+```
+
+Это рабочий способ, пока в Story DSL нет branch intrinsic с `else`.
+
+## Переменные Story
+
+Set boolean:
+
+```echoscript
+Set(
+    "mark_home_seen",
+    variable: "jdh.chapter_1.home_seen",
+    value: true,
+    next: "finish");
+```
+
+Set string:
+
+```echoscript
+Set(
+    "remember_route",
+    variable: "jdh.chapter_1.selected_route",
+    value: "street",
+    next: "finish");
+```
+
+Require boolean:
+
+```echoscript
+Require(
+    "require_home_seen",
+    variable: "jdh.chapter_1.home_seen",
+    value: true,
+    next: "play_next_scene");
+```
+
+Require string:
+
+```echoscript
+Require(
+    "require_street_route",
+    variable: "jdh.chapter_1.selected_route",
+    value: "street",
+    next: "spawn_friend");
+```
+
+`Require` при несовпадении не переходит на альтернативный node. Он завершает execution как failed.
+
+## Ветвление сейчас
+
+Сейчас Story DSL не имеет отдельного `if/else` node. Рабочий способ ветвления - получить output из action, проверить нужный outcome через `Require`, а альтернативную ветку держать отдельным StoryResource или запускать другим trigger-ом во время игры.
+
+Диалог возвращает разные outcomes:
+
+```echoscript
+private void ToldTruth()
+{
+    Line("john", "Да. Я был у дороги.");
+    Complete("jdh:home_told_truth");
+}
+
+private void Lied()
+{
+    Line("john", "Я просто гулял.");
+    Complete("jdh:home_lied");
+}
+```
+
+Story для ветки правды:
+
+```echoscript
+class HomeTruthBranchStory : StoryResource
+{
+    public override StoryResourceDef Build()
+    {
+        return Story("jdh:home_truth_branch", start: "start");
+    }
+
+    private void Nodes()
+    {
+        Start("start", next: "play_father_question");
+        Action(
+            "play_father_question",
+            type: "echo_dialogue:play",
+            dialogueId: "jdh:father_question",
+            audienceId: "jdh:local_author",
+            output: "outcome",
+            next: "require_truth");
+        Require(
+            "require_truth",
+            variable: "outcome",
+            value: "jdh:home_told_truth",
+            next: "set_truth_flag");
+        Set(
+            "set_truth_flag",
+            variable: "jdh.chapter_1.truth_told",
+            value: true,
+            next: "finish");
+        Finish("finish");
+    }
+}
+```
+
+Story для ветки лжи:
+
+```echoscript
+class HomeLieBranchStory : StoryResource
+{
+    public override StoryResourceDef Build()
+    {
+        return Story("jdh:home_lie_branch", start: "start");
+    }
+
+    private void Nodes()
+    {
+        Start("start", next: "play_father_question");
+        Action(
+            "play_father_question",
+            type: "echo_dialogue:play",
+            dialogueId: "jdh:father_question",
+            audienceId: "jdh:local_author",
+            output: "outcome",
+            next: "require_lie");
+        Require(
+            "require_lie",
+            variable: "outcome",
+            value: "jdh:home_lied",
+            next: "set_lie_flag");
+        Set(
+            "set_lie_flag",
+            variable: "jdh.chapter_1.lied_to_father",
+            value: true,
+            next: "finish");
+        Finish("finish");
+    }
+}
+```
+
+Так писать нельзя, пока branch intrinsic не добавлен:
+
+```echoscript
+if (outcome == "jdh:home_told_truth") {
+    Set("truth", variable: "jdh.chapter_1.truth_told", value: true, next: "finish");
+} else {
+    Set("lie", variable: "jdh.chapter_1.lied_to_father", value: true, next: "finish");
+}
+```
+
+Такой вид можно держать как будущую форму в заметках, но не в `.es`, который должен загрузиться сейчас:
+
+```echoscript
+// НЕ КОМПИЛИРУЕТСЯ СЕЙЧАС.
+// Оставлено как форма, к которой удобно будет перейти,
+// когда Story Engine получит branch intrinsic.
+If(
+    "route_after_father_question",
+    variable: "outcome",
+    equals: "jdh:home_told_truth",
+    then: "truth_branch",
+    else: "lie_branch");
+```
+
+Чтобы потом перейти на настоящий `if/else` без переписывания всей сцены, уже сейчас держите стабильные names:
+
+```text
+outcome variable: outcome
+truth outcome: jdh:home_told_truth
+lie outcome: jdh:home_lied
+truth node: truth_branch
+lie node: lie_branch
+flag truth: jdh.chapter_1.truth_told
+flag lie: jdh.chapter_1.lied_to_father
+```
+
+## Рецепты Story кода
+
+Сцена запускается только если предыдущий флаг уже поставлен:
+
+```echoscript
+class StreetOnlyAfterHomeStory : StoryResource
+{
+    public override StoryResourceDef Build()
+    {
+        return Story("jdh:street_only_after_home", start: "start");
+    }
+
+    private void Nodes()
+    {
+        Start("start", next: "require_home_seen");
+        Require(
+            "require_home_seen",
+            variable: "jdh.chapter_1.home_arrival_dialogue_seen",
+            value: true,
+            next: "play_street_self_talk");
+        Action(
+            "play_street_self_talk",
+            type: "echo_dialogue:play",
+            dialogueId: "jdh:chapter_1_street_talk_with_self",
+            audienceId: "jdh:local_author",
+            output: "outcome",
+            next: "finish");
+        Finish("finish");
+    }
+}
+```
+
+Два NPC в одной сцене:
+
+```echoscript
+private void Nodes()
+{
+    Start("start", next: "spawn_father");
+    Action(
+        "spawn_father",
+        type: "echo_npc:spawn",
+        actorId: "jdh:john_father",
+        definitionId: "jdh:john_father",
+        worldId: "minecraft:overworld",
+        x: "0",
+        y: "64",
+        z: "0",
+        yaw: "180",
+        pitch: "0",
+        output: "father_spawn",
+        next: "spawn_john");
+    Action(
+        "spawn_john",
+        type: "echo_npc:spawn",
+        actorId: "jdh:john",
+        definitionId: "jdh:john",
+        worldId: "minecraft:overworld",
+        x: "1.5",
+        y: "64",
+        z: "0",
+        yaw: "180",
+        pitch: "0",
+        output: "john_spawn",
+        next: "play_dialogue");
+    Action(
+        "play_dialogue",
+        type: "echo_dialogue:play",
+        dialogueId: "jdh:chapter_1_home_arrival",
+        audienceId: "jdh:local_author",
+        output: "outcome",
+        next: "finish");
+    Finish("finish");
+}
+```
+
+Диалог после одноразовой animation:
+
+```echoscript
+private void Nodes()
+{
+    Start("start", next: "play_look_once");
+    Action(
+        "play_look_once",
+        type: "echo_animation:play_animation",
+        animation: "jdh:look_around_once",
+        target: "jdh:john_father",
+        await: "COMPLETED",
+        output: "look_result",
+        next: "play_dialogue");
+    Action(
+        "play_dialogue",
+        type: "echo_dialogue:play",
+        dialogueId: "jdh:father_after_look",
+        audienceId: "jdh:local_author",
+        output: "outcome",
+        next: "finish");
+    Finish("finish");
+}
+```
+
+Loop animation во время диалога:
+
+```echoscript
+private void Nodes()
+{
+    Start("start", next: "start_idle");
+    Action(
+        "start_idle",
+        type: "echo_animation:play_animation",
+        animation: "jdh:father_idle_nervous",
+        target: "jdh:john_father",
+        await: "STARTED",
+        output: "idle_started",
+        next: "play_dialogue");
+    Action(
+        "play_dialogue",
+        type: "echo_dialogue:play",
+        dialogueId: "jdh:father_warning",
+        audienceId: "jdh:local_author",
+        output: "outcome",
+        next: "stop_idle");
+    Action(
+        "stop_idle",
+        type: "echo_animation:stop_animation",
+        animation: "jdh:father_idle_nervous",
+        target: "jdh:john_father",
+        output: "idle_stop",
+        next: "finish");
+    Finish("finish");
+}
+```
+
+## Spawn NPC
+
+```echoscript
+Action(
+    "spawn_father",
+    type: "echo_npc:spawn",
+    actorId: "jdh:john_father",
+    definitionId: "jdh:john_father",
+    worldId: "minecraft:overworld",
+    x: "0",
+    y: "64",
+    z: "0",
+    yaw: "180",
+    pitch: "0",
+    output: "result",
+    next: "play_dialogue");
+```
+
+Проверяйте:
+
+- `actorId` совпадает с ActorId, который нужен Dialogue speaker provider-у;
+- `definitionId` указывает на существующий NPC definition;
+- координаты decimal пишутся строками;
+- `worldId` namespaced.
+
+## Teleport NPC
+
+```echoscript
+Action(
+    "teleport_father_to_door",
+    type: "echo_npc:teleport",
+    actorId: "jdh:john_father",
+    worldId: "minecraft:overworld",
+    x: "3.5",
+    y: "64",
+    z: "-2.0",
+    yaw: "90",
+    pitch: "0",
+    output: "result",
+    next: "play_dialogue");
+```
+
+## Despawn NPC
+
+```echoscript
+Action(
+    "despawn_father",
+    type: "echo_npc:despawn",
+    actorId: "jdh:john_father",
+    output: "result",
+    next: "finish");
+```
+
+## Запуск анимации из Story
+
+Запустить и дождаться завершения:
+
+```echoscript
+Action(
+    "play_look_once",
+    type: "echo_animation:play_animation",
+    animation: "jdh:look_around_once",
+    target: "jdh:john_father",
+    await: "COMPLETED",
+    output: "look_result",
+    next: "play_wave");
+```
+
+Запустить loop и идти дальше после старта:
+
+```echoscript
+Action(
+    "play_wave",
+    type: "echo_animation:play_animation",
+    animation: "jdh:wave",
+    target: "jdh:john_father",
+    await: "STARTED",
+    output: "wave_start",
+    next: "stop_wave");
+```
+
+Остановить:
+
+```echoscript
+Action(
+    "stop_wave",
+    type: "echo_animation:stop_animation",
+    animation: "jdh:wave",
+    target: "jdh:john_father",
+    output: "wave_stop",
+    next: "wait_wave_terminal");
+```
+
+Дождаться terminal state:
+
+```echoscript
+Action(
+    "wait_wave_terminal",
+    type: "echo_animation:wait_animation",
+    animation: "jdh:wave",
+    target: "jdh:john_father",
+    output: "wave_terminal",
+    next: "finish");
+```
+
+## Полный flow: NPC animation lifecycle
+
+```echoscript
+namespace JDH.Chapter1.Home;
+
+class HomeAnimationLifecycleStory : StoryResource
+{
+    public override StoryResourceDef Build()
+    {
+        return Story("jdh:chapter_1_home_animation_lifecycle", start: "start");
+    }
+
+    private void Nodes()
+    {
+        Start("start", next: "spawn_father");
+        Action(
+            "spawn_father",
+            type: "echo_npc:spawn",
+            actorId: "jdh:john_father",
+            definitionId: "jdh:john_father",
+            worldId: "minecraft:overworld",
+            x: "0",
+            y: "64",
+            z: "0",
+            yaw: "180",
+            pitch: "0",
+            output: "spawn_result",
+            next: "play_look_once");
+        Action(
+            "play_look_once",
+            type: "echo_animation:play_animation",
+            animation: "jdh:look_around_once",
+            target: "jdh:john_father",
+            await: "COMPLETED",
+            output: "look_result",
+            next: "play_wave");
+        Action(
+            "play_wave",
+            type: "echo_animation:play_animation",
+            animation: "jdh:wave",
+            target: "jdh:john_father",
+            await: "STARTED",
+            output: "wave_start",
+            next: "stop_wave");
+        Action(
+            "stop_wave",
+            type: "echo_animation:stop_animation",
+            animation: "jdh:wave",
+            target: "jdh:john_father",
+            output: "wave_stop",
+            next: "wait_wave_terminal");
+        Action(
+            "wait_wave_terminal",
+            type: "echo_animation:wait_animation",
+            animation: "jdh:wave",
+            target: "jdh:john_father",
+            output: "wave_terminal",
+            next: "finish");
+        Finish("finish");
+    }
+}
+```
+
+## Связка Story, Dialogue, NPC, Animation
+
+Один смысловой эпизод обычно состоит из нескольких файлов:
+
+```text
+data/jdh/echo_story/stories/chapter_1/home/home_arrival.es
+data/jdh/echo_dialogue/dialogues/chapter_1/home/home_arrival.dialogue.es
+data/jdh/echo_npc/npcs/chapter_1/family/john_father.npc.es
+data/jdh/echo_npc_animation/bindings/chapter_1/family/john_father.npc-animation-binding.es
+data/jdh/echo_animation/animations/chapter_1/family/wave.animation.es
+```
+
+Связь идёт через ID:
+
+```text
+Story Action dialogueId -> Dialogue Id(...)
+Story Action actorId    -> NPC ActorId
+Dialogue Alias SpeakerId -> ActorId для dynamic presentation provider
+Story Action animation  -> Animation resource ID
+Story Action target     -> ActorId или AnimationSubject target
+```
+
+## Что нельзя ожидать от Story DSL
+
+Нет authored `if/else`:
+
+```echoscript
+if (outcome == "jdh:accepted") {
+    ...
+}
+```
+
+Нет loops:
+
+```echoscript
+while (true) {
+    ...
+}
+```
+
+Нет сложного payload:
+
+```echoscript
+Action(
+    "spawn",
+    type: "echo_npc:spawn",
+    transform: new Transform(0, 64, 0),
+    next: "finish");
+```
+
+Нет public start command в обычном operator command tree. Публичные `/echo_story` команды сейчас read-only.
+
+## Проверка в игре
+
+Полный справочник команд находится на странице [Консольные команды](/docs/platform/console-commands/).
+
+Story:
+
+```text
+/reload
+/echo_story health
+/echo_story stories
+/echo_story diagnostics 20
+```
+
+Dialogue:
+
+```text
+/echo_dialogue dialogues
+/echo_dialogue diagnostics 20
+```
+
+Adapters:
+
+```text
+/echo_story extensions
+/echo_story extension echo_story_dialogue_adapter:bridge
+```
+
+Если story не стартует через game flow или acceptance harness, сначала проверьте catalog и extensions. Если action зависла, смотрите `/echo_story executions` и `/echo_story execution <executionId>`.

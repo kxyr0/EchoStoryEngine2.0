@@ -1,0 +1,6 @@
+description = 'Public EchoScript command names and payload binder for Player.* actor commands.'
+
+dependencies {
+    api project(':player-actor-contracts')
+    compileOnly "io.github.kxyr0.echoscript:echo-script-api:${echo_script_version}"
+}

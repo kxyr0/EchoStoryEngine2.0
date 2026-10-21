@@ -1,0 +1,24 @@
+plugins { id 'net.minecraftforge.gradle' }
+
+description = 'EchoScript and durable Story action adapter for item attachments.'
+base { archivesName = 'echo-item-attachments-script-adapter' }
+minecraft { mappings channel: mapping_channel, version: mapping_version }
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':item-attachments-contracts')
+    compileOnly project(':item-attachments-forge-api-1.20.1')
+    compileOnly "io.github.kxyr0.echoscript:echo-script-api:${echo_script_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-contracts:${story_api_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-api:${story_api_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:${story_api_version}"
+    testImplementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def values = [mod_version: mod_version, story_api_version: story_api_version]
+    inputs.properties values
+    filesMatching('META-INF/mods.toml') { expand values }
+}
+
+tasks.named('jar', Jar).configure { finalizedBy 'reobfJar' }

@@ -1,0 +1,22 @@
+---
+title: "Interact"
+description: "Серверное взаимодействие с блоком без симуляции ввода."
+section: "Player"
+pageKind: "api"
+status: "review"
+since: "PA1"
+updated: "2026-07-28"
+relatedIds: ["PlayerActorInteractionRequest", "PlayerInteractionPlanner"]
+relatedPages: ["player-actor/errors", "player-actor/recovery"]
+sourceRepositories: ["echo-player-actor"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-actor/player-actor-forge-1.20.1"]
+visualIdentity: "player-interact"
+interactiveModules: ["InteractionRecoveryLab"]
+searchKeywords: ["Interact", "line of sight", "receipt"]
+---
+
+# Interact
+
+`Player.Interact(x, y, z, face, hand)` проверяет reach и line of sight, затем вызывает серверный `useItemOn` pipeline.
+
+Это не `RightClick` и не зависит от keybindings. Receipt фиксирует command/target, но arbitrary mod block без transaction boundary не получает обещание exactly-once.

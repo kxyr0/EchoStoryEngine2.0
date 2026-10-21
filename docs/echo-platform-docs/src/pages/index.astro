@@ -1,0 +1,114 @@
+---
+import Search from "@lucide/astro/icons/search";
+import SunMoon from "@lucide/astro/icons/sun-moon";
+import { RuntimeConstellation } from "../components/RuntimeConstellation";
+import { SearchPalette } from "../components/SearchPalette";
+import { navItems } from "../data/nav";
+import "../styles/tokens.css";
+import "../styles/typography.css";
+import "../styles/shell.css";
+import "../styles/components.css";
+import "../styles/motion.css";
+
+const routes = [
+  ["Как написать сюжет .es", "/docs/platform/story-authoring/", "22 минуты"],
+  ["Как написать диалог .es", "/docs/platform/dialogue-authoring/", "24 минуты"],
+  ["Какие команды вводить", "/docs/platform/console-commands/", "16 минут"],
+  ["Как создать первую анимацию", "/docs/animation/authoring-tutorial/", "18 минут"],
+  ["От NPC до движущейся модели", "/docs/animation/a4-npc-lifecycle-integration/", "26 минут"],
+  ["Как устроены ID", "/docs/platform/id-system/", "11 минут"],
+];
+---
+
+<!doctype html>
+<html lang="ru" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Echo Continuum: интерактивный атлас работающей системы Echo." />
+    <title>Echo Continuum</title>
+    <script is:inline>
+      const savedTheme = localStorage.getItem("echo-continuum-theme");
+      const preferredTheme = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      document.documentElement.dataset.theme = savedTheme || preferredTheme;
+    </script>
+    <script>
+      import "../scripts/motion-policy";
+      import "../scripts/continuum-controls";
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#home-content">К содержанию</a>
+    <SearchPalette client:load />
+    <header class="home-topbar">
+      <a class="continuum-brand" href="/" aria-label="Главная Echo Continuum">
+        <span class="brand-sigil" aria-hidden="true">
+          <svg viewBox="0 0 32 32" role="img">
+            <path d="M6 16 16 6l10 10-10 10L6 16Z" />
+            <path d="M16 6v20M6 16h20" />
+          </svg>
+        </span>
+        <span class="brand-copy">
+          <strong>Echo Continuum</strong>
+          <span>Интерактивный атлас работающей системы</span>
+        </span>
+      </a>
+      <div class="topbar-actions" aria-label="Действия главной">
+        <button class="icon-control" type="button" data-open-search aria-label="Открыть поиск">
+          <Search size={19} strokeWidth={1.8} aria-hidden="true" />
+          <span class="tooltip" role="tooltip">Поиск</span>
+        </button>
+        <button class="icon-control" type="button" data-theme-toggle aria-label="Переключить тему">
+          <SunMoon size={19} strokeWidth={1.8} aria-hidden="true" />
+          <span class="tooltip" role="tooltip">Тема</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="home-content" class="home-canvas">
+      <RuntimeConstellation client:load />
+
+      <section class="home-band reading-route-panel" aria-labelledby="reading-routes">
+        <div class="stage-panel-copy">
+          <p class="eyebrow">маршруты чтения</p>
+          <h2 id="reading-routes">Продолжить по смыслу</h2>
+          <p>Маршруты сохраняют место чтения локально и ведут от понятия к следующему runtime-состоянию.</p>
+        </div>
+        <div class="route-list">
+          {routes.map(([title, href, time], index) => (
+            <a href={href}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <strong>{title}</strong>
+              <em>{time}</em>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section class="home-band command-band" aria-labelledby="commands-home">
+        <div class="stage-panel-copy">
+          <p class="eyebrow">операторские команды</p>
+          <h2 id="commands-home">Быстрые проверки runtime</h2>
+        </div>
+        <div class="command-strip">
+          <code>/reload</code>
+          <code>/echo_dialogue play jdh:chapter_1_home_arrival</code>
+          <code>/echo_animation play_animation jdh:wave jdh:john_father</code>
+        </div>
+      </section>
+
+      <section class="home-band docs-state" aria-labelledby="docs-state">
+        <div class="stage-panel-copy">
+          <p class="eyebrow">состояние атласа</p>
+          <h2 id="docs-state">Документация связана с контрактами</h2>
+        </div>
+        <dl>
+          <div><dt>Страниц</dt><dd>{navItems.length}</dd></div>
+          <div><dt>Pagefind</dt><dd>ленивая загрузка</dd></div>
+          <div><dt>Контракты</dt><dd>сгенерированный JSON</dd></div>
+          <div><dt>Шрифты</dt><dd>локальные variable font</dd></div>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>

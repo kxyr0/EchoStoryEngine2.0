@@ -1,0 +1,37 @@
+---
+title: "Постановка NPC и сон"
+description: "Npc.SpawnAt, Npc.SleepAt, Npc.WakeUp и exact-bed runtime."
+section: "NPC"
+pageKind: "architecture"
+status: "review"
+since: "N4"
+updated: "2026-07-28"
+relatedIds: ["ActorId", "BlockId", "BlockPosition", "NpcRestAttachmentView"]
+relatedPages: ["npc/materialization", "npc/durable-actor-state", "adapters/story-npc"]
+sourceRepositories: ["echo-npc", "echo-story-npc-adapter"]
+sourcePaths: ["D:/JDHSeason/mods/echo-npc", "D:/JDHSeason/mods/echo-story-npc-adapter"]
+visualIdentity: "state-lines"
+interactiveModules: []
+searchKeywords: ["Npc.SpawnAt", "Npc.SleepAt", "Npc.WakeUp", "кровать", "sleep", "scene-ready"]
+---
+
+# Постановка NPC и сон
+
+N4 добавляет предметные команды сцены: `Npc.SpawnAt`, `Npc.SleepAt`, `Npc.WakeUp` и predicates `Npc.IsMaterialized`, `Npc.IsSleeping`, `Npc.IsSleepingAt`.
+
+`SpawnAt` работает с durable `ActorId` и не создает duplicate entity. `SleepAt` требует точный `BlockPosition` и `expectedBlock`; runtime не ищет ближайшую кровать. `WakeUp` освобождает attachment и occupied state через тот же rest provider.
+
+## Flow
+
+```text
+Player setup
+-> Npc.SpawnAt
+-> materialization
+-> scene-ready
+-> Npc.SleepAt
+-> bed provider
+-> sleeping attachment
+-> Dialogue.Load
+```
+
+Story adapter exposes `echo_npc:spawn_at`, `echo_npc:sleep_at` and `echo_npc:wake_up` action ids for the same runtime service.

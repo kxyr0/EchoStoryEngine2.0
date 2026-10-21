@@ -1,0 +1,457 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+def echoScriptExternalMaven = layout.buildDirectory.dir('external-maven')
+
+allprojects {
+    repositories {
+        maven {
+            name = 'EchoNpcExternal'
+            url = echoScriptExternalMaven.get().asFile.toURI()
+            content {
+                includeGroup 'io.github.kxyr0.echoscript'
+            }
+        }
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+        if (providers.gradleProperty('enableMavenLocal').map { it.toBoolean() }.orElse(false).get()) {
+            mavenLocal()
+        }
+    }
+}
+
+def productionFiles = {
+    fileTree(rootDir) {
+        include 'npc-*/src/main/java/**/*.java'
+        exclude '**/build/**'
+    }
+}
+
+def productionEchoScriptFiles = {
+    fileTree(rootDir) {
+        include 'npc-*/src/main/resources/**/*.es'
+        exclude '**/build/**'
+    }
+}
+
+def checkedTextFiles = {
+    fileTree(rootDir) {
+        include '*.gradle', 'gradle.properties', '.gitignore', '.gitattributes'
+        include 'config/**/*.xml'
+        include 'npc-*/src/**/*.java', 'npc-*/src/**/*.es'
+        include 'npc-*/src/**/*.toml', 'npc-*/src/**/*.mcmeta'
+        include 'AGENTS.md', 'PLANS.md', 'PROGRESS.md', 'README.md', 'docs/**/*.md'
+        exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+    }
+}
+
+tasks.register('prepareEchoScriptArtifacts') {
+    group = LifecycleBasePlugin.BUILD_GROUP
+    description = 'Публикует публичные EchoScript artifacts в build/external-maven.'
+    def siblingRoot = file('../echo-script')
+    inputs.files(fileTree(siblingRoot) {
+        include '*.gradle', 'gradle.properties', 'settings.gradle'
+        include '**/*.java', '**/*.xml'
+        exclude '**/build/**', '**/.gradle/**'
+    })
+    outputs.dir(echoScriptExternalMaven)
+    doLast {
+        if (!siblingRoot.isDirectory()) {
+            throw new GradleException("Не найден sibling EchoScript: ${siblingRoot}")
+        }
+        def repo = echoScriptExternalMaven.get().asFile
+        def initFile = layout.buildDirectory.file('tmp/echo-script-publish.init.gradle').get().asFile
+        initFile.parentFile.mkdirs()
+        initFile.setText("""
+allprojects {
+    plugins.withId('maven-publish') {
+        publishing {
+            repositories {
+                maven {
+                    name = 'echoNpcExternal'
+                    url = uri('${repo.toURI()}')
+                }
+            }
+        }
+    }
+}
+""".stripIndent(), 'UTF-8')
+        def windows = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+        def wrapper = new File(siblingRoot, windows ? 'gradlew.bat' : 'gradlew')
+        exec {
+            workingDir siblingRoot
+            commandLine wrapper.absolutePath,
+                    ':echo-script-api:publishMavenJavaPublicationToEchoNpcExternalRepository',
+                    ':echo-script-language:publishMavenJavaPublicationToEchoNpcExternalRepository',
+                    '--init-script',
+                    initFile.absolutePath,
+                    '--console=plain'
+        }
+        ['echo-script-api', 'echo-script-language'].each { artifact ->
+            def metadata = new File(repo,
+                    "io/github/kxyr0/echoscript/${artifact}/${echo_script_version}/maven-metadata.xml")
+            if (!metadata.isFile()) {
+                throw new GradleException("EchoScript artifact не опубликован: ${metadata}")
+            }
+        }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    apply plugin: 'jacoco'
+
+    version = rootProject.version
+    group = rootProject.group
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+        withSourcesJar()
+    }
+
+    sourceSets {
+        architectureTest {
+            java.srcDir 'src/architectureTest/java'
+            resources.srcDir 'src/architectureTest/resources'
+            compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+            runtimeClasspath += output + compileClasspath
+        }
+    }
+
+    configurations {
+        architectureTestImplementation.extendsFrom testImplementation
+        architectureTestRuntimeOnly.extendsFrom testRuntimeOnly
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        architectureTestImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+        architectureTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    checkstyle {
+        toolVersion = checkstyle_version
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    }
+
+    pmd {
+        toolVersion = pmd_version
+        ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+        ruleSets = []
+        consoleOutput = true
+    }
+
+    jacoco {
+        toolVersion = jacoco_version
+    }
+
+    tasks.register('architectureTest', Test) {
+        description = 'Запускает архитектурные проверки модуля.'
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs = sourceSets.architectureTest.output.classesDirs
+        classpath = sourceSets.architectureTest.runtimeClasspath
+        shouldRunAfter tasks.named('test')
+    }
+
+    tasks.named('check') {
+        dependsOn tasks.named('architectureTest')
+    }
+}
+
+allprojects {
+    tasks.matching { it.name == 'dependencies' }.configureEach {
+        dependsOn rootProject.tasks.named('prepareEchoScriptArtifacts')
+    }
+}
+
+gradle.projectsEvaluated {
+    [project(':npc-echoscript-adapter'), project(':npc-forge-1.20.1')].each { echoScriptUser ->
+        echoScriptUser.tasks.matching { task ->
+            task.name in ['compileJava', 'compileTestJava', 'compileGameTestJava', 'jarJar']
+        }.configureEach {
+            dependsOn rootProject.tasks.named('prepareEchoScriptArtifacts')
+        }
+    }
+}
+
+configure([
+        project(':npc-contracts'),
+        project(':npc-forge-api-1.20.1')
+]) {
+    apply plugin: 'maven-publish'
+
+    publishing {
+        publications {
+            register('mavenJava', MavenPublication) {
+                from components.java
+            }
+        }
+        repositories {
+            maven {
+                name = 'integrationMaven'
+                url = rootProject.layout.buildDirectory.dir('integration-maven')
+            }
+        }
+    }
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Запускает unit-тесты всех модулей.'
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('architectureTest') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Запускает архитектурные проверки всех модулей.'
+    dependsOn subprojects.collect { "${it.path}:architectureTest" }
+}
+
+tasks.register('publishNpcIntegrationArtifacts') {
+    group = 'publishing'
+    description = 'Публикует public Echo NPC artifacts в build/integration-maven.'
+    dependsOn ':npc-contracts:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':npc-forge-api-1.20.1:publishMavenJavaPublicationToIntegrationMavenRepository'
+}
+
+tasks.register('verifyPublicationMetadata') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет build-local Maven metadata public artifacts Echo NPC.'
+    dependsOn tasks.named('publishNpcIntegrationArtifacts')
+    doLast {
+        def artifacts = ['npc-contracts', 'npc-forge-api-1.20.1']
+        def missing = []
+        artifacts.each { artifact ->
+            def artifactDir = rootProject.layout.buildDirectory
+                    .dir("integration-maven/io/github/kxyr0/echonpc/${artifact}")
+                    .get()
+                    .asFile
+            def versionDir = new File(artifactDir, mod_version)
+            if (!new File(artifactDir, 'maven-metadata.xml').isFile()) {
+                missing << "${artifact}/maven-metadata.xml"
+            }
+            if (!versionDir.isDirectory() || versionDir.listFiles({ file -> file.name.endsWith('.pom') } as FileFilter).length == 0) {
+                missing << "${artifact}/${mod_version}/*.pom"
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Не найдены public Maven metadata:\n" + missing.join('\n'))
+        }
+    }
+}
+
+tasks.register('exportDocumentationContracts') {
+    group = 'documentation'
+    description = 'Экспортирует public Echo NPC contracts для документационного сайта.'
+    outputs.dir layout.buildDirectory.dir('docs-export')
+    doLast {
+        def output = layout.buildDirectory.dir('docs-export').get().asFile
+        output.mkdirs()
+        def contract = [
+                repository: 'echo-npc',
+                publicIds: [
+                        'ActorId',
+                        'NpcDefinitionId',
+                        'BlockId',
+                        'BlockPosition',
+                        'NpcSceneCommandId',
+                        'NpcRestAttachmentView',
+                        'NpcSceneReadinessView',
+                        'NpcFormId',
+                        'NpcFormRevision',
+                        'NpcFormSnapshot',
+                        'NpcBodyDimensions'
+                ],
+                commands: [
+                        '/echo_npc health',
+                        '/echo_npc definitions',
+                        '/echo_npc forms list',
+                        '/echo_npc forms inspect <form_id>',
+                        '/echo_npc form get <npc_id>',
+                        '/echo_npc form set <npc_id> <form_id>',
+                        '/echo_npc form validate_space <npc_id> <form_id>',
+                        '/echo_npc spawn_at <npc_id> <pos> <yaw> <pitch>',
+                        '/echo_npc place_at <npc_id> <pos> <yaw> <pitch>',
+                        '/echo_npc sleep_at <npc_id> <bed> <expected_block_id>',
+                        '/echo_npc wake_up <npc_id>',
+                        '/echo_npc inspect_rest <npc_id>',
+                        '/echo_npc inspect_bed <bed>',
+                        '/echo_npc rest_providers'
+                ],
+                lifecycleSnapshotFields: [
+                        'ActorId',
+                        'NpcDefinitionId',
+                        'desired presence',
+                        'actor revision',
+                        'definition fingerprint',
+                        'world identifier',
+                        'materialization status',
+                        'scene readiness',
+                        'active form id',
+                        'active form revision',
+                        'active form fingerprint',
+                        'rest attachment',
+                        'rest provider',
+                        'canonical bed position',
+                        'expected BlockId'
+                ],
+                architectureConstraints: [
+                        'ActorId is durable logical identity.',
+                        'ActorId is not Minecraft Entity UUID.',
+                        'Npc.SpawnAt does not create duplicate durable identities.',
+                        'Npc.SetForm changes body and appearance without replacing ActorId.',
+                        'Npc.PlaceAt validates active form dimensions before durable placement.',
+                        'Npc.SleepAt validates the exact authored BlockPosition and expected BlockId.',
+                        'Sleep state is server-authoritative and durable through NpcRestAttachmentView.',
+                        'Adapter integrations use public immutable snapshots.'
+                ]
+        ]
+        new File(output, 'echo-npc-contracts.json').setText(
+                groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(contract)) + '\n',
+                'UTF-8')
+    }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет N1 source-shape: размер, имена и семь production-файлов на leaf-пакет.'
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        def contentCounts = [:].withDefault { 0 }
+        productionFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()] = counts[file.parentFile.toPath()] + 1
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            if ((text =~ /(?m)\bstatic\s+(?!final\b)(?:[^;{=()]+)[;=]/).find()) {
+                violations << "${relative}: mutable static field candidate"
+            }
+            if (relative =~ /(?i)(^|[\\\/])(part1|part2|common|misc|helpers?|utils?|internal2|more)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 200) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 200"
+            }
+            if ((text =~ /(?m)^\s*public\s+(?:final\s+)?(?:class|interface|record|enum)\s+.*(?:Manager|Helper|Utils|Common|Processor|Handler|Impl)\b/).find()) {
+                violations << "${relative}: forbidden vague production type name"
+            }
+        }
+        counts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        productionEchoScriptFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            contentCounts[file.parentFile.toPath()] = contentCounts[file.parentFile.toPath()] + 1
+            if (relative =~ /(?i)(^|[\\\/])(part1|part2|common|misc|helpers?|utils?|internal2|more)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague content directory segment"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 200) {
+                violations << "${relative}: ${logicalLines} EchoScript logical lines; max is 200"
+            }
+        }
+        contentCounts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production EchoScript files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет UTF-8 текстовые файлы на tabs, хвостовые пробелы и финальный перевод строки.'
+    doLast {
+        def violations = []
+        checkedTextFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: trailing whitespace"
+                }
+                if (line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: tab"
+                }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('verifyForbiddenText') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет, что N1 не импортирует Story, Dialogue, animation, navigation и HTTP-skin системы.'
+    doLast {
+        def forbidden = ['echostoryengine', 'echodialogue', 'storydialogue', 'geckolib',
+                         'pathfinding', 'http://', 'https://sessionserver', 'gameprofile']
+        def hits = []
+        productionFiles().files.each { file ->
+            def text = file.getText('UTF-8').toLowerCase(java.util.Locale.ROOT)
+            def marker = forbidden.find { text.contains(it) }
+            if (marker != null) {
+                hits << "${rootDir.toPath().relativize(file.toPath())}: ${marker}"
+            }
+        }
+        if (!hits.isEmpty()) {
+            throw new GradleException("Forbidden N1 content:\n" + hits.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('architectureTest')
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyForbiddenText')
+    dependsOn tasks.named('verifyPublicationMetadata')
+}

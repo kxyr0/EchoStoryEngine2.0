@@ -1,0 +1,5 @@
+description = 'Neutral immutable Echo Voice contracts.'
+
+dependencies {
+    api "io.github.kxyr0.echodialogue:dialogue-contracts:${dialogue_api_version}"
+}

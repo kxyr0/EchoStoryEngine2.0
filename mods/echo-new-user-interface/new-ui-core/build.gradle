@@ -1,0 +1,5 @@
+description = 'Plain Java physical framebuffer layout for Echo New UI.'
+
+base {
+    archivesName = 'new-ui-core'
+}

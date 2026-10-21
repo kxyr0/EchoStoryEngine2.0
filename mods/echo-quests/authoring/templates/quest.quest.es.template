@@ -1,0 +1,29 @@
+class ExampleQuest : QuestResource
+{
+    Title("Quest title");
+    Initial("started");
+
+    State("started")
+    {
+        Objective("Reach the place with the item before 18:00");
+        At(
+            "18:00",
+            when: All(
+                Player.InArea("minecraft:overworld", x: 0, y: 64, z: 0, radius: 8),
+                Player.HasItem("minecraft:writable_book", count: 1)
+            ),
+            then: "completed",
+            otherwise: "failed"
+        );
+    }
+
+    State("completed")
+    {
+        Complete();
+    }
+
+    State("failed")
+    {
+        Fail();
+    }
+}

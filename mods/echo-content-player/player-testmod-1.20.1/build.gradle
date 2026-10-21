@@ -1,0 +1,11 @@
+description = 'Development-only Echo Content Player test module.'
+
+base {
+    archivesName = 'player-testmod-1.20.1'
+}
+
+dependencies {
+    implementation project(':player-contracts')
+    implementation project(':player-core')
+    implementation project(':player-forge-api-1.20.1')
+}

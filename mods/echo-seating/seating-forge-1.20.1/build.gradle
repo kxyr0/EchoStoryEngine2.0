@@ -1,0 +1,128 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+base {
+    archivesName = 'echo-seating-forge-1.20.1'
+}
+
+description = 'Forge runtime for Echo Seating.'
+
+def embeddedSeatingProjects = [
+        project(':seating-contracts'),
+        project(':seating-core'),
+        project(':seating-forge-api-1.20.1')
+]
+
+configurations {
+    embeddedExternalRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = true
+    }
+}
+
+jarJar.enable()
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    runs {
+        server {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'debug'
+            lazyToken('minecraft_classpath') {
+                configurations.embeddedExternalRuntime.copyRecursive().resolve()
+                        .collect { it.absolutePath }
+                        .join(File.pathSeparator)
+            }
+            mods {
+                echo_seating {
+                    source sourceSets.main
+                    embeddedSeatingProjects.each { seatingProject ->
+                        source seatingProject.sourceSets.main
+                    }
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':seating-contracts')
+    implementation project(':seating-core')
+    implementation project(':seating-forge-api-1.20.1')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    embeddedExternalRuntime "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-api', version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-language', version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version_range: minecraft_version_range,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedSeatingProjects.collect { "${it.path}:classes" }
+    embeddedSeatingProjects.each { seatingProject ->
+        from(seatingProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJar'
+}
+
+tasks.named('jarJar', Jar).configure {
+    dependsOn embeddedSeatingProjects.collect { "${it.path}:classes" }
+    embeddedSeatingProjects.each { seatingProject ->
+        from(seatingProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJarJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('reobfJarJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/echo-seating-forge-1.20.1-${mod_version}-all.jar").get().asFile
+        if (!jarFile.isFile()) {
+            throw new GradleException("Production JAR was not created: ${jarFile}")
+        }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def required = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echoseating/api/id/SeatZoneId.class',
+                'io/github/kxyr0/echoseating/core/lifecycle/PlayerSeatingTransitionEngine.class',
+                'io/github/kxyr0/echoseating/forge/api/SeatingServiceBridge.class',
+                'io/github/kxyr0/echoseating/forge/EchoSeatingMod.class',
+                'META-INF/jarjar/metadata.json'
+        ]
+        def missing = required.findAll { !entries.contains(it) }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Echo Seating production JAR missing entries:\n" + missing.join('\n'))
+        }
+        println "Echo Seating production JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyProductionJarContents')
+}

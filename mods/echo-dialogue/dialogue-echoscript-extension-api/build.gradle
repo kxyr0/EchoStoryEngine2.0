@@ -1,0 +1,6 @@
+description = 'Public EchoScript Line argument extension boundary for Echo Dialogue.'
+
+dependencies {
+    api project(':dialogue-contracts')
+    api "io.github.kxyr0.echoscript:echo-script-api:${echo_script_version}"
+}

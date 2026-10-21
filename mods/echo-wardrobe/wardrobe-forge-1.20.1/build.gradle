@@ -1,0 +1,156 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Forge 1.20.1 runtime host for Echo Wardrobe.'
+
+def embeddedWardrobeProjects = [
+        project(':wardrobe-contracts'),
+        project(':wardrobe-core'),
+        project(':wardrobe-forge-api-1.20.1')
+]
+
+configurations {
+    embeddedExternalRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = true
+    }
+}
+
+base {
+    archivesName = artifact_name
+}
+
+jarJar.enable()
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            lazyToken('minecraft_classpath') {
+                configurations.embeddedExternalRuntime.copyRecursive().resolve()
+                        .collect { it.absolutePath }
+                        .join(File.pathSeparator)
+            }
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    embeddedWardrobeProjects.each { wardrobeProject -> source wardrobeProject.sourceSets.main }
+                }
+            }
+        }
+        client { }
+        server {
+            args '--nogui'
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':wardrobe-contracts')
+    implementation project(':wardrobe-core')
+    implementation project(':wardrobe-forge-api-1.20.1')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    compileOnly "io.github.kxyr0.echoplayer:player-contracts:${echo_player_version}"
+    compileOnly "io.github.kxyr0.echoplayer:player-forge-api-1.20.1:${echo_player_version}"
+    testImplementation "io.github.kxyr0.echoplayer:player-contracts:${echo_player_version}"
+    testImplementation "io.github.kxyr0.echoplayer:player-forge-api-1.20.1:${echo_player_version}"
+    embeddedExternalRuntime "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-api', version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-language', version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+            echo_player_mod_version_range: echo_player_mod_version_range,
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedWardrobeProjects.collect { "${it.path}:classes" }
+    embeddedWardrobeProjects.each { wardrobeProject -> from(wardrobeProject.sourceSets.main.output) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJar'
+}
+
+tasks.named('jarJar', Jar).configure {
+    dependsOn embeddedWardrobeProjects.collect { "${it.path}:classes" }
+    embeddedWardrobeProjects.each { wardrobeProject -> from(wardrobeProject.sourceSets.main.output) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJarJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    description = 'Verifies final Echo Wardrobe production JAR contents.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('reobfJarJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}-all.jar").get().asFile
+        if (!jarFile.isFile() || jarFile.length() == 0L) {
+            throw new GradleException("Production JAR was not created: ${jarFile}")
+        }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def requiredEntries = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echowardrobe/api/identity/WearableId.class',
+                'io/github/kxyr0/echowardrobe/core/catalog/WardrobeCatalog.class',
+                'io/github/kxyr0/echowardrobe/forge/api/EchoWardrobeService.class',
+                'io/github/kxyr0/echowardrobe/forge/EchoWardrobeMod.class',
+                'META-INF/jarjar/metadata.json'
+        ]
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echowardrobe/testmod/')
+                    || entry.startsWith('io/github/kxyr0/echoitem/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/')
+                    || entry.startsWith('io/github/kxyr0/echoanimation/')
+                    || entry.startsWith('io/github/kxyr0/echostoryengine/')
+                    || entry.startsWith('net/minecraft/')
+                    || entry.startsWith('net/minecraftforge/')
+                    || entry.startsWith('org/junit/')
+                    || entry.startsWith('docs/')
+                    || entry.startsWith('build/')
+                    || entry.startsWith('run/')
+                    || entry.contains('origin_john')
+                    || entry.contains('classic_john')
+        }
+        def missing = requiredEntries.findAll { !entries.contains(it) }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            throw new GradleException("Production JAR verification failed."
+                    + "\nmissing entries:\n" + missing.join('\n')
+                    + "\nforbidden entries:\n" + forbidden.take(40).join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyProductionJarContents')
+}

@@ -1,0 +1,5 @@
+description = 'Java-only Echo Player Sleep runtime core.'
+
+dependencies {
+    api project(':player-sleep-contracts')
+}

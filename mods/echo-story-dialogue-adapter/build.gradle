@@ -1,0 +1,450 @@
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'checkstyle'
+    id 'pmd'
+    id 'jacoco'
+}
+
+version = mod_version
+group = mod_group_id
+
+def requiredAdapterGameTests = [
+        'AdapterRegistrationGameTests.storyAndDialogueModsAcceptAdapterExtension',
+        'AdapterRegistrationGameTests.dialogueActionCompletesAfterPublicTerminalCancellation',
+        'AdapterRegistrationGameTests.recoveredTerminalDialogueActionSubmitsCompletion'
+]
+def storyRoot = providers.gradleProperty('storyEngineRoot')
+        .map { file(it) }
+        .orElse(layout.projectDirectory.dir('../echo-story-engine').asFile)
+def dialogueRoot = providers.gradleProperty('echoDialogueRoot')
+        .map { file(it) }
+        .orElse(layout.projectDirectory.dir('../echo-dialogue').asFile)
+def storyIntegrationMaven = providers.gradleProperty('storyIntegrationMaven')
+        .map { file(it) }
+        .orElse(storyRoot.map { new File(it, 'build/integration-maven') })
+def dialogueIntegrationMaven = providers.gradleProperty('dialogueIntegrationMaven')
+        .map { file(it) }
+        .orElse(dialogueRoot.map { new File(it, 'build/integration-maven') })
+def storyRuntimeJarFile = storyRoot.map { new File(it, 'story-forge-1.20.1/build/libs/echo-story-engine-0.1.0-all.jar') }
+def dialogueRuntimeJarFile = dialogueRoot.map {
+    new File(it, 'dialogue-forge-1.20.1/build/libs/echo-dialogue-0.1.0-SNAPSHOT-all.jar')
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+    maven {
+        name = 'StoryIntegration'
+        url = storyIntegrationMaven.get()
+    }
+    maven {
+        name = 'DialogueIntegration'
+        url = dialogueIntegrationMaven.get()
+    }
+    flatDir {
+        name = 'StoryRuntimeMods'
+        dirs new File(storyRoot.get(), 'story-forge-1.20.1/build/libs')
+    }
+    flatDir {
+        name = 'DialogueRuntimeMods'
+        dirs new File(dialogueRoot.get(), 'dialogue-forge-1.20.1/build/libs')
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+sourceSets {
+    gameTest {
+        java.srcDir 'src/gameTest/java'
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+    architectureTest {
+        java.srcDir 'src/architectureTest/java'
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+configurations {
+    gameTestImplementation.extendsFrom testImplementation
+    gameTestRuntimeOnly.extendsFrom testRuntimeOnly
+    architectureTestImplementation.extendsFrom testImplementation
+    architectureTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+base {
+    archivesName = artifact_name
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+        client { }
+        server {
+            args '--nogui'
+        }
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            mods {
+                "${mod_id}" {
+                    source sourceSets.gameTest
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-contracts:${story_api_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-api:${story_api_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:${story_api_version}"
+    compileOnly "io.github.kxyr0.echodialogue:dialogue-contracts:${dialogue_api_version}"
+    compileOnly("io.github.kxyr0.echodialogue:dialogue-forge-api-1.20.1:${dialogue_api_version}") {
+        transitive = false
+    }
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation "io.github.kxyr0.echostoryengine:story-contracts:${story_api_version}"
+    testImplementation "io.github.kxyr0.echostoryengine:story-extension-api:${story_api_version}"
+    testImplementation "io.github.kxyr0.echodialogue:dialogue-contracts:${dialogue_api_version}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    gameTestImplementation "io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:${story_api_version}"
+    gameTestImplementation("io.github.kxyr0.echodialogue:dialogue-forge-api-1.20.1:${dialogue_api_version}") {
+        transitive = false
+    }
+    gameTestRuntimeOnly fg.deobf("adapter.gametest:echo-story-engine:${story_api_version}-all")
+    gameTestRuntimeOnly fg.deobf("adapter.gametest:echo-dialogue:${dialogue_api_version}-all")
+    architectureTestImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+    architectureTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+checkstyle {
+    toolVersion = checkstyle_version
+    configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+}
+
+pmd {
+    toolVersion = pmd_version
+    ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+    ruleSets = []
+    consoleOutput = true
+}
+
+tasks.register('architectureTest', Test) {
+    description = 'Запускает архитектурные проверки adapter-а.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = sourceSets.architectureTest.output.classesDirs
+    classpath = sourceSets.architectureTest.runtimeClasspath
+    shouldRunAfter tasks.named('test')
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+            story_mod_version_range: story_mod_version_range,
+            dialogue_mod_version_range: dialogue_mod_version_range,
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('verifyAdapterJarContents') {
+    description = 'Проверяет, что adapter JAR содержит только adapter classes и Forge metadata.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('jar')
+    doLast {
+        def jarFile = tasks.named('jar', Jar).get().archiveFile.get().asFile
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def required = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echostorydialogueadapter/forge/EchoStoryDialogueAdapterMod.class',
+                'io/github/kxyr0/echostorydialogueadapter/bridge/DialoguePlayActionHandler.class'
+        ]
+        def missing = required.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echostoryengine/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/')
+                    || entry.startsWith('io/github/kxyr0/echoscript/')
+                    || entry.startsWith('net/minecraft/')
+                    || entry.startsWith('net/minecraftforge/')
+                    || entry.startsWith('org/junit/')
+                    || entry.startsWith('com/tngtech/archunit/')
+                    || entry.startsWith('docs/')
+                    || entry == 'AGENTS.md'
+                    || entry == 'PLANS.md'
+                    || entry == 'PROGRESS.md'
+        }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            throw new GradleException("Adapter JAR verification failed."
+                    + "\nmissing entries:\n" + missing.join('\n')
+                    + "\nforbidden entries:\n" + forbidden.join('\n'))
+        }
+        println "Echo Story Dialogue Adapter JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет ограничения формы production-кода adapter-а.'
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        fileTree(rootDir) {
+            include 'src/main/java/**/*.java'
+            exclude '**/build/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()] = counts[file.parentFile.toPath()] + 1
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 180) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 180"
+            }
+        }
+        counts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет UTF-8 текстовые файлы на хвостовые пробелы и финальный перевод строки.'
+    doLast {
+        def violations = []
+        fileTree(rootDir) {
+            include '*.gradle', 'gradle.properties', '.gitignore', '.gitattributes'
+            include 'config/**/*.xml', 'src/**/*.java', 'src/**/*.toml', 'src/**/*.mcmeta'
+            include 'AGENTS.md', 'PLANS.md', 'PROGRESS.md', 'README.md', 'docs/**/*.md'
+            exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: trailing whitespace"
+                }
+                if (line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: tab"
+                }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('buildStoryRuntimeJar', Exec) {
+    workingDir storyRoot.get()
+    commandLine gradleWrapper(storyRoot.get()), ':story-forge-1.20.1:jarJar', '--console=plain'
+}
+
+tasks.register('buildDialogueRuntimeJar', Exec) {
+    workingDir dialogueRoot.get()
+    commandLine gradleWrapper(dialogueRoot.get()), ':dialogue-forge-1.20.1:jarJar', '--console=plain'
+}
+
+tasks.register('prepareGameTestRuntimeMods') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Готовит Story и Dialogue deobf runtime для adapter GameTest.'
+    dependsOn tasks.named('buildStoryRuntimeJar')
+    dependsOn tasks.named('buildDialogueRuntimeJar')
+    doLast {
+        def modsDir = project.file('run/mods')
+        modsDir.mkdirs()
+        delete fileTree(modsDir) {
+            include 'echo-story-engine-*.jar'
+            include 'echo-dialogue-*.jar'
+        }
+        [storyRuntimeJarFile.get(), dialogueRuntimeJarFile.get()].each { jarFile ->
+            if (!jarFile.isFile()) {
+                throw new GradleException("Required GameTest runtime JAR was not created: ${jarFile}")
+            }
+        }
+    }
+}
+
+tasks.matching { it.name == 'prepareRunGameTestServer' }.configureEach {
+    dependsOn tasks.named('processGameTestResources')
+    dependsOn tasks.named('prepareGameTestRuntimeMods')
+    doLast {
+        copy {
+            from sourceSets.gameTest.resources
+            include 'gameteststructures/**'
+            into project.file('run')
+        }
+    }
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doLast {
+        def logFile = project.file('run/logs/latest.log')
+        if (!logFile.isFile()) {
+            throw new GradleException("Adapter GameTest log was not created: ${logFile}")
+        }
+        def text = logFile.getText('UTF-8')
+        def missing = requiredAdapterGameTests.findAll { testName ->
+            !text.contains("ESDA-GAMETEST-RUN ${testName}")
+        }
+        def discovered = firstInt(text, /Running test batch '[^']+' \((\d+) tests\)/)
+        def executed = firstInt(text, /(\d+) tests are now running!/)
+        def passed = firstInt(text, /All (\d+) required tests passed/)
+        if (discovered <= 0 || executed <= 0 || passed <= 0 || !missing.isEmpty()
+                || !text.contains('EDLG-FORGE-006') || !text.contains('ESE-FORGE-EXT-004')) {
+            throw new GradleException("Adapter GameTest was not fully verified."
+                    + "\ndiscovered=${discovered}, executed=${executed}, passed=${passed}"
+                    + "\nmissing markers=${missing.join(', ')}")
+        }
+        println("Echo Story Dialogue Adapter GameTests verified: discovered=${discovered}, "
+                + "executed=${executed}, passed=${passed}")
+    }
+}
+
+tasks.register('validatePublicArtifacts') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет наличие build-local public Story и Dialogue artifacts.'
+    dependsOn 'publishStoryPublicArtifacts'
+    dependsOn 'publishDialoguePublicArtifacts'
+    doLast {
+        def expectedFiles = [
+                new File(storyIntegrationMaven.get(),
+                        'io/github/kxyr0/echostoryengine/story-contracts/0.1.0/story-contracts-0.1.0.jar'),
+                new File(storyIntegrationMaven.get(),
+                        'io/github/kxyr0/echostoryengine/story-extension-api/0.1.0/story-extension-api-0.1.0.jar'),
+                new File(storyIntegrationMaven.get(),
+                        'io/github/kxyr0/echostoryengine/story-extension-forge-1.20.1/0.1.0/story-extension-forge-1.20.1-0.1.0.jar')
+        ]
+        def expectedSnapshots = [
+                new File(dialogueIntegrationMaven.get(),
+                        'io/github/kxyr0/echodialogue/dialogue-contracts/0.1.0-SNAPSHOT'),
+                new File(dialogueIntegrationMaven.get(),
+                        'io/github/kxyr0/echodialogue/dialogue-forge-api-1.20.1/0.1.0-SNAPSHOT')
+        ]
+        def missing = expectedFiles.findAll { !it.isFile() }
+        expectedSnapshots.each { directory ->
+            String prefix = directory.parentFile.name + '-0.1.0-'
+            boolean hasJar = directory.isDirectory()
+                    && directory.listFiles().any { it.name.startsWith(prefix) && it.name.endsWith('.jar') }
+            if (!hasJar) {
+                missing.add(directory)
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Missing public artifacts:\n" + missing.join('\n'))
+        }
+    }
+}
+
+tasks.register('publishStoryPublicArtifacts', Exec) {
+    workingDir storyRoot.get()
+    commandLine gradleWrapper(storyRoot.get()), 'publishExtensionIntegrationArtifacts', '--console=plain'
+}
+
+tasks.register('publishDialoguePublicArtifacts', Exec) {
+    workingDir dialogueRoot.get()
+    commandLine gradleWrapper(dialogueRoot.get()), 'publishDialogueIntegrationArtifacts', '--console=plain'
+}
+
+tasks.register('buildAdapterAgainstPublishedArtifacts') {
+    group = LifecycleBasePlugin.BUILD_GROUP
+    description = 'Публикует sibling public artifacts, валидирует их и собирает adapter JAR.'
+    dependsOn tasks.named('publishStoryPublicArtifacts')
+    dependsOn tasks.named('publishDialoguePublicArtifacts')
+    dependsOn tasks.named('validatePublicArtifacts')
+    dependsOn tasks.named('build')
+    dependsOn tasks.named('verifyAdapterJarContents')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('architectureTest')
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyAdapterJarContents')
+}
+
+File requiredRuntimeJar(File root, String relativeDirectory, String pattern) {
+    def directory = new File(root, relativeDirectory)
+    def matches = fileTree(directory) {
+        include pattern
+    }.files.toList().sort { left, right -> left.name <=> right.name }
+    if (matches.size() != 1) {
+        throw new GradleException("Expected exactly one runtime JAR matching ${pattern} in ${directory}, "
+                + "found ${matches.size()}.")
+    }
+    return matches[0]
+}
+
+int firstInt(String text, String pattern) {
+    def matcher = text =~ pattern
+    return matcher.find() ? matcher.group(1).toInteger() : 0
+}
+
+String gradleWrapper(File root) {
+    return new File(root, org.gradle.internal.os.OperatingSystem.current().isWindows()
+            ? 'gradlew.bat' : 'gradlew').absolutePath
+}

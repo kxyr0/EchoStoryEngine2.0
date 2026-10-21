@@ -1,0 +1,255 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Forge 1.20.1 production runtime for Echo Animation.'
+
+def embeddedAnimationProjects = [
+        project(':animation-contracts'),
+        project(':animation-core'),
+        project(':animation-definition'),
+        project(':animation-echoscript-adapter'),
+        project(':animation-forge-api-1.20.1'),
+        project(':animation-client-rendering')
+]
+
+def requiredEchoAnimationGameTests = [
+        'ForgeAnimationGameTests.echoAnimationCommandsExist',
+        'ForgeAnimationGameTests.faceRigResourceCompilesInForgeRuntime',
+        'ForgeAnimationGameTests.facePoseResourceCompilesInForgeRuntime',
+        'ForgeAnimationGameTests.facialAnimationResourceCompilesInForgeRuntime',
+        'ForgeAnimationGameTests.invalidCandidateRetainsCatalog',
+        'ForgeAnimationGameTests.serviceLookupResolvesCatalog',
+        'ForgeAnimationA2GameTests.twoSubjectsShareGraphWithIndependentStates',
+        'ForgeAnimationA2GameTests.trackingLifecyclePublishesFullDeltaAndRemoval',
+        'ForgeAnimationA2GameTests.invalidBodyClipRetainsKnownGoodCatalog'
+]
+
+configurations {
+    embeddedExternalRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = true
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
+}
+
+sourceSets {
+    gameTest {
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+base {
+    archivesName = artifact_name
+}
+
+jarJar.enable()
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            lazyToken('minecraft_classpath') {
+                configurations.embeddedExternalRuntime.copyRecursive().resolve()
+                        .collect { it.absolutePath }
+                        .join(File.pathSeparator)
+            }
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    embeddedAnimationProjects.each { animationProject ->
+                        source animationProject.sourceSets.main
+                    }
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            mods {
+                "${mod_id}" {
+                    source sourceSets.gameTest
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    testImplementation 'io.github.kxyr0.echoevents:echo-events:0.1.0'
+    testImplementation files('../../echo-events/events-forge-1.20.1/build/classes/java/main')
+
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':animation-contracts')
+    implementation project(':animation-core')
+    implementation project(':animation-definition')
+    implementation project(':animation-echoscript-adapter')
+    implementation project(':animation-forge-api-1.20.1')
+    implementation project(':animation-client-rendering')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    embeddedExternalRuntime "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-api', version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-language', version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedAnimationProjects.collect { "${it.path}:classes" }
+    manifest {
+        attributes('Automatic-Module-Name': mod_id)
+    }
+    embeddedAnimationProjects.each { animationProject ->
+        from(animationProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJar'
+}
+
+tasks.named('jarJar', Jar).configure {
+    dependsOn embeddedAnimationProjects.collect { "${it.path}:classes" }
+    manifest {
+        attributes('Automatic-Module-Name': mod_id)
+    }
+    embeddedAnimationProjects.each { animationProject ->
+        from(animationProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJarJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    description = 'Проверяет содержимое final production JAR Echo Animation.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('reobfJarJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}-all.jar").get().asFile
+        if (!jarFile.isFile()) {
+            throw new GradleException("Production JAR was not created: ${jarFile}")
+        }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def required = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echoanimation/api/id/FaceRigId.class',
+                'io/github/kxyr0/echoanimation/core/pose/ClipSampler.class',
+                'io/github/kxyr0/echoanimation/definition/resource/FaceRigDefinition.class',
+                'io/github/kxyr0/echoanimation/echoscript/EchoScriptAnimationCompiler.class',
+                'io/github/kxyr0/echoanimation/forge/api/AnimationServiceLookupEvent.class',
+                'io/github/kxyr0/echoanimation/forge/api/marker/AnimationMarkerEvent.class',
+                'io/github/kxyr0/echoanimation/forge/api/client/render/AnimationClientService.class',
+                'io/github/kxyr0/echoanimation/forge/EchoAnimationMod.class',
+                'io/github/kxyr0/echoanimation/client/rendering/LayerDrawPlanner.class',
+                'META-INF/jarjar/metadata.json'
+        ]
+        def missing = required.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echoanimation/authoring/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/')
+                    || entry.startsWith('io/github/kxyr0/echostoryengine/')
+                    || entry.startsWith('net/minecraft/')
+                    || entry.startsWith('net/minecraftforge/')
+                    || entry.startsWith('org/junit/')
+                    || entry.startsWith('com/tngtech/archunit/')
+                    || entry.startsWith('docs/')
+                    || entry.startsWith('build/')
+                    || entry.endsWith('.java')
+        }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            throw new GradleException("Production JAR verification failed."
+                    + "\nmissing entries:\n" + missing.join('\n')
+                    + "\nforbidden entries:\n" + forbidden.take(60).join('\n'))
+        }
+        println "Echo Animation production JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyProductionJarContents')
+    dependsOn tasks.named('gameTestClasses')
+}
+
+tasks.matching { it.name == 'prepareRunGameTestServer' }.configureEach {
+    dependsOn tasks.named('processGameTestResources')
+    doLast {
+        copy {
+            from sourceSets.gameTest.resources
+            include 'gameteststructures/**'
+            into project.file('run')
+        }
+    }
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doLast {
+        def logFile = project.file('run/logs/latest.log')
+        if (!logFile.isFile()) {
+            throw new GradleException("GameTest log was not created: ${logFile}")
+        }
+        def text = logFile.getText('UTF-8')
+        def missing = requiredEchoAnimationGameTests.findAll { testName ->
+            !text.contains("EANIM-GAMETEST-RUN ${testName}")
+        }
+        def discovered = firstInt(text, /Running test batch '[^']+' \((\d+) tests\)/)
+        def executed = firstInt(text, /(\d+) tests are now running!/)
+        def passed = firstInt(text, /All (\d+) required tests passed/)
+        if (discovered <= 0 || executed <= 0 || passed <= 0 || !missing.isEmpty()) {
+            throw new GradleException("Echo Animation GameTests were not fully verified."
+                    + "\ndiscovered=${discovered}, executed=${executed}, passed=${passed}"
+                    + "\nmissing markers=${missing.join(', ')}")
+        }
+        println "Echo Animation GameTests verified: discovered=${discovered}, executed=${executed}, passed=${passed}"
+    }
+}
+
+int firstInt(String text, String pattern) {
+    def matcher = text =~ pattern
+    return matcher.find() ? matcher.group(1).toInteger() : 0
+}
+
+dependencies {
+    compileOnly 'io.github.kxyr0.echoevents:echo-events:0.1.0'
+    compileOnly 'io.github.kxyr0.echoevents:events-forge-1.20.1:0.1.0'
+}

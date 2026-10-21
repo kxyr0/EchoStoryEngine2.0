@@ -1,0 +1,31 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="License decision unresolved"
+
+[[mods]]
+modId="echo_cutscene_testmod"
+version="${project.version}"
+displayName="Echo Cutscene Testmod"
+authors="kxyr0"
+description='''Development-only fixtures for Echo Cutscene manual testing.'''
+
+[[dependencies.echo_cutscene_testmod]]
+modId="forge"
+mandatory=true
+versionRange="${forge_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.echo_cutscene_testmod]]
+modId="minecraft"
+mandatory=true
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.echo_cutscene_testmod]]
+modId="echo_cutscene"
+mandatory=true
+versionRange="[0.1.0,)"
+ordering="AFTER"
+side="BOTH"

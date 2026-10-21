@@ -1,0 +1,128 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Forge 1.20.1 runtime host for Echo Player Actor.'
+
+def embeddedPlayerActorProjects = [
+        project(':player-actor-contracts'),
+        project(':player-actor-core'),
+        project(':player-actor-forge-api-1.20.1'),
+        project(':player-actor-script-adapter-1.20.1')
+]
+
+base {
+    archivesName = artifact_name
+}
+
+jarJar.enable()
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    embeddedPlayerActorProjects.each { actorProject ->
+                        source actorProject.sourceSets.main
+                    }
+                }
+            }
+        }
+        client { }
+        server {
+            args '--nogui'
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':player-actor-contracts')
+    implementation project(':player-actor-core')
+    implementation project(':player-actor-forge-api-1.20.1')
+    implementation project(':player-actor-script-adapter-1.20.1')
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedPlayerActorProjects.collect { "${it.path}:classes" }
+    embeddedPlayerActorProjects.each { actorProject ->
+        from(actorProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJar'
+}
+
+tasks.named('jarJar', Jar).configure {
+    dependsOn embeddedPlayerActorProjects.collect { "${it.path}:classes" }
+    embeddedPlayerActorProjects.each { actorProject ->
+        from(actorProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJarJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('reobfJarJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}-all.jar").get().asFile
+        if (!jarFile.isFile() || jarFile.length() == 0L) {
+            throw new GradleException("Production JAR was not created: ${jarFile}")
+        }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def required = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echoplayeractor/api/identity/PlayerActorId.class',
+                'io/github/kxyr0/echoplayeractor/core/rotation/PlayerLookAtResolver.class',
+                'io/github/kxyr0/echoplayeractor/forge/api/service/PlayerActorService.class',
+                'io/github/kxyr0/echoplayeractor/forge/EchoPlayerActorMod.class',
+                'META-INF/jarjar/metadata.json'
+        ]
+        def missing = required.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echoplayeractor/testmod/')
+                    || entry.startsWith('net/minecraft/')
+                    || entry.startsWith('net/minecraftforge/')
+                    || entry.startsWith('org/junit/')
+                    || entry.startsWith('docs/')
+        }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            throw new GradleException("Production JAR verification failed."
+                    + "\nmissing entries:\n" + missing.join('\n')
+                    + "\nforbidden entries:\n" + forbidden.take(40).join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyProductionJarContents')
+}

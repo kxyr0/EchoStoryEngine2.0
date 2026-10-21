@@ -1,0 +1,16 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="echo_npc_sophisticated_backpacks_testmod"
+version="0.1.0"
+displayName="Echo NPC Sophisticated Backpacks Testmod"
+description='''Development-only GameTests. Never ship this JAR.'''
+
+[[dependencies.echo_npc_sophisticated_backpacks_testmod]]
+modId="echo_npc_sophisticated_backpacks"
+mandatory=true
+versionRange="[0.1.0,)"
+ordering="AFTER"
+side="SERVER"

@@ -1,0 +1,8 @@
+base { archivesName = 'background-npc-echoscript-adapter' }
+description = 'EchoScript semantic compiler for background resources.'
+dependencies {
+    api project(':background-npc-contracts')
+    implementation project(':background-npc-core')
+    implementation "io.github.kxyr0.echoscript:echo-script-api:${echo_script_version}"
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}

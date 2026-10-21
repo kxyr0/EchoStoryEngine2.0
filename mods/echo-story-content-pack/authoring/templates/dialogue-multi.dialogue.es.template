@@ -1,0 +1,13 @@
+class ExampleMultiDialogue : DialogueResource
+{
+    start Node Greeting()
+    {
+        Line("john", "Первая строка.");
+        GoTo(Done);
+    }
+
+    Node Done()
+    {
+        Line("john", "Диалог завершен.");
+    }
+}

@@ -1,0 +1,30 @@
+{
+  "generatedAt": "2026-07-22T17:38:10.288Z",
+  "sources": [
+    {
+      "from": "D:/JDHSeason/mods/echo-animation/build/docs-export/echo-animation-contracts.json",
+      "to": "src/generated/contracts/echo-animation-contracts.json",
+      "sha256": "4199ec9e66d7c86ffbd7b903c8c659b2111467e21202c03290ebafb782d67292"
+    },
+    {
+      "from": "D:/JDHSeason/mods/echo-npc/build/docs-export/echo-npc-contracts.json",
+      "to": "src/generated/contracts/echo-npc-contracts.json",
+      "sha256": "4d2332bb1a96bd838350f89c7ef1cd1768a6fce5978a194efa4974b06d3712cd"
+    },
+    {
+      "from": "D:/JDHSeason/mods/echo-npc-animation-adapter/build/docs-export/echo-npc-animation-adapter-contracts.json",
+      "to": "src/generated/contracts/echo-npc-animation-adapter-contracts.json",
+      "sha256": "4c9efc92e0a58a7ff056fd4d40c39c1876336a57173a6ec72b4ded969825c35a"
+    },
+    {
+      "from": "D:/JDHSeason/mods/echo-story-content-pack/src/main/resources/data/jdh/echo_animation/animation_profiles/chapter_1/family/standard_humanoid.animation-profile.es",
+      "to": "src/generated/examples/standard_humanoid.animation-profile.es",
+      "sha256": "737fcefcf09bb49f0bb0784589a4028b4f45eecdab52a2a2ee3f50c4f73d801a"
+    },
+    {
+      "from": "D:/JDHSeason/mods/echo-story-content-pack/src/main/resources/data/jdh/echo_npc_animation/bindings/chapter_1/family/john_father.npc-animation-binding.es",
+      "to": "src/generated/examples/john_father.npc-animation-binding.es",
+      "sha256": "588ea10d0541fa5b93d8a81153a91531f179044eaa678ef914620d8769ae806b"
+    }
+  ]
+}

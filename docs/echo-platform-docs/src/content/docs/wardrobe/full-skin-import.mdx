@@ -1,0 +1,30 @@
+---
+title: "Full Skins"
+description: "How exact outfit variants reference full 64x64 PNG resources in W2."
+section: "Wardrobe"
+pageKind: "reference"
+status: "review"
+since: "W2"
+updated: "2026-07-27"
+relatedIds: ["OutfitVariantDefinition"]
+relatedPages: ["wardrobe/overview", "wardrobe/full-reference"]
+sourceRepositories: ["echo-wardrobe"]
+sourcePaths: ["D:/JDHSeason/mods/echo-wardrobe/docs/authoring/FULL_SKIN_IMPORT.md"]
+visualIdentity: "wardrobe-full-skin-import"
+interactiveModules: ["OutfitResolverLab"]
+searchKeywords: ["64x64", "full skin", "OutfitVariantResource", "Skin"]
+---
+
+import { OutfitResolverLab } from "../../../components/WardrobeLabs";
+
+# Full Skins
+
+Put PNG files under `assets/<namespace>/textures/echo_wardrobe/skins/...` and reference them without `textures/` or `.png`:
+
+```es
+Skin("jdh:echo_wardrobe/skins/origin/jdh_full_dressed");
+```
+
+<OutfitResolverLab client:load />
+
+`Skin(...)` sets both `worldSkin` and `faceSkin`. Use `WorldSkin(...)` and `FaceSkin(...)` only when they intentionally differ.

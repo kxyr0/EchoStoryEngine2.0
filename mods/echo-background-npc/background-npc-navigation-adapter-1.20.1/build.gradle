@@ -1,0 +1,10 @@
+plugins { id 'net.minecraftforge.gradle' }
+base { archivesName = 'background-npc-navigation-adapter-1.20.1' }
+minecraft { mappings channel: mapping_channel, version: mapping_version }
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':background-npc-core')
+    implementation project(':background-npc-forge-api-1.20.1')
+    compileOnly "io.github.kxyr0.echonavigation:navigation-contracts:${echo_navigation_version}"
+    compileOnly "io.github.kxyr0.echonavigation:navigation-forge-api-1.20.1:${echo_navigation_version}"
+}

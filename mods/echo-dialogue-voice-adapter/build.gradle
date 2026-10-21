@@ -1,0 +1,102 @@
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'checkstyle'
+    id 'pmd'
+    id 'jacoco'
+}
+
+version = mod_version
+group = mod_group_id
+base { archivesName = artifact_name }
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    maven { name = 'DialogueIntegration'; url = file('../echo-dialogue/build/integration-maven').toURI() }
+    maven { name = 'VoiceIntegration'; url = file('../echo-voice/build/integration-maven').toURI() }
+}
+
+java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs { client { workingDirectory project.file('run'); mods { "${mod_id}" { source sourceSets.main } } } }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly "io.github.kxyr0.echodialogue:dialogue-contracts:${dialogue_api_version}"
+    compileOnly("io.github.kxyr0.echodialogue:dialogue-echoscript-extension-api:${dialogue_api_version}") {
+        exclude group: 'io.github.kxyr0.echoscript'
+    }
+    compileOnly "io.github.kxyr0.echodialogue:dialogue-forge-api-1.20.1:${dialogue_api_version}"
+    compileOnly "io.github.kxyr0.echovoice:voice-contracts:${voice_api_version}"
+    compileOnly "io.github.kxyr0.echovoice:voice-forge-api-1.20.1:${voice_api_version}"
+    compileOnly files('../echo-script/echo-script-api/build/libs/echo-script-api-0.1.1-SNAPSHOT.jar')
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+configurations { testImplementation.extendsFrom compileOnly }
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+tasks.withType(Test).configureEach { useJUnitPlatform() }
+checkstyle { toolVersion = checkstyle_version; configFile = file('config/checkstyle/checkstyle.xml') }
+pmd { toolVersion = pmd_version; ruleSetFiles = files('config/pmd/ruleset.xml'); ruleSets = []; consoleOutput = true }
+jacoco { toolVersion = '0.8.12' }
+
+tasks.named('processResources', ProcessResources).configure {
+    def values = [minecraft_version_range: minecraft_version_range, forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range, mod_id: mod_id, mod_name: mod_name,
+            mod_license: mod_license, mod_version: mod_version, mod_authors: mod_authors,
+            mod_description: mod_description, dialogue_api_version: dialogue_api_version,
+            voice_api_version: voice_api_version]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand values }
+}
+
+tasks.withType(Jar).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+tasks.named('jar', Jar).configure { finalizedBy 'reobfJar' }
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        def packages = [:].withDefault { 0 }
+        fileTree('src/main/java') { include '**/*.java' }.files.each { source ->
+            packages[source.parentFile.toPath()]++
+            def logical = source.getText('UTF-8').readLines().count { line ->
+                def trimmed = line.trim(); trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logical > 180) { violations << "${source}: ${logical} logical lines; max is 180" }
+        }
+        packages.each { path, count -> if (count > 7) { violations << "${path}: ${count} files; max is 7" } }
+        if (!violations.isEmpty()) { throw new GradleException(violations.join('\n')) }
+        println 'Java files > 180 logical LOC = 0'
+        println 'leaf Java packages > 7 files = 0'
+    }
+}
+
+tasks.register('verifyProductionJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('reobfJar')
+    doLast {
+        def output = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile
+        def entries = []
+        new java.util.zip.ZipFile(output).withCloseable { zip -> zip.entries().each { entries << it.name } }
+        def required = ['META-INF/mods.toml',
+                'io/github/kxyr0/echodialoguevoice/EchoDialogueVoiceAdapterMod.class']
+        def forbidden = entries.findAll { it.startsWith('io/github/kxyr0/echovoice/api/')
+                || it.startsWith('io/github/kxyr0/echodialogue/api/') || it.startsWith('net/minecraft/') }
+        if (!required.every { entries.contains(it) } || !forbidden.isEmpty()) {
+            throw new GradleException("Adapter JAR verification failed: forbidden=${forbidden}")
+        }
+        println "Adapter production JAR verified: ${output.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.named('check') { dependsOn tasks.named('sourceShapeCheck'); dependsOn tasks.named('verifyProductionJarContents') }

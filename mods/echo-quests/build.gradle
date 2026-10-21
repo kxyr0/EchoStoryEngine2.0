@@ -1,0 +1,130 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+allprojects {
+    repositories {
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    version = rootProject.version
+    group = rootProject.group
+    java {
+        toolchain { languageVersion = JavaLanguageVersion.of(17) }
+        withSourcesJar()
+    }
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+}
+
+configure([project(':quest-contracts'), project(':quest-forge-api-1.20.1')]) {
+    apply plugin: 'maven-publish'
+    publishing {
+        publications {
+            register('mavenJava', MavenPublication) { from components.java }
+        }
+        repositories {
+            maven {
+                name = 'integrationMaven'
+                url = rootProject.layout.buildDirectory.dir('integration-maven')
+            }
+        }
+    }
+}
+
+def productionJava = {
+    fileTree(rootDir) {
+        include 'quest-*/src/main/java/**/*.java'
+        exclude '**/build/**'
+    }
+}
+
+def checkedText = {
+    fileTree(rootDir) {
+        include '*.gradle', '*.properties', '*.md', 'AGENTS.md'
+        include 'docs/**/*.md', 'authoring/**/*.es', 'quest-*/src/**/*.java'
+        include 'quest-*/src/**/*.toml', 'quest-*/src/**/*.mcmeta'
+        exclude '**/build/**', '**/.gradle/**', '**/run/**'
+    }
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('publishQuestIntegrationArtifacts') {
+    group = 'publishing'
+    dependsOn ':quest-contracts:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':quest-forge-api-1.20.1:publishMavenJavaPublicationToIntegrationMavenRepository'
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        productionJava().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()]++
+            def logical = text.readLines().count { line ->
+                def value = line.trim()
+                value && !value.startsWith('//') && !value.startsWith('*')
+            }
+            if (logical > 180) violations << "${relative}: ${logical} logical lines; max is 180"
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) violations << "${relative}: wildcard import"
+            if (relative =~ /(?i)(^|[\\\/])(misc|helpers?|utils?|manager|impl|internal2|quests2)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+        }
+        counts.each { path, count ->
+            if (count > 7) violations << "${rootDir.toPath().relativize(path)}: ${count} files; max is 7"
+        }
+        if (!violations.isEmpty()) throw new GradleException(violations.join('\n'))
+        println 'Source shape: Java >180=0, leaf packages >7=0'
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        checkedText().files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) violations << "${file}:${index + 1}: trailing whitespace"
+                if (line.contains('\t')) violations << "${file}:${index + 1}: tab"
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) violations << "${file}: missing final newline"
+        }
+        if (!violations.isEmpty()) throw new GradleException(violations.join('\n'))
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('publishQuestIntegrationArtifacts')
+}

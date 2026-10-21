@@ -1,0 +1,3 @@
+description = 'Plain Java custody, lease, marker and recovery core.'
+
+dependencies { api project(':item-attachments-contracts') }

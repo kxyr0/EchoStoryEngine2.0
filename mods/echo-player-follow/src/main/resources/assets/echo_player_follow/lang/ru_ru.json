@@ -1,0 +1,6 @@
+{
+  "key.categories.echo_player_follow": "Сюжетное управление",
+  "key.echo_player_follow.follow_npc": "Следовать за персонажем",
+  "hud.echo_player_follow.prompt": "Удерживайте %s 1 сек., чтобы следовать за NPC",
+  "hud.echo_player_follow.active": "Следование за %s"
+}

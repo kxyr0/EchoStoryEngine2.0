@@ -1,0 +1,234 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+allprojects {
+    repositories {
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+def productionJava = {
+    fileTree(rootDir) {
+        include 'player-actor-*/src/main/java/**/*.java'
+        exclude '**/build/**'
+        exclude 'player-actor-testmod-1.20.1/**'
+    }
+}
+
+def productionScripts = {
+    fileTree(rootDir) {
+        include 'player-actor-*/src/main/resources/**/*.es'
+        exclude '**/build/**'
+        exclude 'player-actor-testmod-1.20.1/**'
+    }
+}
+
+def checkedTextFiles = {
+    fileTree(rootDir) {
+        include '*.gradle', 'gradle.properties', '.gitignore', '.gitattributes'
+        include 'config/**/*.xml', 'player-actor-*/src/**/*.java'
+        include 'player-actor-*/src/**/*.toml', 'player-actor-*/src/**/*.mcmeta'
+        include 'player-actor-*/src/**/*.es', 'README.md', 'CHANGELOG.md', 'docs/**/*.md'
+        exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    apply plugin: 'jacoco'
+
+    version = rootProject.version
+    group = rootProject.group
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+        withSourcesJar()
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+
+    checkstyle {
+        toolVersion = checkstyle_version
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    }
+
+    pmd {
+        toolVersion = pmd_version
+        ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+        ruleSets = []
+        consoleOutput = true
+    }
+}
+
+configure([
+        project(':player-actor-contracts'),
+        project(':player-actor-forge-api-1.20.1'),
+        project(':player-actor-script-adapter-1.20.1')
+]) {
+    apply plugin: 'maven-publish'
+
+    publishing {
+        publications {
+            register('mavenJava', MavenPublication) {
+                from components.java
+            }
+        }
+        repositories {
+            maven {
+                name = 'integrationMaven'
+                url = rootProject.layout.buildDirectory.dir('integration-maven')
+            }
+        }
+    }
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Runs unit tests for all Echo Player Actor modules.'
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('publishPlayerActorIntegrationArtifacts') {
+    group = 'publishing'
+    description = 'Publishes public Echo Player Actor artifacts to build/integration-maven.'
+    dependsOn ':player-actor-contracts:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':player-actor-forge-api-1.20.1:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':player-actor-script-adapter-1.20.1:publishMavenJavaPublicationToIntegrationMavenRepository'
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks Echo Player Actor source shape and package limits.'
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        productionJava().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()] = counts[file.parentFile.toPath()] + 1
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            if (relative =~ /(?i)(^|[\\\/])(part1|part2|common2?|misc|helpers?|utils?|more|actor2|control2|movement2|interaction2|services2|internal2)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            if ((text =~ /(?m)^\s*public\s+(?:final\s+)?(?:class|interface|record|enum)\s+.*(?:Manager|Helper|Utils|Common|Processor|Handler|Impl)\b/).find()) {
+                violations << "${relative}: forbidden vague production type name"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 200) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 200"
+            }
+        }
+        counts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        productionScripts().files.each { file ->
+            def logicalLines = file.getText('UTF-8').readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//')
+            }
+            if (logicalLines > 200) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: ${logicalLines} logical lines; max is 200"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+        println 'Source shape: Java classes > 200 logical LOC = 0'
+        println 'Source shape: EchoScript files > 200 logical LOC = 0'
+        println 'Source shape: leaf Java packages > 7 files = 0'
+        println 'Source shape: leaf content folders > 7 scripts = 0'
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks UTF-8 text files for tabs, trailing whitespace and final newline.'
+    doLast {
+        def violations = []
+        checkedTextFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: trailing whitespace"
+                }
+                if (line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: tab"
+                }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('verifyPublicationMetadata') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('publishPlayerActorIntegrationArtifacts')
+    doLast {
+        def missing = []
+        ['player-actor-contracts', 'player-actor-forge-api-1.20.1',
+         'player-actor-script-adapter-1.20.1'].each { artifact ->
+            def artifactDir = layout.buildDirectory
+                    .dir("integration-maven/io/github/kxyr0/echoplayeractor/${artifact}")
+                    .get().asFile
+            if (!new File(artifactDir, 'maven-metadata.xml').isFile()) {
+                missing << "${artifact}/maven-metadata.xml"
+            }
+            if (!new File(artifactDir, mod_version).isDirectory()) {
+                missing << "${artifact}/${mod_version}"
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Missing public Maven metadata:\n" + missing.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyPublicationMetadata')
+}

@@ -1,0 +1,25 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-cutscene'
+
+includeBuild '../echo-navigation'
+include 'cutscene-contracts'
+include 'cutscene-core'
+include 'cutscene-forge-api-1.20.1'
+include 'cutscene-forge-1.20.1'
+include 'cutscene-testmod-1.20.1'
+
+includeBuild '../echo-events'

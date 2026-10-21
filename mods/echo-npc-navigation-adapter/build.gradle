@@ -1,0 +1,266 @@
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'checkstyle'
+    id 'pmd'
+    id 'jacoco'
+}
+
+version = mod_version
+group = mod_group_id
+
+def navigationRoot = file('../echo-navigation')
+def npcRoot = file('../echo-npc')
+def storyRoot = file('../echo-story-engine')
+def dialogueRoot = file('../echo-dialogue')
+def triggerRoot = file('../echo-trigger')
+def navigationMaven = new File(navigationRoot, 'build/integration-maven')
+def npcMaven = new File(npcRoot, 'build/integration-maven')
+def storyMaven = new File(storyRoot, 'build/integration-maven')
+def dialogueMaven = new File(dialogueRoot, 'build/integration-maven')
+def triggerMaven = new File(triggerRoot, 'build/integration-maven')
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+    maven {
+        name = 'EchoNavigationIntegration'
+        url = navigationMaven
+    }
+    maven {
+        name = 'EchoNpcIntegration'
+        url = npcMaven
+    }
+    maven {
+        name = 'StoryIntegration'
+        url = storyMaven
+    }
+    maven {
+        name = 'DialogueIntegration'
+        url = dialogueMaven
+    }
+    maven {
+        name = 'TriggerIntegration'
+        url = triggerMaven
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+base {
+    archivesName = artifact_name
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+        client { }
+        server {
+            args '--nogui'
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly "io.github.kxyr0.echonavigation:navigation-contracts:${echo_navigation_version}"
+    compileOnly "io.github.kxyr0.echonavigation:navigation-forge-api-1.20.1:${echo_navigation_version}"
+    compileOnly "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
+    compileOnly "io.github.kxyr0.echonpc:npc-forge-api-1.20.1:${echo_npc_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-contracts:${story_api_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-api:${story_api_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:${story_api_version}"
+    compileOnly "io.github.kxyr0.echodialogue:dialogue-contracts:${dialogue_api_version}"
+    compileOnly "io.github.kxyr0.echodialogue:dialogue-forge-api-1.20.1:${dialogue_api_version}"
+    compileOnly "io.github.kxyr0.echotrigger:trigger-contracts:${trigger_api_version}"
+    compileOnly "io.github.kxyr0.echotrigger:trigger-forge-api-1.20.1:${trigger_api_version}"
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation "io.github.kxyr0.echonavigation:navigation-contracts:${echo_navigation_version}"
+    testImplementation "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+checkstyle {
+    toolVersion = checkstyle_version
+    configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+}
+
+pmd {
+    toolVersion = pmd_version
+    ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+    ruleSets = []
+    consoleOutput = true
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+            echo_navigation_mod_version_range: echo_navigation_mod_version_range,
+            echo_npc_mod_version_range: echo_npc_mod_version_range,
+            story_mod_version_range: story_mod_version_range,
+            dialogue_mod_version_range: dialogue_mod_version_range,
+            trigger_mod_version_range: trigger_mod_version_range,
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('publishNavigationPublicArtifacts', Exec) {
+    workingDir navigationRoot
+    commandLine gradleWrapper(navigationRoot), 'publishNavigationIntegrationArtifacts', '--console=plain'
+}
+
+tasks.register('publishNpcPublicArtifacts', Exec) {
+    workingDir npcRoot
+
+    if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+        commandLine 'cmd', '/c',
+                gradleWrapper(npcRoot),
+                'publishNpcIntegrationArtifacts',
+                '--console=plain'
+    } else {
+        commandLine gradleWrapper(npcRoot),
+                'publishNpcIntegrationArtifacts',
+                '--console=plain'
+    }
+}
+
+tasks.register('publishStoryPublicArtifacts', Exec) {
+    workingDir storyRoot
+    commandLine gradleWrapper(storyRoot), 'publishExtensionIntegrationArtifacts', '--console=plain'
+}
+
+tasks.register('publishDialoguePublicArtifacts', Exec) {
+    workingDir dialogueRoot
+    commandLine gradleWrapper(dialogueRoot), 'publishDialogueIntegrationArtifacts', '--console=plain'
+}
+
+tasks.register('publishTriggerPublicArtifacts', Exec) {
+    workingDir triggerRoot
+    commandLine gradleWrapper(triggerRoot), 'publishTriggerIntegrationArtifacts', '--console=plain'
+}
+
+['compileJava', 'compileTestJava'].each { taskName ->
+    tasks.named(taskName).configure {
+        dependsOn tasks.named('publishNavigationPublicArtifacts')
+        dependsOn tasks.named('publishNpcPublicArtifacts')
+        dependsOn tasks.named('publishStoryPublicArtifacts')
+        dependsOn tasks.named('publishDialoguePublicArtifacts')
+        dependsOn tasks.named('publishTriggerPublicArtifacts')
+    }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        fileTree(rootDir) {
+            include 'src/main/java/**/*.java'
+            exclude '**/build/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()] = counts[file.parentFile.toPath()] + 1
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 200) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 200"
+            }
+        }
+        counts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        fileTree(rootDir) {
+            include '*.gradle', 'gradle.properties', 'config/**/*.xml'
+            include 'src/**/*.java', 'src/**/*.toml', 'src/**/*.mcmeta', 'docs/**/*.md'
+            exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: trailing whitespace"
+                }
+                if (line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: tab"
+                }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+}
+
+String gradleWrapper(File root) {
+    return new File(root, org.gradle.internal.os.OperatingSystem.current().isWindows()
+            ? 'gradlew.bat' : 'gradlew').absolutePath
+}

@@ -1,0 +1,13 @@
+description = 'Plain-Java EchoScript item compiler, catalogs, manifests, and reload planning.'
+
+base {
+    archivesName = 'item-core'
+}
+
+dependencies {
+    api project(':item-contracts')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    implementation "com.google.code.gson:gson:${gson_version}"
+    testImplementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    testImplementation project(':item-contracts')
+}

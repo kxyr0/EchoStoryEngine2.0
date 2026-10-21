@@ -1,0 +1,29 @@
+---
+title: "Профиль игрока"
+description: "Durable profile игрока: EchoPlayerId, имя, Искра, base appearance и template provenance."
+section: "Player"
+pageKind: "concept"
+status: "review"
+since: "P1"
+updated: "2026-07-25"
+relatedIds: ["EchoPlayerId", "PlayerProfileSnapshot", "PlayerProfileRevision"]
+relatedPages: ["player/names", "player/spark", "player/skin"]
+sourceRepositories: ["echo-content-player"]
+sourcePaths: ["D:/JDHSeason/mods/echo-content-player"]
+visualIdentity: "player-profile"
+interactiveModules: ["PlayerProfileExplorer", "PlayerRecoveryLab"]
+searchKeywords: ["игрок", "профиль", "EchoPlayerId", "Искра"]
+---
+import { PlayerProfileExplorer, PlayerRecoveryLab } from "../../../components/PlayerProfileLabs";
+
+# Профиль игрока
+
+Minecraft `ServerPlayer`, numeric entity id, account name и `EchoPlayerId` не взаимозаменяемы. Durable профиль привязан к UUID аккаунта через `EchoPlayerId`; respawn, dimension change, reconnect и restart не создают новый профиль.
+
+<PlayerProfileExplorer client:load />
+
+## Snapshot
+
+`PlayerProfileSnapshot` содержит identity, Spark, base appearance, template id/fingerprint, lifecycle metadata, profile revision и repository revision. Профиль не хранит quest state, dialogue state, inventory, wardrobe layers, RPG stats или UI settings.
+
+<PlayerRecoveryLab client:load />

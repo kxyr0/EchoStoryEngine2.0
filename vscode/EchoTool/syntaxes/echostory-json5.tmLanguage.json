@@ -1,0 +1,158 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "EchoStory JSON5",
+  "scopeName": "source.echostory-json5",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#storyTypes"
+    },
+    {
+      "include": "#storyShortcuts"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#keys"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.echostory-json5",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.echostory-json5",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.echostory-json5",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.echostory-json5",
+              "match": "\\\\(?:[\"'\\\\/bfnrtv]|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|\\r?\\n)"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.echostory-json5",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.echostory-json5",
+              "match": "\\\\(?:[\"'\\\\/bfnrtv]|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|\\r?\\n)"
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.echostory-json5",
+          "match": "(?x)(?<![\\w$])[-+]?(?:0[xX][0-9a-fA-F]+|(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][-+]?\\d+)?|Infinity|NaN)(?![\\w$])"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.echostory-json5",
+          "match": "\\b(?:true|false|null)\\b"
+        }
+      ]
+    },
+    "keys": {
+      "patterns": [
+        {
+          "name": "support.type.property-name.echostory-json5",
+          "match": "(?x)(?<=^|[,{\\[]\\s*)([A-Za-z_$][\\w$-]*)(?=\\s*:)"
+        },
+        {
+          "name": "support.type.property-name.echostory-json5",
+          "match": "(\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*')(?=\\s*:)"
+        }
+      ]
+    },
+    "storyTypes": {
+      "patterns": [
+        {
+          "match": "(?x)(\\btype\\s*:\\s*)([\"'])([A-Za-z_][A-Za-z0-9_-]*)([\"'])",
+          "captures": {
+            "1": {
+              "name": "support.type.property-name.echostory-json5"
+            },
+            "2": {
+              "name": "punctuation.definition.string.begin.echostory-json5"
+            },
+            "3": {
+              "name": "entity.name.function.story-type.echostory-json5"
+            },
+            "4": {
+              "name": "punctuation.definition.string.end.echostory-json5"
+            }
+          }
+        }
+      ]
+    },
+    "storyShortcuts": {
+      "patterns": [
+        {
+          "match": "([\"'])((?:dialogue|start_dialogue|startdialogue|scene|start_scene|startscene|magic|cast|status|magic_status|magicstatus|spell_status|spellstatus|combat_status|combat_magic_status|clear_status|clear_magic_status|clearstatus|clearmagicstatus):)([^\"']+)([\"'])",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.string.begin.echostory-json5"
+            },
+            "2": {
+              "name": "keyword.control.story-shortcut.echostory-json5"
+            },
+            "3": {
+              "name": "entity.name.tag.story-reference.echostory-json5"
+            },
+            "4": {
+              "name": "punctuation.definition.string.end.echostory-json5"
+            }
+          }
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.key-value.echostory-json5",
+          "match": ":"
+        },
+        {
+          "name": "punctuation.separator.comma.echostory-json5",
+          "match": ","
+        },
+        {
+          "name": "punctuation.definition.structure.echostory-json5",
+          "match": "[{}\\[\\]()]"
+        }
+      ]
+    }
+  }
+}

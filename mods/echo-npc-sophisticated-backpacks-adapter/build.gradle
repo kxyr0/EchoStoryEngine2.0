@@ -1,0 +1,127 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+allprojects {
+    version = rootProject.version
+    group = rootProject.group
+
+    repositories {
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+
+    java {
+        toolchain { languageVersion = JavaLanguageVersion.of(17) }
+        withSourcesJar()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        fileTree(rootDir).matching {
+            include 'npc-*/src/main/java/**/*.java'
+            exclude '**/build/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()]++
+            def logical = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logical > 180) violations << "${relative}: ${logical} logical lines; max is 180"
+        }
+        counts.each { path, count ->
+            if (count > 7) violations << "${rootDir.toPath().relativize(path)}: ${count} files; max is 7"
+        }
+        if (!violations.empty) throw new GradleException('Source shape violations:\n' + violations.join('\n'))
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        fileTree(rootDir).matching {
+            include '**/*.java', '**/*.gradle', '**/*.properties', '**/*.md', '**/*.toml', '**/*.json', '**/*.mcmeta'
+            exclude '**/build/**', '**/run/**', '**/.gradle/**', '**/.git/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) violations << "${file}:${index + 1}: trailing whitespace"
+                if (line.contains('\t')) violations << "${file}:${index + 1}: tab"
+            }
+            if (!text.empty && !text.endsWith('\n')) violations << "${file}: missing final newline"
+        }
+        if (!violations.empty) throw new GradleException('Whitespace violations:\n' + violations.join('\n'))
+    }
+}
+
+tasks.register('architectureTest') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        ['npc-backpack-contracts', 'npc-backpack-core'].each { module ->
+            fileTree("${module}/src/main/java").matching { include '**/*.java' }.files.each { file ->
+                def text = file.getText('UTF-8')
+                if (text.contains('net.minecraft') || text.contains('net.minecraftforge')
+                        || text.contains('net.p3pp3rf1y')) {
+                    violations << "${file}: platform import in neutral module"
+                }
+            }
+        }
+        fileTree('npc-backpack-forge-1.20.1/src/main/java').matching { include '**/*.java' }.files.each { file ->
+            def text = file.getText('UTF-8')
+            if (text.contains('io.github.kxyr0.echonpc.forge.entity')
+                    || text.contains('io.github.kxyr0.echonpc.forge.client.')) {
+                violations << "${file}: Echo NPC implementation import"
+            }
+            if (text.contains('io.github.kxyr0.echoanimation')) {
+                violations << "${file}: optional Echo Animation import in main adapter"
+            }
+            if (text.contains('cloneBackpack(')) violations << "${file}: identity-changing cloneBackpack call"
+            if (text.toLowerCase(java.util.Locale.ROOT).contains('curios')) violations << "${file}: Curios dependency"
+        }
+        def access = file('npc-backpack-forge-1.20.1/src/main/java/io/github/kxyr0/echonpcbackpack/forge/sophisticated/SophisticatedBackpackAccess.java').getText('UTF-8')
+        if (!access.contains('getBackpack().copy()')) violations << 'Exact getBackpack().copy() extraction is missing.'
+        if (!violations.empty) throw new GradleException('Architecture violations:\n' + violations.join('\n'))
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn 'sourceShapeCheck', 'checkWhitespace', 'architectureTest'
+}
+
+tasks.named('assemble') {
+    dependsOn subprojects.collect { "${it.path}:assemble" }
+}

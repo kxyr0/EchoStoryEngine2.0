@@ -1,0 +1,26 @@
+---
+title: "Руки и экипировка"
+description: "Main hand, offhand, armor slots, hand-change events и equipment events."
+section: "Trigger"
+pageKind: "reference"
+status: "review"
+since: "T2"
+updated: "2026-07-24"
+relatedIds: ["TriggerHand", "EquipmentSlot"]
+relatedPages: ["trigger/items-inventory", "trigger/t2-reference"]
+sourceRepositories: ["echo-trigger"]
+sourcePaths: ["D:/JDHSeason/mods/echo-trigger/docs/authoring/TRIGGER_EQUIPMENT.md"]
+visualIdentity: "trigger-equipment"
+interactiveModules: ["EquipmentTriggerLab"]
+searchKeywords: ["HoldingMainHand", "Wearing", "EquipmentEquipped", "armor"]
+---
+import { EquipmentTriggerLab } from "../../../components/VanillaTriggerLabs";
+
+# Руки и экипировка
+
+`Holding`, `HoldingMainHand`, `HoldingOffHand` являются predicates. `MainHandChanged`, `OffHandChanged`,
+`EquipmentEquipped`, `EquipmentUnequipped` являются events и не создаются при recovery.
+
+Armor slots: `HEAD`, `CHEST`, `LEGS`, `FEET`.
+
+<EquipmentTriggerLab client:load />

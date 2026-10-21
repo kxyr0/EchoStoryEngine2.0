@@ -1,0 +1,7 @@
+description = 'Public Forge API boundary for Echo Wardrobe 1.20.1.'
+
+dependencies {
+    api project(':wardrobe-contracts')
+    compileOnly "net.minecraftforge:eventbus:6.0.5"
+    compileOnly "net.minecraftforge:forge:${minecraft_version}-${forge_version}:universal"
+}

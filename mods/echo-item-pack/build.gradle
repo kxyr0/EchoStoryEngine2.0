@@ -1,0 +1,366 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+def echoScriptExternalMaven = layout.buildDirectory.dir('external-maven')
+
+allprojects {
+    repositories {
+        maven {
+            name = 'EchoItemExternal'
+            url = echoScriptExternalMaven.get().asFile.toURI()
+            content {
+                includeGroup 'io.github.kxyr0.echoscript'
+            }
+        }
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+        if (providers.gradleProperty('enableMavenLocal').map { it.toBoolean() }.orElse(false).get()) {
+            mavenLocal()
+        }
+    }
+}
+
+def productionFiles = {
+    fileTree(rootDir) {
+        include 'item-*/src/main/java/**/*.java'
+        exclude '**/build/**'
+    }
+}
+
+def contentScripts = {
+    fileTree(rootDir) {
+        include 'item-*/src/main/resources/**/*.item.es'
+        include 'item-*/src/main/resources/**/*.weapon.es'
+        exclude '**/build/**'
+    }
+}
+
+def checkedTextFiles = {
+    fileTree(rootDir) {
+        include '*.gradle', 'gradle.properties', '.gitignore', '.gitattributes'
+        include 'config/**/*.xml'
+        include 'item-*/src/**/*.java', 'item-*/src/**/*.weapon.es', 'item-*/src/**/*.item.es'
+        include 'item-*/src/**/*.toml', 'item-*/src/**/*.mcmeta', 'item-*/src/**/*.json'
+        include 'AGENTS.md', 'README.md', 'docs/**/*.md'
+        exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+    }
+}
+
+tasks.register('prepareEchoScriptArtifacts') {
+    group = LifecycleBasePlugin.BUILD_GROUP
+    description = 'Publishes public EchoScript artifacts into build/external-maven.'
+    def siblingRoot = file('../echo-script')
+    inputs.files(fileTree(siblingRoot) {
+        include '*.gradle', 'gradle.properties', 'settings.gradle'
+        include '**/*.java', '**/*.xml', '**/*.md'
+        exclude '**/build/**', '**/.gradle/**'
+    })
+    outputs.dir(echoScriptExternalMaven)
+    doLast {
+        if (!siblingRoot.isDirectory()) {
+            throw new GradleException("Sibling EchoScript repository was not found: ${siblingRoot}")
+        }
+        def repo = echoScriptExternalMaven.get().asFile
+        def initFile = layout.buildDirectory.file('tmp/echo-script-publish.init.gradle').get().asFile
+        initFile.parentFile.mkdirs()
+        initFile.setText("""
+allprojects {
+    plugins.withId('maven-publish') {
+        publishing {
+            repositories {
+                maven {
+                    name = 'echoItemExternal'
+                    url = uri('${repo.toURI()}')
+                }
+            }
+        }
+    }
+}
+""".stripIndent(), 'UTF-8')
+        def windows = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+        def wrapper = new File(siblingRoot, windows ? 'gradlew.bat' : 'gradlew')
+        exec {
+            workingDir siblingRoot
+            commandLine wrapper.absolutePath,
+                    ':echo-script-api:publishMavenJavaPublicationToEchoItemExternalRepository',
+                    ':echo-script-language:publishMavenJavaPublicationToEchoItemExternalRepository',
+                    '--init-script',
+                    initFile.absolutePath,
+                    '--console=plain'
+        }
+        ['echo-script-api', 'echo-script-language'].each { artifact ->
+            def metadata = new File(repo,
+                    "io/github/kxyr0/echoscript/${artifact}/maven-metadata.xml")
+            if (!metadata.isFile()) {
+                throw new GradleException("EchoScript artifact was not published: ${metadata}")
+            }
+        }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    apply plugin: 'jacoco'
+
+    version = rootProject.version
+    group = rootProject.group
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+        withSourcesJar()
+    }
+
+    sourceSets {
+        architectureTest {
+            java.srcDir 'src/architectureTest/java'
+            resources.srcDir 'src/architectureTest/resources'
+            compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+            runtimeClasspath += output + compileClasspath
+        }
+    }
+
+    configurations {
+        architectureTestImplementation.extendsFrom testImplementation
+        architectureTestRuntimeOnly.extendsFrom testRuntimeOnly
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        architectureTestImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+        architectureTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    checkstyle {
+        toolVersion = checkstyle_version
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    }
+
+    pmd {
+        toolVersion = pmd_version
+        ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+        ruleSets = []
+        consoleOutput = true
+    }
+
+    jacoco {
+        toolVersion = jacoco_version
+    }
+
+    tasks.register('architectureTest', Test) {
+        description = 'Runs module architecture checks.'
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs = sourceSets.architectureTest.output.classesDirs
+        classpath = sourceSets.architectureTest.runtimeClasspath
+        shouldRunAfter tasks.named('test')
+    }
+
+    tasks.named('check') {
+        dependsOn tasks.named('architectureTest')
+    }
+}
+
+gradle.projectsEvaluated {
+    [project(':item-core'), project(':item-forge-1.20.1')].each { echoScriptUser ->
+        echoScriptUser.tasks.matching { task ->
+            task.name in ['compileJava', 'compileTestJava', 'compileGameTestJava', 'jarJar']
+        }.configureEach {
+            dependsOn rootProject.tasks.named('prepareEchoScriptArtifacts')
+        }
+    }
+}
+
+configure([
+        project(':item-contracts'),
+        project(':item-forge-api-1.20.1')
+]) {
+    apply plugin: 'maven-publish'
+
+    publishing {
+        publications {
+            register('mavenJava', MavenPublication) {
+                from components.java
+            }
+        }
+        repositories {
+            maven {
+                name = 'integrationMaven'
+                url = rootProject.layout.buildDirectory.dir('integration-maven')
+            }
+        }
+    }
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Runs unit tests for all modules.'
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('architectureTest') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Runs architecture checks for all modules.'
+    dependsOn subprojects.collect { "${it.path}:architectureTest" }
+}
+
+tasks.register('publishItemIntegrationArtifacts') {
+    group = 'publishing'
+    description = 'Publishes public Echo Item Pack artifacts to build/integration-maven.'
+    dependsOn ':item-contracts:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':item-forge-api-1.20.1:publishMavenJavaPublicationToIntegrationMavenRepository'
+}
+
+tasks.register('verifyPublicationMetadata') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Verifies public Maven metadata for Echo Item Pack artifacts.'
+    dependsOn tasks.named('publishItemIntegrationArtifacts')
+    doLast {
+        def artifacts = ['item-contracts', 'item-forge-api-1.20.1']
+        def missing = []
+        artifacts.each { artifact ->
+            def artifactDir = layout.buildDirectory
+                    .dir("integration-maven/io/github/kxyr0/echoitem/${artifact}")
+                    .get()
+                    .asFile
+            def versionDir = new File(artifactDir, mod_version)
+            if (!new File(artifactDir, 'maven-metadata.xml').isFile()) {
+                missing << "${artifact}/maven-metadata.xml"
+            }
+            if (!versionDir.isDirectory() || versionDir.listFiles({ file -> file.name.endsWith('.pom') } as FileFilter).length == 0) {
+                missing << "${artifact}/${mod_version}/*.pom"
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Missing public Maven metadata:\n" + missing.join('\n'))
+        }
+    }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks Echo Item Pack source shape and package limits.'
+    doLast {
+        def violations = []
+        def javaCounts = [:].withDefault { 0 }
+        productionFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            javaCounts[file.parentFile.toPath()] = javaCounts[file.parentFile.toPath()] + 1
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            if ((text =~ /(?m)\bstatic\s+(?!final\b)(?:[^;{=()]+)[;=]/).find()) {
+                violations << "${relative}: mutable static field candidate"
+            }
+            if (relative =~ /(?i)(^|[\\\/])(part1|part2|common|misc|helpers?|utils?|internal2|more)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 200) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 200"
+            }
+            if ((text =~ /(?m)^\s*public\s+(?:final\s+)?(?:class|interface|record|enum)\s+.*(?:Manager|Helper|Utils|Common|Processor|Handler|Impl)\b/).find()) {
+                violations << "${relative}: forbidden vague production type name"
+            }
+        }
+        javaCounts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        def scriptCounts = [:].withDefault { 0 }
+        contentScripts().files.each { file -> scriptCounts[file.parentFile.toPath()] += 1 }
+        scriptCounts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} EchoScript files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks UTF-8 text files for tabs, trailing whitespace, and missing final newlines.'
+    doLast {
+        def violations = []
+        checkedTextFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: trailing whitespace"
+                }
+                if (line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: tab"
+                }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('verifyForbiddenText') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks that Echo Item Pack does not import other Echo engine implementations.'
+    doLast {
+        def forbidden = ['echostoryengine', 'echodialogue', 'echoanimation', 'echonpc',
+                         'echonavigation', 'echoroads', 'JavaCompiler', 'URLClassLoader']
+        def hits = []
+        productionFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            def marker = forbidden.find { text.contains(it) }
+            if (marker != null) {
+                hits << "${rootDir.toPath().relativize(file.toPath())}: ${marker}"
+            }
+        }
+        if (!hits.isEmpty()) {
+            throw new GradleException("Forbidden implementation coupling:\n" + hits.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('architectureTest')
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyForbiddenText')
+    dependsOn tasks.named('verifyPublicationMetadata')
+}

@@ -1,0 +1,31 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="echo_seating_testmod"
+version="${mod_version}"
+displayName="Echo Seating Test Mod"
+authors="${mod_authors}"
+description='''Manual acceptance helper for Echo Seating.'''
+
+[[dependencies.echo_seating_testmod]]
+modId="forge"
+mandatory=true
+versionRange="${forge_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.echo_seating_testmod]]
+modId="minecraft"
+mandatory=true
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.echo_seating_testmod]]
+modId="echo_seating"
+mandatory=true
+versionRange="[0.1.0,)"
+ordering="AFTER"
+side="BOTH"

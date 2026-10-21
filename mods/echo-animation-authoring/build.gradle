@@ -1,0 +1,220 @@
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'checkstyle'
+    id 'pmd'
+    id 'jacoco'
+}
+
+group = mod_group_id
+version = mod_version
+
+repositories {
+    maven {
+        name = 'EchoAnimationIntegration'
+        url = file('../echo-animation/build/integration-maven').toURI()
+        content {
+            includeGroup 'io.github.kxyr0.echoanimation'
+        }
+    }
+    mavenCentral()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+base {
+    archivesName = artifact_name
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        client {
+            args '--username', 'EchoAuthoring'
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly "io.github.kxyr0.echoanimation:animation-contracts:${echo_animation_version}"
+    compileOnly "io.github.kxyr0.echoanimation:animation-forge-api-1.20.1:${echo_animation_version}"
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+checkstyle {
+    toolVersion = checkstyle_version
+    configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+}
+
+pmd {
+    toolVersion = pmd_version
+    ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+    ruleSets = []
+    consoleOutput = true
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes('Automatic-Module-Name': mod_id)
+    }
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('verifyAuthoringJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет содержимое dev-only authoring JAR.'
+    dependsOn tasks.named('reobfJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile
+        if (!jarFile.isFile()) {
+            throw new GradleException("Authoring JAR was not created: ${jarFile}")
+        }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def required = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echoanimationauthoring/EchoAnimationAuthoringMod.class',
+                'io/github/kxyr0/echoanimationauthoring/client/AuthoringClientEvents.class',
+                'io/github/kxyr0/echoanimationauthoring/client/AuthoringScreen.class',
+                'io/github/kxyr0/echoanimationauthoring/migration/LegacyFaceMigration.class',
+                'io/github/kxyr0/echoanimationauthoring/export/NeutralSkinExporter.class'
+        ]
+        def missing = required.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echoanimation/api/')
+                    || entry.startsWith('io/github/kxyr0/echoanimation/core/')
+                    || entry.startsWith('io/github/kxyr0/echoanimation/definition/')
+                    || entry.startsWith('io/github/kxyr0/echoanimation/forge/api/')
+                    || entry.startsWith('net/minecraft/')
+                    || entry.startsWith('net/minecraftforge/')
+                    || entry.startsWith('org/junit/')
+                    || entry.endsWith('.java')
+        }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            throw new GradleException("Authoring JAR verification failed."
+                    + "\nmissing entries:\n" + missing.join('\n')
+                    + "\nforbidden entries:\n" + forbidden.take(60).join('\n'))
+        }
+        println "Echo Animation Authoring JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет форму production-кода authoring.'
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        fileTree('src/main/java') { include '**/*.java' }.files.each { file ->
+            def text = file.getText('UTF-8')
+            counts[file.parentFile.toPath()] = counts[file.parentFile.toPath()] + 1
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relativePath(file)}: wildcard import"
+            }
+            if ((text =~ /(?m)\bstatic\s+(?!final\b)(?:[^;{=()]+)[;=]/).find()) {
+                violations << "${relativePath(file)}: mutable static field candidate"
+            }
+        }
+        counts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет UTF-8 text files authoring.'
+    doLast {
+        def violations = []
+        fileTree(rootDir) {
+            include '*.gradle', 'gradle.properties', '.gitignore', '.gitattributes'
+            include 'src/**/*.java', 'src/**/*.toml', 'src/**/*.mcmeta', 'README.md', 'PROGRESS.md', 'docs/**/*.md'
+            exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${relativePath(file)}: missing final newline"
+            }
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/ || line.contains('\t')) {
+                    violations << "${relativePath(file)}:${index + 1}: whitespace violation"
+                }
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyAuthoringJarContents')
+}

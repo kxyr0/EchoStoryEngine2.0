@@ -1,0 +1,26 @@
+---
+title: "Dialogue Portrait"
+description: "How portraits consume Content Player resolved appearance without importing Wardrobe."
+section: "Wardrobe"
+pageKind: "architecture"
+status: "review"
+since: "W2"
+updated: "2026-07-27"
+relatedIds: ["ResolvedPlayerAppearance", "ResolvedOutfit"]
+relatedPages: ["animation/facial-dialogue-animations", "wardrobe/face-accessories"]
+sourceRepositories: ["echo-wardrobe", "echo-dialogue", "echo-content-player"]
+sourcePaths: ["D:/JDHSeason/mods/echo-wardrobe/docs/architecture/WARDROBE_PORTRAIT_INTEGRATION.md"]
+visualIdentity: "wardrobe-dialogue-portrait"
+interactiveModules: ["GlassesPortraitLab"]
+searchKeywords: ["Dialogue", "portrait", "faceSkin", "resolved appearance"]
+---
+
+import { GlassesPortraitLab } from "../../../components/WardrobeLabs";
+
+# Dialogue Portrait
+
+Dialogue does not import Wardrobe. Portrait rendering reads Content Player's resolved appearance and uses `faceSkin` plus appearance revision.
+
+<GlassesPortraitLab client:load />
+
+If a wardrobe outfit changes, the portrait follows the same revision boundary as the player renderer.

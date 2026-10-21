@@ -1,0 +1,73 @@
+plugins { id 'net.minecraftforge.gradle' }
+
+description = 'Forge 1.20.1 client renderer and EchoScript config for Echo Time HUD.'
+def embeddedProjects = [project(':time-hud-core')]
+base { archivesName = artifact_name }
+jarJar.enable()
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    embeddedProjects.each { value -> source value.sourceSets.main }
+                }
+            }
+        }
+        client { }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':time-hud-core')
+    implementation "io.github.kxyr0.echoscript:echo-script-api:${echo_script_version}"
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    implementation "io.github.kxyr0.echotime:time-contracts:${echo_time_version}"
+    implementation "io.github.kxyr0.echotime:time-forge-api-1.20.1:${echo_time_version}"
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var values = [minecraft_version_range: minecraft_version_range, forge_version_range: forge_version_range,
+                  loader_version_range: loader_version_range, mod_license: mod_license, mod_version: mod_version,
+                  mod_authors: mod_authors, mod_description: mod_description, echo_time_version: echo_time_version]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand values + [project: project] }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedProjects.collect { "${it.path}:classes" }
+    embeddedProjects.each { value -> from(value.sourceSets.main.output) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJar'
+}
+
+tasks.named('jarJar', Jar).configure {
+    dependsOn embeddedProjects.collect { "${it.path}:classes" }
+    embeddedProjects.each { value -> from(value.sourceSets.main.output) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJarJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    dependsOn tasks.named('reobfJarJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}-all.jar").get().asFile
+        if (!jarFile.isFile() || jarFile.length() == 0L) throw new GradleException("Missing production JAR: ${jarFile}")
+        def required = ['META-INF/mods.toml',
+                        'io/github/kxyr0/echotimehud/geometry/TimeHudLayout.class',
+                        'io/github/kxyr0/echotimehud/forge/EchoTimeHudMod.class']
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            def missing = required.findAll { zip.getEntry(it) == null }
+            if (!missing.isEmpty()) throw new GradleException("Production JAR missing:\n" + missing.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') { dependsOn tasks.named('verifyProductionJarContents') }
+

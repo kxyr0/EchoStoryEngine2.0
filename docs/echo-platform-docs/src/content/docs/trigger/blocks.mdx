@@ -1,0 +1,25 @@
+---
+title: "Взаимодействие с блоками"
+description: "Block ID/tag events, optional area, hand filtering and duplicate callback coalescing."
+section: "Trigger"
+pageKind: "reference"
+status: "review"
+since: "T2"
+updated: "2026-07-24"
+relatedIds: ["TriggerArea", "TriggerHand"]
+relatedPages: ["trigger/world-mode", "trigger/t2-reference"]
+sourceRepositories: ["echo-trigger"]
+sourcePaths: ["D:/JDHSeason/mods/echo-trigger/docs/authoring/TRIGGER_BLOCKS.md"]
+visualIdentity: "trigger-blocks"
+interactiveModules: []
+searchKeywords: ["BlockInteracted", "BlockBroken", "ContainerOpened", "area"]
+---
+
+# Взаимодействие с блоками
+
+Block events accept block ID or tag and optional `area`. Area checks the block position and dimension. Player position
+does not have to be inside the area.
+
+```csharp
+Trigger.Wait(BlockInteracted("#minecraft:doors", area: Exit, hand: MAIN_HAND));
+```

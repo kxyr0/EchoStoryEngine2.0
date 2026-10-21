@@ -1,0 +1,97 @@
+plugins {
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+}
+
+version = mod_version
+group = mod_group_id
+
+repositories {
+    maven {
+        name = 'EchoDialogueIntegration'
+        url = file('../../build/integration-maven')
+    }
+    mavenCentral()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+}
+
+base {
+    archivesName = artifact_name
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly("io.github.kxyr0.echodialogue:dialogue-contracts:${echo_dialogue_version}") { transitive = false }
+    compileOnly("io.github.kxyr0.echodialogue:dialogue-presentation-api:${echo_dialogue_version}") { transitive = false }
+    compileOnly("io.github.kxyr0.echodialogue:dialogue-forge-api-1.20.1:${echo_dialogue_version}") { transitive = false }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.named('processResources') {
+    filesMatching('META-INF/mods.toml') {
+        expand project.properties
+    }
+}
+
+tasks.named('jar', Jar) {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    manifest {
+        attributes('Automatic-Module-Name': mod_id)
+    }
+}
+
+tasks.register('verifyTestProviderJar') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('jar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def required = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echodialogue/presentationtest/EchoDialoguePresentationTestMod.class',
+                'data/echo_dialogue_test/echo_dialogue/dialogues/dynamic_provider_showcase.dialogue.es',
+                'assets/echo_dialogue_test/textures/echo_dialogue/skins/dynamic_father.png'
+        ]
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echodialogue/api/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/presentation/api/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/forge/api/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/core/')
+                    || entry.startsWith('io/github/kxyr0/echoscript/')
+                    || entry.startsWith('net/minecraft/')
+                    || entry.startsWith('net/minecraftforge/')
+        }
+        def missing = required.findAll { entry -> !entries.contains(entry) }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            throw new GradleException("Test provider JAR verification failed."
+                    + "\nmissing:\n" + missing.join('\n')
+                    + "\nforbidden:\n" + forbidden.join('\n'))
+        }
+        println "Echo Dialogue presentation test provider JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyTestProviderJar')
+}

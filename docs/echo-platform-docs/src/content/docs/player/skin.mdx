@@ -1,0 +1,27 @@
+---
+title: "Скин игрока"
+description: "ACCOUNT/RESOURCE, CLASSIC/SLIM и fallback для custom PNG."
+section: "Player"
+pageKind: "reference"
+status: "review"
+since: "P1"
+updated: "2026-07-25"
+relatedIds: ["PlayerSkinId", "PlayerSkinMode", "PlayerSkinModel", "PlayerAppearanceSnapshot"]
+relatedPages: ["player/profile", "player/wardrobe-boundary"]
+sourceRepositories: ["echo-content-player"]
+sourcePaths: ["D:/JDHSeason/mods/echo-content-player/player-core"]
+visualIdentity: "player-skin"
+interactiveModules: ["SkinResolutionLab"]
+searchKeywords: ["скин", "skin", "RESOURCE", "CLASSIC", "SLIM"]
+---
+import { SkinResolutionLab } from "../../../components/PlayerProfileLabs";
+
+# Скин игрока
+
+`ACCOUNT` использует vanilla account skin. Мод не скачивает skin, не вызывает Mojang API и не хранит base64.
+
+`RESOURCE` использует authored `PlayerSkinId`, например `jdh:player/default`, и модель `CLASSIC` или `SLIM`.
+
+<SkinResolutionLab client:load />
+
+Broken PNG не публикуется: client остаётся на previous known-good или падает обратно на account skin.

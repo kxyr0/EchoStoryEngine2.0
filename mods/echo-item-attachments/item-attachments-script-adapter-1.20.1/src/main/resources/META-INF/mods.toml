@@ -1,0 +1,23 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="echo_item_attachments_script_adapter"
+version="${mod_version}"
+displayName="Echo Item Attachments Script Adapter"
+description='''Blocking NPC and Player item attachment commands for Story EchoScript.'''
+
+[[dependencies.echo_item_attachments_script_adapter]]
+modId="echo_item_attachments"
+mandatory=true
+versionRange="[${mod_version},)"
+ordering="AFTER"
+side="SERVER"
+
+[[dependencies.echo_item_attachments_script_adapter]]
+modId="echo_story_engine"
+mandatory=true
+versionRange="[${story_api_version},)"
+ordering="AFTER"
+side="SERVER"

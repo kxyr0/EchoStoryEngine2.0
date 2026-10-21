@@ -1,0 +1,22 @@
+---
+title: "Синхронизация профиля"
+description: "Full snapshot, delta, revision и stale packet handling."
+section: "Player"
+pageKind: "architecture"
+status: "review"
+since: "P1"
+updated: "2026-07-25"
+relatedIds: ["PlayerProfileSnapshot", "PlayerProfileRevision"]
+relatedPages: ["player/profile", "platform/server-authority"]
+sourceRepositories: ["echo-content-player"]
+sourcePaths: ["D:/JDHSeason/mods/echo-content-player/player-forge-1.20.1"]
+visualIdentity: "player-sync"
+interactiveModules: []
+searchKeywords: ["sync", "snapshot", "revision", "client mirror"]
+---
+
+# Синхронизация профиля
+
+Сервер отправляет immutable snapshot при login, reconnect, tracking start и после mutation. Клиентский mirror не является authority.
+
+Stale packet игнорируется, если incoming revision старее локальной. При revision gap клиент должен запросить full snapshot вместо применения неполной delta.

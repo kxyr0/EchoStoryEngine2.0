@@ -1,0 +1,22 @@
+---
+title: "Move"
+description: "Blocking движение настоящего ServerPlayer через PlayerActorMotor."
+section: "Player"
+pageKind: "api"
+status: "review"
+since: "PA1"
+updated: "2026-07-28"
+relatedIds: ["PlayerActorMoveRequest", "PlayerActorMotor", "PlayerNavigationCommandBridge"]
+relatedPages: ["player-actor/body-control", "player-actor/recovery"]
+sourceRepositories: ["echo-player-actor", "echo-player-navigation-adapter"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-actor/player-actor-forge-1.20.1"]
+visualIdentity: "player-move"
+interactiveModules: ["PlayerActorSequenceLab"]
+searchKeywords: ["Move", "motor", "navigation", "collision"]
+---
+
+# Move
+
+`Player.Move(destination)` является blocking командой. Runtime отклоняет движение, если actor сидит, и не выполняет cross-dimension movement.
+
+Movement adapter делает Navigation preflight, а `PlayerActorMotor` двигает настоящее body через collision-aware server movement.

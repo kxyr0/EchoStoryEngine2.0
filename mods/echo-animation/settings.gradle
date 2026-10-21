@@ -1,0 +1,29 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-animation'
+
+include 'animation-contracts'
+include 'animation-core'
+include 'animation-definition'
+include 'animation-echoscript-adapter'
+include 'animation-forge-api-1.20.1'
+include 'animation-forge-1.20.1'
+include 'animation-client-rendering'
+
+
+includeBuild '../echo-events'
+
+includeBuild '../echo-script'

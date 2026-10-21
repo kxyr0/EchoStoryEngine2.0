@@ -1,0 +1,16 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="echo_item_inspection_testmod"
+version="${mod_version}"
+displayName="Echo Item Inspection Testmod"
+description='''Development-only exact-stack and model fixtures.'''
+
+[[dependencies.echo_item_inspection_testmod]]
+modId="echo_item_inspection"
+mandatory=true
+versionRange="[${mod_version},)"
+ordering="AFTER"
+side="BOTH"

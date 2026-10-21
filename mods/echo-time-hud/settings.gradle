@@ -1,0 +1,17 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+plugins { id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0' }
+
+rootProject.name = 'echo-time-hud'
+include 'time-hud-core'
+include 'time-hud-forge-1.20.1'
+include 'time-hud-testmod-1.20.1'
+includeBuild '../echo-script'
+includeBuild '../echo-time'
+

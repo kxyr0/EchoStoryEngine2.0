@@ -1,0 +1,62 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Development-only Echo Wardrobe vertical proof fixtures.'
+
+base {
+    archivesName = 'echo-wardrobe-testmod'
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source project(':wardrobe-forge-1.20.1').sourceSets.main
+                    source project(':wardrobe-contracts').sourceSets.main
+                    source project(':wardrobe-core').sourceSets.main
+                    source project(':wardrobe-forge-api-1.20.1').sourceSets.main
+                }
+                echo_wardrobe_test {
+                    source sourceSets.main
+                }
+            }
+        }
+        client { }
+        server {
+            args '--nogui'
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':wardrobe-contracts')
+    implementation project(':wardrobe-core')
+    implementation project(':wardrobe-forge-api-1.20.1')
+    implementation project(':wardrobe-forge-1.20.1')
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}

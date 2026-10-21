@@ -1,0 +1,17 @@
+{
+  "item.echo_magic_weapons.fire_spear": "Fire Spear",
+  "item.echo_magic_weapons.water_whip": "Water Whip",
+  "item.echo_magic_weapons.stone_gauntlets": "Stone Gauntlets",
+  "item.echo_magic_weapons.air_blade": "Air Blade",
+  "item.echo_magic_weapons.void_dagger": "Void Dagger",
+  "item.echo_magic_weapons.temporary": "Temporary Echo weapon",
+  "item.echo_magic_weapons.fire_spear.hint": "Overheat releases a wave. Sneak + use plants a fire line",
+  "item.echo_magic_weapons.water_whip.hint": "Mouse motion steers hits. Use pulls a weak target or item",
+  "item.echo_magic_weapons.stone_gauntlets.hint": "Use for heavy guard. A downward hit cracks the ground",
+  "item.echo_magic_weapons.air_blade.hint": "Sprint and jump empower it. Use parries; charge to dash",
+  "item.echo_magic_weapons.void_dagger.hint": "A mark empowers damage. Charge use to move behind the marked target",
+  "message.echo_magic_weapons.summoned": "Summoned: %s",
+  "message.echo_magic_weapons.faded": "The Echo weapon faded",
+  "command.echo_magic_weapons.unavailable": "Echo Magic engine is unavailable",
+  "command.echo_magic_weapons.success": "%s received every elemental arsenal spell"
+}

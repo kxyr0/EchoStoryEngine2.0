@@ -1,0 +1,13 @@
+{
+  "key.categories.echo_observation_authoring": "Echo: точки наблюдения (разработка)",
+  "key.echo_observation_authoring.toggle": "Режим расстановки точек",
+  "key.echo_observation_authoring.place": "Установить выбранную точку",
+  "key.echo_observation_authoring.previous": "Предыдущая точка / ресурс",
+  "key.echo_observation_authoring.next": "Следующая точка / ресурс",
+  "key.echo_observation_authoring.clear": "Очистить позицию выбранной точки",
+  "key.echo_observation_authoring.picker": "Открыть список точек наблюдения",
+  "screen.echo_observation_authoring.picker.title": "Выбор точки наблюдения",
+  "screen.echo_observation_authoring.picker.search": "Поиск по ресурсу, ID или объявлению…",
+  "screen.echo_observation_authoring.picker.empty": "Ничего не найдено",
+  "screen.echo_observation_authoring.picker.help": "Enter — выбрать • двойной клик — выбрать • Esc — отменить"
+}

@@ -1,0 +1,63 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+allprojects {
+    repositories {
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    version = rootProject.version
+    group = rootProject.group
+    java { toolchain { languageVersion = JavaLanguageVersion.of(17) }; withSourcesJar() }
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+    tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+}
+
+tasks.register('test') { dependsOn subprojects.collect { "${it.path}:test" } }
+
+tasks.register('sourceShapeCheck') {
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        fileTree(rootDir) {
+            include 'time-hud-*/src/main/java/**/*.java'
+            exclude 'time-hud-testmod-1.20.1/**', '**/build/**'
+        }.files.each { file ->
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()]++
+            def logical = file.getText('UTF-8').readLines().count { line ->
+                def value = line.trim(); value && !value.startsWith('//') && !value.startsWith('*')
+            }
+            if (logical > 180) violations << "${relative}: ${logical} logical lines; max is 180"
+        }
+        counts.each { path, count ->
+            if (count > 7) violations << "${rootDir.toPath().relativize(path)}: ${count} Java files; max is 7"
+        }
+        if (!violations.isEmpty()) throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        println 'Source shape: Java >180 = 0; leaf packages >7 = 0'
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('sourceShapeCheck')
+}
+

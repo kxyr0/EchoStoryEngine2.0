@@ -1,0 +1,10 @@
+{
+  "command.echo_fire_magic.setup.unavailable": "Echo Magic service is unavailable.",
+  "command.echo_fire_magic.setup.not_loaded": "Fire Bolt was not loaded.",
+  "command.echo_fire_magic.setup.success": "Fire Magic unlocked for %1$s. Use the configured \"%2$s\" control.",
+  "block.echo_fire_magic.blacksmith_blank": "Blacksmith Blank",
+  "message.echo_fire_magic.blacksmith.no_target": "Blacksmith's Hand: hold a smeltable item or aim at a heatable block.",
+  "message.echo_fire_magic.blacksmith.started": "Blacksmith's Hand: smelting started.",
+  "message.echo_fire_magic.blacksmith.interrupted": "Blacksmith's Hand: heating was interrupted.",
+  "message.echo_fire_magic.blacksmith.complete": "Blacksmith's Hand: complete."
+}

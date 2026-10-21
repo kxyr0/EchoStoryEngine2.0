@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "io.github.kxyr0.echononametags.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "client": [
+    "EntityRendererNameTagMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

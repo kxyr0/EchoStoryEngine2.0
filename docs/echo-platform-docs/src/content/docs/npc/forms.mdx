@@ -1,0 +1,40 @@
+---
+title: "Формы NPC"
+description: "Child/adult формы одного NPC без подмены durable identity."
+section: "NPC"
+pageKind: "architecture"
+status: "review"
+since: "N5"
+updated: "2026-07-29"
+relatedIds: ["ActorId", "NpcFormId", "NpcFormRevision", "NpcFormSnapshot"]
+relatedPages: ["npc/materialization", "npc/scene-placement-sleep", "adapters/npc-animation", "adapters/dialogue-npc"]
+sourceRepositories: ["echo-npc", "echo-npc-animation-adapter", "echo-dialogue-npc-adapter"]
+sourcePaths: ["D:/JDHSeason/mods/echo-npc", "D:/JDHSeason/mods/echo-npc-animation-adapter"]
+visualIdentity: "state-lines"
+interactiveModules: []
+searchKeywords: ["Npc.SetForm", "Npc.PlaceAt", "NpcFormId", "детская форма", "взрослая форма", "time skip"]
+---
+
+# Формы NPC
+
+N5 разделяет durable личность NPC и его текущую форму. `ActorId` остается
+стабильным, например `jdh:sasha`, а активная `NpcFormId` может быть
+`jdh:sasha/child` или `jdh:sasha/adult`.
+
+Форма несет skin, humanoid model profile, dimensions, body part transforms,
+anchors, animation graph, face profile и portrait id. Runtime сохраняет только
+active form id/revision/fingerprint в actor save schema v3.
+
+## Команды
+
+```text
+/echo_npc forms list
+/echo_npc forms inspect <form_id>
+/echo_npc form get <npc_id>
+/echo_npc form set <npc_id> <form_id>
+/echo_npc form validate_space <npc_id> <form_id>
+/echo_npc place_at <npc_id> <pos> <yaw> <pitch>
+```
+
+Для time skip: закрой кадр, вызови `Npc.SetForm`, затем `Npc.PlaceAt`, потом
+обнови dialogue portrait и animation graph из active form snapshot.

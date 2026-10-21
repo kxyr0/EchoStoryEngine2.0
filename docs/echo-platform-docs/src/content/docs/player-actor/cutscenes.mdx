@@ -1,0 +1,22 @@
+---
+title: "Катсцены"
+description: "Как Cutscene adapter получает lease и оставляет камеру отдельной системой."
+section: "Player"
+pageKind: "lifecycle"
+status: "review"
+since: "PA1"
+updated: "2026-07-28"
+relatedIds: ["CutsceneLifecycleEvent", "PlayerControlLease"]
+relatedPages: ["player-actor/control-lease", "player-actor/body-control"]
+sourceRepositories: ["echo-cutscene-player-actor-adapter", "echo-cutscene"]
+sourcePaths: ["D:/JDHSeason/mods/echo-cutscene-player-actor-adapter"]
+visualIdentity: "player-cutscene"
+interactiveModules: ["ControlLeaseLab"]
+searchKeywords: ["cutscene", "detached camera", "lease"]
+---
+
+# Катсцены
+
+Echo Cutscene управляет detached camera. Echo Player Actor управляет body.
+
+Adapter берёт lease на `PLAYING/ACCEPTED` и отпускает его на terminal lifecycle. Текущий public Cutscene API не отдаёт Dialogue owner lineage, поэтому adapter не импортирует cutscene core ради этой информации.

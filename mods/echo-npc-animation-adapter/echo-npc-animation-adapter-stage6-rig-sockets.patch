@@ -1,0 +1,223 @@
+diff --git a/build.gradle b/build.gradle
+index ba3984b..b66c816 100644
+--- a/build.gradle
++++ b/build.gradle
+@@ -11,7 +11,6 @@ base {
+ }
+ 
+ repositories {
+-	mavenLocal()
+     maven {
+         name = 'EchoAnimationIntegration'
+         url = file('../echo-animation/build/integration-maven').toURI()
+@@ -33,6 +32,7 @@ repositories {
+             includeGroup 'io.github.kxyr0.echonavigation'
+         }
+     }
++    mavenLocal()
+     mavenCentral()
+     maven {
+         name = 'MinecraftForge'
+@@ -70,6 +70,7 @@ dependencies {
+     testImplementation "io.github.kxyr0.echoanimation:animation-contracts:${echo_animation_version}"
+     testImplementation "io.github.kxyr0.echoanimation:animation-forge-api-1.20.1:${echo_animation_version}"
+     testImplementation "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
++    testImplementation "io.github.kxyr0.echonpc:npc-forge-api-1.20.1:${echo_npc_version}"
+     testImplementation "io.github.kxyr0.echonavigation:navigation-contracts:${echo_navigation_version}"
+     testImplementation platform("org.junit:junit-bom:${junit_version}")
+     testImplementation 'org.junit.jupiter:junit-jupiter'
+diff --git a/gradle.properties b/gradle.properties
+index b7e648e..e23a637 100644
+--- a/gradle.properties
++++ b/gradle.properties
+@@ -19,8 +19,8 @@ artifact_name=echo-npc-animation-adapter
+ mod_authors=kxyr0
+ mod_description=Public API adapter between Echo NPC and Echo Animation.
+ 
+-echo_animation_version=0.5.0-SNAPSHOT
+-echo_animation_mod_version_range=[0.5.0-SNAPSHOT,)
++echo_animation_version=0.6.0-SNAPSHOT
++echo_animation_mod_version_range=[0.6.0-SNAPSHOT,)
+ echo_npc_version=0.6.0-SNAPSHOT
+ echo_npc_mod_version_range=[0.6.0-SNAPSHOT,)
+ echo_navigation_version=0.3.0
+diff --git a/src/main/java/io/github/kxyr0/echonpcanimationadapter/client/EchoNpcFaceAnimationExtension.java b/src/main/java/io/github/kxyr0/echonpcanimationadapter/client/EchoNpcFaceAnimationExtension.java
+index 853c74c..9b00afc 100644
+--- a/src/main/java/io/github/kxyr0/echonpcanimationadapter/client/EchoNpcFaceAnimationExtension.java
++++ b/src/main/java/io/github/kxyr0/echonpcanimationadapter/client/EchoNpcFaceAnimationExtension.java
+@@ -8,7 +8,6 @@ import io.github.kxyr0.echoanimation.forge.api.client.render.AnimationFaceRender
+ import io.github.kxyr0.echoanimation.forge.api.client.render.AnimationFaceRenderResult;
+ import io.github.kxyr0.echoanimation.forge.api.client.render.AnimationHumanoidRenderContext;
+ import io.github.kxyr0.echoanimation.forge.api.client.render.AnimationHumanoidRenderResult;
+-import io.github.kxyr0.echonpc.forge.api.client.attachment.NpcVisualAttachmentAnchor;
+ import io.github.kxyr0.echonpc.forge.api.client.render.NpcClientRenderExtension;
+ import io.github.kxyr0.echonpc.forge.api.client.render.NpcClientRenderResult;
+ import io.github.kxyr0.echonpc.forge.api.client.render.NpcHeadRenderContext;
+@@ -136,10 +135,8 @@ public final class EchoNpcFaceAnimationExtension
+                                                 context
+                                                         .replacementAttachments()
+                                                         .render(
+-                                                                (anchor, poses) ->
+-                                                                        bones.apply(
+-                                                                                boneName(anchor),
+-                                                                                poses))));
++                                                                new NpcAnimationAttachmentBridge(
++                                                                        bones))));
+ 
+         return switch (result) {
+             case REPLACED_DEFAULT_MODEL ->
+@@ -156,20 +153,6 @@ public final class EchoNpcFaceAnimationExtension
+         };
+     }
+ 
+-    private String boneName(
+-            NpcVisualAttachmentAnchor anchor) {
+-
+-        return switch (anchor) {
+-            case TORSO_BACK ->
+-                    "body";
+-
+-            case LEFT_HAND ->
+-                    "left_shoulder";
+-
+-            case RIGHT_HAND ->
+-                    "right_shoulder";
+-        };
+-    }
+ 
+     private List<FaceRigId> rigCandidates(
+             String definitionId,
+diff --git a/src/main/java/io/github/kxyr0/echonpcanimationadapter/client/NpcAnimationAttachmentBridge.java b/src/main/java/io/github/kxyr0/echonpcanimationadapter/client/NpcAnimationAttachmentBridge.java
+new file mode 100644
+index 0000000..b4a882e
+--- /dev/null
++++ b/src/main/java/io/github/kxyr0/echonpcanimationadapter/client/NpcAnimationAttachmentBridge.java
+@@ -0,0 +1,67 @@
++package io.github.kxyr0.echonpcanimationadapter.client;
++
++import com.mojang.blaze3d.vertex.PoseStack;
++import io.github.kxyr0.echoanimation.forge.api.client.render.attachment.AnimationAttachmentTransformSpace;
++import io.github.kxyr0.echoanimation.forge.api.client.render.AnimationBoneTransformProvider;
++import io.github.kxyr0.echoanimation.forge.api.client.render.attachment.AnimationHumanoidAttachmentAnchor;
++import io.github.kxyr0.echonpc.forge.api.client.attachment.NpcVisualAttachmentAnchor;
++import io.github.kxyr0.echonpc.forge.api.client.attachment.NpcVisualAttachmentTransformProvider;
++import io.github.kxyr0.echonpc.forge.api.client.attachment.NpcVisualAttachmentTransformSpace;
++import java.util.Objects;
++
++/** Converts stable NPC attachment semantics to the active animation rig socket contract. */
++final class NpcAnimationAttachmentBridge
++        implements NpcVisualAttachmentTransformProvider {
++
++    private final AnimationBoneTransformProvider bones;
++
++    NpcAnimationAttachmentBridge(
++            AnimationBoneTransformProvider bones) {
++
++        this.bones = Objects.requireNonNull(
++                bones,
++                "bones");
++    }
++
++    @Override
++    public void apply(
++            NpcVisualAttachmentAnchor anchor,
++            PoseStack poses) {
++
++        bones.applyAnchor(
++                animationAnchor(anchor),
++                poses);
++    }
++
++    @Override
++    public NpcVisualAttachmentTransformSpace space(
++            NpcVisualAttachmentAnchor anchor) {
++
++        AnimationAttachmentTransformSpace space =
++                bones.anchorSpace(
++                        animationAnchor(anchor));
++
++        return switch (space) {
++            case LEGACY_PART_RELATIVE ->
++                    NpcVisualAttachmentTransformSpace.PART_RELATIVE;
++
++            case MODEL_ABSOLUTE ->
++                    NpcVisualAttachmentTransformSpace.MODEL_ABSOLUTE;
++        };
++    }
++
++    static AnimationHumanoidAttachmentAnchor animationAnchor(
++            NpcVisualAttachmentAnchor anchor) {
++
++        return switch (Objects.requireNonNull(anchor, "anchor")) {
++            case TORSO_BACK ->
++                    AnimationHumanoidAttachmentAnchor.TORSO_BACK;
++
++            case LEFT_HAND ->
++                    AnimationHumanoidAttachmentAnchor.LEFT_HAND;
++
++            case RIGHT_HAND ->
++                    AnimationHumanoidAttachmentAnchor.RIGHT_HAND;
++        };
++    }
++}
+diff --git a/src/test/java/io/github/kxyr0/echonpcanimationadapter/client/NpcAnimationAttachmentBridgeTest.java b/src/test/java/io/github/kxyr0/echonpcanimationadapter/client/NpcAnimationAttachmentBridgeTest.java
+new file mode 100644
+index 0000000..09a654d
+--- /dev/null
++++ b/src/test/java/io/github/kxyr0/echonpcanimationadapter/client/NpcAnimationAttachmentBridgeTest.java
+@@ -0,0 +1,55 @@
++package io.github.kxyr0.echonpcanimationadapter.client;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++
++import com.mojang.blaze3d.vertex.PoseStack;
++import io.github.kxyr0.echoanimation.forge.api.client.render.attachment.AnimationAttachmentTransformSpace;
++import io.github.kxyr0.echoanimation.forge.api.client.render.AnimationBoneTransformProvider;
++import io.github.kxyr0.echoanimation.forge.api.client.render.attachment.AnimationHumanoidAttachmentAnchor;
++import io.github.kxyr0.echonpc.forge.api.client.attachment.NpcVisualAttachmentAnchor;
++import io.github.kxyr0.echonpc.forge.api.client.attachment.NpcVisualAttachmentTransformSpace;
++import org.junit.jupiter.api.Test;
++
++final class NpcAnimationAttachmentBridgeTest {
++    @Test
++    void mapsNpcAnchorsToAnimationSemantics() {
++        assertEquals(
++                AnimationHumanoidAttachmentAnchor.TORSO_BACK,
++                NpcAnimationAttachmentBridge.animationAnchor(
++                        NpcVisualAttachmentAnchor.TORSO_BACK));
++        assertEquals(
++                AnimationHumanoidAttachmentAnchor.LEFT_HAND,
++                NpcAnimationAttachmentBridge.animationAnchor(
++                        NpcVisualAttachmentAnchor.LEFT_HAND));
++        assertEquals(
++                AnimationHumanoidAttachmentAnchor.RIGHT_HAND,
++                NpcAnimationAttachmentBridge.animationAnchor(
++                        NpcVisualAttachmentAnchor.RIGHT_HAND));
++    }
++
++    @Test
++    void carriesAbsoluteSocketSpaceAcrossAdapterBoundary() {
++        AnimationBoneTransformProvider bones =
++                new AnimationBoneTransformProvider() {
++                    @Override
++                    public void apply(
++                            String boneName,
++                            PoseStack poses) {
++                    }
++
++                    @Override
++                    public AnimationAttachmentTransformSpace anchorSpace(
++                            AnimationHumanoidAttachmentAnchor anchor) {
++
++                        return AnimationAttachmentTransformSpace.MODEL_ABSOLUTE;
++                    }
++                };
++
++        NpcAnimationAttachmentBridge bridge =
++                new NpcAnimationAttachmentBridge(bones);
++
++        assertEquals(
++                NpcVisualAttachmentTransformSpace.MODEL_ABSOLUTE,
++                bridge.space(NpcVisualAttachmentAnchor.LEFT_HAND));
++    }
++}

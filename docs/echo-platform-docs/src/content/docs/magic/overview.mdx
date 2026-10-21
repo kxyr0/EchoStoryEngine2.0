@@ -1,0 +1,42 @@
+---
+title: "Echo Magic и Void Magic"
+description: "M1/VM1: общий SpellResource engine, server-authoritative projectile и независимая Void school."
+section: "Magic"
+pageKind: "architecture"
+status: "review"
+since: "M1/VM1"
+updated: "2026-08-02"
+relatedIds: ["SpellId", "SpellDefinition", "SpellCastId", "SpellProjectileId", "MagicDamageTypeId"]
+relatedPages: ["platform/content-workspace", "platform/server-authority", "platform/hot-reload"]
+sourceRepositories: ["echo-magic", "echo-void-magic", "echo-script"]
+sourcePaths: ["D:/JDHSeason/mods/echo-magic", "D:/JDHSeason/mods/echo-void-magic"]
+visualIdentity: "magic-overview"
+interactiveModules: []
+searchKeywords: ["SpellResource", "Void Daggers", "MagicService", "projectile", "spell wheel"]
+---
+
+# Echo Magic и Void Magic
+
+`echo-magic` владеет общим движком. `echo-void-magic` — независимый content provider и зависит только от публичных contracts/API.
+
+```text
+key input / EchoScript
+→ SpellCastService
+→ server validation
+→ SpellCastInstance
+→ burst scheduler
+→ generic MagicProjectileEntity
+→ swept block/entity collision
+→ data-driven DamageSource
+→ hit receipt
+
+client projectile state
+→ fixed-spacing trail sampling
+→ tinted void_circle particles
+→ impact particles
+```
+
+Заклинания находятся в `data/<namespace>/echo_magic/spells/*.es` или во внешнем `<gameDir>/story/content-pack/<namespace>/echo_magic/spells/`. Parser вызывается при load/reload, не при cast. Broken candidate сохраняет last-known-good catalog.
+
+Будущий spell wheel читает `SpellCatalogView`, `KnownSpellView`, `SelectedSpellView` и `SpellCooldownView`, выбирает spell через `SpellSelectionService` и не импортирует Void Magic.
+

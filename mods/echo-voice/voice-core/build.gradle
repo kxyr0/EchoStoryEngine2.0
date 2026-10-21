@@ -1,0 +1,5 @@
+description = 'Plain Java Echo Voice state machines and policies.'
+
+dependencies {
+    api project(':voice-contracts')
+}

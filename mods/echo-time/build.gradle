@@ -1,0 +1,107 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+allprojects {
+    repositories {
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+
+    version = rootProject.version
+    group = rootProject.group
+
+    java {
+        toolchain { languageVersion = JavaLanguageVersion.of(17) }
+        withSourcesJar()
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+}
+
+configure([project(':time-contracts'), project(':time-forge-api-1.20.1')]) {
+    apply plugin: 'maven-publish'
+    publishing {
+        publications { register('mavenJava', MavenPublication) { from components.java } }
+        repositories { maven { name = 'integrationMaven'; url = rootProject.layout.buildDirectory.dir('integration-maven') } }
+    }
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Enforces ET1 production Java and EchoScript source shape.'
+    doLast {
+        def violations = []
+        def javaCounts = [:].withDefault { 0 }
+        fileTree(rootDir) {
+            include 'time-*/src/main/java/**/*.java'
+            exclude 'time-testmod-1.20.1/**', '**/build/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            javaCounts[file.parentFile.toPath()]++
+            def logical = text.readLines().count { line ->
+                def value = line.trim()
+                value && !value.startsWith('//') && !value.startsWith('*')
+            }
+            if (logical > 180) violations << "${relative}: ${logical} logical lines; max is 180"
+            if (relative =~ /(?i)(^|[\\\/])(misc|helpers?|more|part1|part2|time2|clock2|trigger2|services2|internal2|impl2)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague package segment"
+            }
+        }
+        javaCounts.each { path, count ->
+            if (count > 7) violations << "${rootDir.toPath().relativize(path)}: ${count} Java files; max is 7"
+        }
+        def scriptCounts = [:].withDefault { 0 }
+        fileTree(rootDir) { include 'time-*/src/main/resources/**/*.es'; exclude '**/build/**' }.files.each { file ->
+            scriptCounts[file.parentFile.toPath()]++
+            def logical = file.getText('UTF-8').readLines().count { line ->
+                def value = line.trim(); value && !value.startsWith('//')
+            }
+            if (logical > 180) violations << "${rootDir.toPath().relativize(file.toPath())}: ${logical} logical lines; max is 180"
+        }
+        scriptCounts.each { path, count ->
+            if (count > 7) violations << "${rootDir.toPath().relativize(path)}: ${count} scripts; max is 7"
+        }
+        if (!violations.isEmpty()) throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        println 'Source shape: Java >180 = 0; EchoScript >180 = 0; leaf packages/folders >7 = 0'
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('sourceShapeCheck')
+}
+
+tasks.register('publishTimeIntegrationArtifacts') {
+    group = 'publishing'
+    dependsOn ':time-contracts:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':time-forge-api-1.20.1:publishMavenJavaPublicationToIntegrationMavenRepository'
+}

@@ -1,0 +1,55 @@
+---
+title: "Правила зависимостей"
+description: "Интерактивное поле разрешённых и запрещённых связей между Echo NPC, Echo Animation и адаптером."
+section: "Platform"
+pageKind: "decision"
+status: "review"
+since: "A4"
+updated: "2026-07-22"
+relatedIds: ["ActorId", "AnimationSubjectId", "AnimationProfileId"]
+relatedPages: ["animation/a4-npc-lifecycle-integration", "adapters/allowed-dependencies"]
+sourceRepositories: ["echo-animation", "echo-npc", "echo-npc-animation-adapter", "echo-story-content-pack"]
+sourcePaths: ["D:/JDHSeason/mods/echo-animation", "D:/JDHSeason/mods/echo-npc-animation-adapter"]
+visualIdentity: "dependency-field"
+interactiveModules: ["DependencyField"]
+searchKeywords: ["правила зависимостей", "A4", "EchoScript", "ActorId", "/echo_animation"]
+---
+import { DependencyBoundary } from "../../../components/DependencyBoundary";
+
+# Правила зависимостей
+
+<DependencyBoundary client:load />
+
+## Почему граница важна
+
+`echo-animation` не знает, что такое NPC. Он владеет `AnimationSubjectId`, `AnimationProfileId`, playback lifecycle и lease-правилами. `echo-npc` не знает, как рендерится segmented humanoid. Он владеет `ActorId`, durable actor state и materialization.
+
+Связь появляется только в `echo-npc-animation-adapter`: адаптер читает публичные снимки NPC, резолвит `NpcAnimationBinding`, создаёт или обновляет animation subject и потом публикует результат клиентам.
+
+## Разрешённые Java imports
+
+```java
+import io.github.kxyr.echoNPC.forge.api.ActorId;
+import io.github.kxyr.echoNPC.forge.api.NpcService;
+import io.github.kxyr.echoAnimation.api.AnimationProfileId;
+import io.github.kxyr.echoAnimation.api.AnimationService;
+import io.github.kxyr.echoAnimation.api.AnimationSubjectId;
+```
+
+Эти imports допустимы внутри adapter, потому что они проходят через публичные контракты. Такой код может жить в:
+
+```text
+D:/JDHSeason/mods/echo-npc-animation-adapter
+```
+
+## Запрещённый import
+
+```java
+import io.github.kxyr.echoNPC.forge.internal.entity.EchoNpcEntity;
+```
+
+Если этот import появляется внутри `echo-animation`, граница уже нарушена. Animation core начинает зависеть от физической сущности, хотя должен работать с логическим subject и не знать, откуда он пришёл.
+
+## Практическое правило
+
+Когда нужен мост между Actor и playback, код размещается в адаптере. Когда нужен новый animation API, он добавляется в `echo-animation` без импорта NPC. Когда нужен новый NPC snapshot, он добавляется в `echo-npc` без импорта animation.

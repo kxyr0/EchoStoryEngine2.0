@@ -1,0 +1,113 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+version = mod_version
+group = mod_group_id
+
+def magicRepository = file('../echo-magic/build/integration-maven')
+allprojects {
+    repositories {
+        maven { name = 'EchoMagicSibling'; url = magicRepository.toURI() }
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+tasks.register('prepareMagicArtifacts', Exec) {
+    group = LifecycleBasePlugin.BUILD_GROUP
+    workingDir file('../echo-magic')
+    commandLine new File(workingDir, org.gradle.internal.os.OperatingSystem.current().isWindows()
+            ? 'gradlew.bat' : 'gradlew').absolutePath,
+            'publishMagicIntegrationArtifacts', '--console=plain'
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    version = rootProject.version
+    group = rootProject.group
+    java {
+        toolchain { languageVersion = JavaLanguageVersion.of(17) }
+        withSourcesJar()
+    }
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+    checkstyle {
+        toolVersion = checkstyle_version
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    }
+    pmd {
+        toolVersion = pmd_version
+        ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+        ruleSets = []
+    }
+    tasks.withType(Pmd).configureEach { classpath = files() }
+}
+
+gradle.projectsEvaluated {
+    project(':water-magic-forge-1.20.1').tasks.matching {
+        it.name in ['compileJava', 'compileTestJava', 'jar']
+    }.configureEach {
+        dependsOn rootProject.tasks.named('prepareMagicArtifacts')
+    }
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        def javaFiles = fileTree(rootDir) {
+            include 'water-*/src/main/java/**/*.java'
+            exclude '**/build/**'
+        }.files
+        javaFiles.each { file ->
+            def logical = file.getText('UTF-8').readLines().count {
+                line -> line.trim() && !line.trim().startsWith('//')
+                        && !line.trim().startsWith('*')
+            }
+            if (logical > 180) {
+                violations << "${file}: ${logical} logical lines; max is 180"
+            }
+        }
+        javaFiles.groupBy { it.parentFile }.each { path, files ->
+            if (files.size() > 7) violations << "${path}: ${files.size()} files; max is 7"
+        }
+        def scripts = fileTree(rootDir) {
+            include 'water-*/src/main/resources/**/*.es'
+            exclude '**/build/**'
+        }.files
+        scripts.each { file ->
+            def logical = file.getText('UTF-8').readLines().count {
+                it.trim() && !it.trim().startsWith('//')
+            }
+            if (logical > 180) {
+                violations << "${file}: ${logical} logical lines; max is 180"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+        println 'Source shape checks passed.'
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('sourceShapeCheck')
+}
+

@@ -1,0 +1,4 @@
+dependencies {
+    testImplementation 'io.github.kxyr0.echoscene:echo-scene:0.3.0'
+}
+

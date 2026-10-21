@@ -1,0 +1,17 @@
+pluginManagement { repositories { gradlePluginPortal(); mavenCentral() } }
+rootProject.name = 'echo-content-doctor'
+includeBuild '../echo-scene'
+includeBuild '../echo-audio'
+includeBuild '../echo-save-migration'
+includeBuild '../echo-dev-scenarios'
+includeBuild '../echo-script'
+includeBuild '../echo-story-engine'
+includeBuild '../echo-dialogue'
+includeBuild '../echo-npc'
+includeBuild '../echo-animation'
+includeBuild '../echo-item-inspection'
+includeBuild '../echo-item-pack'
+
+includeBuild '../echo-trigger'
+includeBuild '../echo-events'
+includeBuild '../echo-observation'

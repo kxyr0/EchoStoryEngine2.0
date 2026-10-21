@@ -1,0 +1,7 @@
+{
+  "entity.echo_test_target.immortal_target": "Immortal Test Target",
+  "item.echo_test_target.immortal_target_spawn_egg": "Immortal Test Target Spawn Egg",
+  "command.echo_test_target.spawned": "Immortal test targets spawned: %s",
+  "command.echo_test_target.cleared": "Immortal test targets removed: %s"
+}
+

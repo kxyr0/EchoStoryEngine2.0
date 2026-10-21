@@ -1,0 +1,48 @@
+﻿---
+title: "Dialogue и NPC"
+description: "Как диалог знает ActorId и не ломает durable состояние."
+section: "Adapters"
+pageKind: "architecture"
+status: "review"
+since: "A4"
+updated: "2026-07-22"
+relatedIds: ["ActorId", "AnimationSubjectId", "AnimationProfileId"]
+relatedPages: ["animation/a4-npc-lifecycle-integration", "platform/dependency-rules"]
+sourceRepositories: ["echo-animation", "echo-npc", "echo-npc-animation-adapter", "echo-story-content-pack"]
+sourcePaths: ["D:/JDHSeason/mods/echo-animation", "D:/JDHSeason/mods/echo-npc-animation-adapter"]
+visualIdentity: "state-lines"
+interactiveModules: ["DependencyBoundary"]
+searchKeywords: ["Dialogue и NPC", "Адаптеры", "EchoScript", "ActorId", "/echo_animation"]
+---
+import { DependencyBoundary } from "../../../components/DependencyBoundary";
+
+# Dialogue и NPC
+
+Как диалог знает ActorId и не ломает durable состояние.
+
+Эта страница фиксирует рабочий контракт раздела «Адаптеры»: какие ID должны оставаться стабильными, где проходит граница ответственности и что проверять при ошибке в контенте или состоянии во время игры.
+
+## Контракт во время игры
+
+- Долговечные ID должны быть логическими и иметь namespace.
+- Сервер остаётся единственным источником состояния. Клиенты получают только снимки и изменения.
+- Согласование должно быть идемпотентным: повторная проверка не перезапускает уже активное проигрывание.
+- Диагностика ограничена по размеру, чтобы один сломанный ресурс не ломал соседних актёров.
+
+## Что смотреть разработчику
+
+- Проверьте ID из `.es` и путь файла в контент-паке.
+- После правки выполните `/reload`.
+- Смотрите профильную диагностику: `/echo_story diagnostics 20`, `/echo_dialogue diagnostics 20`, `/echo_npc diagnostics 20`, `/echo_animation diagnostics 20`.
+- Если страница связана с адаптером, проверьте `/echo_story extensions` и соответствующий мост.
+
+## Исходники
+
+- `D:/JDHSeason/mods/echo-animation`
+- `D:/JDHSeason/mods/echo-npc`
+- `D:/JDHSeason/mods/echo-npc-animation-adapter`
+- `D:/JDHSeason/mods/echo-story-content-pack`
+
+## Интерактивная проверка
+
+<DependencyBoundary client:load />

@@ -1,0 +1,8 @@
+description = 'Client-side draw planning and preview rendering primitives.'
+
+dependencies {
+    api project(':animation-contracts')
+    implementation project(':animation-core')
+    implementation project(':animation-definition')
+}
+

@@ -1,0 +1,233 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--canvas);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 100%;
+  line-height: 1.68;
+  scroll-padding-top: calc(var(--topbar-height) + 28px);
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--canvas);
+  color: var(--text-primary);
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.doc-article {
+  font-size: var(--text-body);
+}
+
+.doc-article > h1:first-child {
+  display: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-weight: 680;
+  letter-spacing: 0;
+  line-height: 1.08;
+}
+
+h1 {
+  margin: 0;
+  font-size: var(--heading-1);
+  max-width: 10.8ch;
+}
+
+.doc-article h2 {
+  position: relative;
+  margin: 4.5rem 0 1.05rem;
+  font-size: var(--heading-2);
+}
+
+.doc-article h2::before {
+  content: "";
+  position: absolute;
+  left: -44px;
+  top: 0.52em;
+  width: 26px;
+  height: 2px;
+  background: var(--accent-warm);
+}
+
+.doc-article h3 {
+  margin: 2.2rem 0 0.75rem;
+  font-size: var(--heading-3);
+}
+
+.doc-article p,
+.doc-article li,
+.doc-article dd {
+  color: var(--text-secondary);
+  max-width: var(--reading-width);
+}
+
+.doc-article p {
+  margin: 1rem 0;
+}
+
+.doc-article ul,
+.doc-article ol {
+  max-width: var(--reading-width);
+  margin: 1.1rem 0 1.4rem;
+  padding-left: 0;
+}
+
+.doc-article li {
+  position: relative;
+  margin: 0.55rem 0;
+  padding-left: 1.65rem;
+}
+
+.doc-article li::marker {
+  content: "";
+}
+
+.doc-article li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.72em;
+  width: 0.62rem;
+  height: 2px;
+  background: var(--accent-primary);
+}
+
+.doc-article strong {
+  color: var(--text-primary);
+}
+
+.doc-article blockquote {
+  margin: 2rem 0;
+  max-width: var(--reading-width);
+  border-left: 3px solid var(--accent-secondary);
+  padding: 0.2rem 0 0.2rem 1.3rem;
+  color: var(--text-secondary);
+}
+
+code,
+kbd,
+samp {
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+}
+
+:not(pre) > code {
+  border: 1px solid color-mix(in oklch, var(--line-strong) 72%, transparent);
+  border-radius: 5px;
+  background: color-mix(in oklch, var(--surface) 72%, transparent);
+  color: var(--text-primary);
+  padding: 0.08rem 0.3rem;
+}
+
+pre {
+  overflow: auto;
+  max-width: min(100%, var(--stage-width));
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: var(--code-bg) !important;
+  color: var(--code) !important;
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  line-height: 1.62;
+  padding: 1.25rem 1.35rem;
+}
+
+.astro-code,
+.astro-code span {
+  background-color: var(--code-bg) !important;
+}
+
+:root[data-theme="light"] .astro-code,
+:root[data-theme="light"] .astro-code span {
+  color: var(--shiki-light, var(--code)) !important;
+}
+
+:root[data-theme="dark"] .astro-code,
+:root[data-theme="dark"] .astro-code span {
+  color: var(--shiki-dark, var(--code)) !important;
+}
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-small);
+}
+
+caption {
+  margin: 0 0 0.7rem;
+  color: var(--text-tertiary);
+  text-align: left;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--line-soft);
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  position: sticky;
+  top: var(--topbar-height);
+  z-index: 1;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-weight: 690;
+}
+
+tbody tr:nth-child(even) td {
+  background: color-mix(in oklch, var(--surface) 62%, transparent);
+}
+
+@media (max-width: 780px) {
+  body {
+    background: var(--canvas);
+  }
+
+  .doc-article h2::before {
+    left: 0;
+    top: -0.8rem;
+  }
+}

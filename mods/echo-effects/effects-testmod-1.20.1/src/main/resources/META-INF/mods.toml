@@ -1,0 +1,24 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="echo_effects_test"
+version="${mod_version}"
+displayName="Echo Effects Testmod"
+authors="${mod_authors}"
+description='''Development-only scenarios for Echo Effects.'''
+
+[[dependencies.echo_effects_test]]
+modId="forge"
+mandatory=true
+versionRange="${forge_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.echo_effects_test]]
+modId="minecraft"
+mandatory=true
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"

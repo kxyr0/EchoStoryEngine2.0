@@ -1,0 +1,52 @@
+plugins {
+    id 'java'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'checkstyle'
+    id 'pmd'
+}
+version = mod_version
+group = 'io.github.kxyr0.echocore'
+base { archivesName = 'echo-core' }
+java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+def modsDir = providers.gradleProperty('fancymenu_mods_dir').map { file(it) }.getOrElse(
+        new File(System.getenv('APPDATA'), 'PrismLauncher/instances/Форма Мысли/minecraft/mods'))
+repositories { mavenCentral(); maven { url = 'https://maven.minecraftforge.net/' } }
+minecraft {
+    mappings channel: 'official', version: minecraft_version
+    runs {
+        client {
+            workingDirectory project.file('run')
+            mods { echo_core { source sourceSets.main } }
+        }
+    }
+}
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly files(new File(modsDir, 'echo-story-engine-1.8.0-all.jar'))
+    compileOnly files(new File(modsDir, 'fancymenu_forge_3.9.14_MC_1.20.1.jar'),
+            new File(modsDir, 'konkrete_forge_1.8.0_MC_1.20-1.20.1.jar'))
+    testImplementation platform('org.junit:junit-bom:5.10.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation files(new File(modsDir, 'fancymenu_forge_3.9.14_MC_1.20.1.jar'),
+            new File(modsDir, 'konkrete_forge_1.8.0_MC_1.20-1.20.1.jar'))
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+def testLibraries = tasks.register('prepareFancyMenuTestLibraries', Copy) {
+    from new File(modsDir, 'fancymenu_forge_3.9.14_MC_1.20.1.jar')
+    from new File(modsDir, 'konkrete_forge_1.8.0_MC_1.20-1.20.1.jar')
+    into layout.buildDirectory.dir('test-libraries')
+}
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    dependsOn testLibraries
+    classpath += files(fileTree(layout.buildDirectory.dir('test-libraries')) { include '*.jar' })
+}
+tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+tasks.named('processResources') {
+    inputs.property 'mod_version', mod_version
+    filesMatching('META-INF/mods.toml') { expand mod_version: mod_version }
+}
+tasks.named('jar') { finalizedBy 'reobfJar' }
+checkstyle { toolVersion = '10.17.0'; configFile = rootProject.file('config/checkstyle/checkstyle.xml') }
+pmd { toolVersion = '7.4.0'; ruleSets = []; ruleSetFiles = files('config/pmd/pmd.xml'); consoleOutput = true }

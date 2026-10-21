@@ -1,0 +1,3 @@
+base { archivesName = 'magic-contracts' }
+description = 'Neutral immutable contracts for Echo Magic.'
+

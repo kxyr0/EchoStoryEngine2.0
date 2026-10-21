@@ -1,0 +1,325 @@
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'checkstyle'
+    id 'pmd'
+    id 'jacoco'
+}
+
+version = mod_version
+group = mod_group_id
+
+def storyRoot = providers.gradleProperty('storyEngineRoot')
+        .map { file(it) }
+        .orElse(layout.projectDirectory.dir('../echo-story-engine').asFile)
+def animationRoot = providers.gradleProperty('echoAnimationRoot')
+        .map { file(it) }
+        .orElse(layout.projectDirectory.dir('../echo-animation').asFile)
+def storyIntegrationMaven = providers.gradleProperty('storyIntegrationMaven')
+        .map { file(it) }
+        .orElse(storyRoot.map { new File(it, 'build/integration-maven') })
+def animationIntegrationMaven = providers.gradleProperty('animationIntegrationMaven')
+        .map { file(it) }
+        .orElse(animationRoot.map { new File(it, 'build/integration-maven') })
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+    maven {
+        name = 'StoryIntegration'
+        url = storyIntegrationMaven.get()
+    }
+    maven {
+        name = 'AnimationIntegration'
+        url = animationIntegrationMaven.get()
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+sourceSets {
+    architectureTest {
+        java.srcDir 'src/architectureTest/java'
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+configurations {
+    architectureTestImplementation.extendsFrom testImplementation
+    architectureTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+base {
+    archivesName = artifact_name
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+        client { }
+        server {
+            args '--nogui'
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-contracts:${story_api_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-api:${story_api_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:${story_api_version}"
+    compileOnly "io.github.kxyr0.echoanimation:animation-contracts:${animation_api_version}"
+    compileOnly "io.github.kxyr0.echoanimation:animation-forge-api-1.20.1:${animation_api_version}"
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation "io.github.kxyr0.echostoryengine:story-contracts:${story_api_version}"
+    testImplementation "io.github.kxyr0.echostoryengine:story-extension-api:${story_api_version}"
+    testImplementation "io.github.kxyr0.echoanimation:animation-contracts:${animation_api_version}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    architectureTestImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+    architectureTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+checkstyle {
+    toolVersion = checkstyle_version
+    configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+}
+
+pmd {
+    toolVersion = pmd_version
+    ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+    ruleSets = []
+    consoleOutput = true
+}
+
+tasks.register('architectureTest', Test) {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = sourceSets.architectureTest.output.classesDirs
+    classpath = sourceSets.architectureTest.runtimeClasspath
+    shouldRunAfter tasks.named('test')
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+            story_mod_version_range: story_mod_version_range,
+            animation_mod_version_range: animation_mod_version_range,
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('verifyAdapterJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('jar')
+    doLast {
+        def jarFile = tasks.named('jar', Jar).get().archiveFile.get().asFile
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def required = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echostoryanimationadapter/forge/EchoStoryAnimationAdapterMod.class',
+                'io/github/kxyr0/echostoryanimationadapter/action/AnimationActionHandler.class'
+        ]
+        def missing = required.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echostoryengine/')
+                    || entry.startsWith('io/github/kxyr0/echoanimation/api/')
+                    || entry.startsWith('io/github/kxyr0/echoanimation/forge/api/')
+                    || entry.startsWith('io/github/kxyr0/echoanimation/forge/playback/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/')
+                    || entry.startsWith('net/minecraft/')
+                    || entry.startsWith('net/minecraftforge/')
+                    || entry.startsWith('org/junit/')
+                    || entry.startsWith('com/tngtech/archunit/')
+                    || entry.startsWith('docs/')
+        }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            throw new GradleException("Adapter JAR verification failed."
+                    + "\nmissing entries:\n" + missing.join('\n')
+                    + "\nforbidden entries:\n" + forbidden.join('\n'))
+        }
+        println "Echo Story Animation Adapter JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        fileTree(rootDir) {
+            include 'src/main/java/**/*.java'
+            exclude '**/build/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()] = counts[file.parentFile.toPath()] + 1
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 180) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 180"
+            }
+        }
+        counts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        fileTree(rootDir) {
+            include '*.gradle', 'gradle.properties', '.gitignore', '.gitattributes'
+            include 'config/**/*.xml', 'src/**/*.java', 'src/**/*.toml', 'src/**/*.mcmeta'
+            include 'README.md', 'AGENTS.md', 'PLANS.md', 'PROGRESS.md', 'docs/**/*.md'
+            exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: trailing whitespace"
+                }
+                if (line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: tab"
+                }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('publishStoryPublicArtifacts', Exec) {
+    workingDir storyRoot.get()
+    commandLine gradleWrapper(storyRoot.get()), 'publishExtensionIntegrationArtifacts', '--console=plain'
+}
+
+tasks.register('publishAnimationPublicArtifacts', Exec) {
+    workingDir animationRoot.get()
+    commandLine gradleWrapper(animationRoot.get()), 'publishAnimationIntegrationArtifacts', '--console=plain'
+}
+
+tasks.register('validatePublicArtifacts') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('publishStoryPublicArtifacts')
+    dependsOn tasks.named('publishAnimationPublicArtifacts')
+    doLast {
+        def missing = []
+        [
+                new File(storyIntegrationMaven.get(),
+                        'io/github/kxyr0/echostoryengine/story-contracts/0.1.0/story-contracts-0.1.0.jar'),
+                new File(storyIntegrationMaven.get(),
+                        'io/github/kxyr0/echostoryengine/story-extension-api/0.1.0/story-extension-api-0.1.0.jar'),
+                new File(storyIntegrationMaven.get(),
+                        'io/github/kxyr0/echostoryengine/story-extension-forge-1.20.1/0.1.0/'
+                                + 'story-extension-forge-1.20.1-0.1.0.jar')
+        ].findAll { !it.isFile() }.each { missing.add(it) }
+        ['animation-contracts', 'animation-forge-api-1.20.1'].each { artifact ->
+            def directory = new File(animationIntegrationMaven.get(),
+                    "io/github/kxyr0/echoanimation/${artifact}/0.1.0-SNAPSHOT")
+            boolean hasJar = directory.isDirectory()
+                    && directory.listFiles().any { it.name.startsWith("${artifact}-0.1.0-")
+                    && it.name.endsWith('.jar') }
+            if (!hasJar) {
+                missing.add(directory)
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Missing public artifacts:\n" + missing.join('\n'))
+        }
+    }
+}
+
+['compileJava', 'compileTestJava', 'compileArchitectureTestJava'].each { taskName ->
+    tasks.named(taskName).configure {
+        dependsOn tasks.named('publishStoryPublicArtifacts')
+        dependsOn tasks.named('publishAnimationPublicArtifacts')
+    }
+}
+
+tasks.register('buildAdapterAgainstPublishedArtifacts') {
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dependsOn tasks.named('publishStoryPublicArtifacts')
+    dependsOn tasks.named('publishAnimationPublicArtifacts')
+    dependsOn tasks.named('validatePublicArtifacts')
+    dependsOn tasks.named('build')
+    dependsOn tasks.named('verifyAdapterJarContents')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('architectureTest')
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyAdapterJarContents')
+}
+
+String gradleWrapper(File root) {
+    return new File(root, org.gradle.internal.os.OperatingSystem.current().isWindows()
+            ? 'gradlew.bat' : 'gradlew').absolutePath
+}

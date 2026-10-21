@@ -1,0 +1,67 @@
+plugins {
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'java-library'
+}
+
+version = mod_version
+group = mod_group_id
+
+repositories {
+    mavenCentral()
+    maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+}
+
+java { toolchain { languageVersion = JavaLanguageVersion.of(17) }; withSourcesJar() }
+minecraft { mappings channel: mapping_channel, version: mapping_version }
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly "io.github.kxyr0.echotrigger:trigger-contracts:${echo_trigger_version}"
+    compileOnly "io.github.kxyr0.echotrigger:trigger-forge-api-1.20.1:${echo_trigger_version}"
+    compileOnly "io.github.kxyr0.echotime:time-contracts:${echo_time_version}"
+    compileOnly "io.github.kxyr0.echotime:time-forge-api-1.20.1:${echo_time_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-contracts:${echo_story_engine_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:${echo_story_engine_version}"
+    compileOnly "io.github.kxyr0.echodialogue:dialogue-contracts:${echo_dialogue_version}"
+    compileOnly "io.github.kxyr0.echodialogue:dialogue-forge-api-1.20.1:${echo_dialogue_version}"
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+configurations { testImplementation.extendsFrom compileOnly }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+tasks.withType(Test).configureEach { useJUnitPlatform() }
+tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+
+tasks.named('processResources', ProcessResources).configure {
+    def values = [minecraft_version_range: minecraft_version_range, forge_version_range: forge_version_range,
+                  loader_version_range: loader_version_range, mod_license: mod_license, mod_version: mod_version,
+                  mod_authors: mod_authors]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand values + [project: project] }
+}
+
+tasks.named('jar', Jar).configure { finalizedBy 'reobfJar' }
+
+tasks.register('sourceShapeCheck') {
+    doLast {
+        def violations = []; def counts = [:].withDefault { 0 }
+        fileTree(rootDir) { include 'src/main/java/**/*.java' }.files.each { file ->
+            def text = file.getText('UTF-8'); def relative = rootDir.toPath().relativize(file.toPath())
+            counts[file.parentFile.toPath()]++
+            def logical = text.readLines().count { line ->
+                def value = line.trim(); value && !value.startsWith('//') && !value.startsWith('*')
+            }
+            if (logical > 180) violations << "${relative}: ${logical} logical lines; max 180"
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) violations << "${relative}: wildcard import"
+        }
+        counts.each { path, count ->
+            if (count > 7) violations << "${rootDir.toPath().relativize(path)}: ${count} files; max 7"
+        }
+        if (!violations.empty) throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        println 'Source shape: Java >180 = 0; leaf packages >7 = 0'
+    }
+}
+
+tasks.named('check') { dependsOn tasks.named('sourceShapeCheck') }

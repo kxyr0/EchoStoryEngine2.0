@@ -1,0 +1,370 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Forge 1.20.1 platform adapter for Echo Dialogue.'
+
+def embeddedDialogueProjects = [
+        project(':dialogue-contracts'),
+        project(':dialogue-presentation-api'),
+        project(':dialogue-core'),
+        project(':dialogue-persistence'),
+        project(':dialogue-echoscript-extension-api'),
+        project(':dialogue-echoscript-adapter'),
+        project(':dialogue-forge-api-1.20.1')
+]
+
+def requiredEchoDialogueGameTests = [
+        'ForgeDialogueGameTests.echoDialogueCommandsExist',
+        'ForgeDialogueGameTests.dialogueResourceCompilesInForgeRuntime',
+        'ForgeDialogueGameTests.controlledAudienceSessionLifecycle',
+        'ForgeDialogueGameTests.choiceSessionBranchesToExplicitOutcome',
+        'ForgeDialogueGameTests.invalidCandidateRetainsCatalog',
+        'ForgeDialoguePersistenceGameTests.durableSnapshotRestoresSameLine',
+        'ForgeDialoguePersistenceGameTests.incompatibleFingerprintBlocksRecovery',
+        'ForgeDialoguePersistenceGameTests.terminalRecordCanBeAcknowledged',
+        'ForgeDialoguePersistenceGameTests.worldRootsAreIsolated',
+        'ForgeDialogueVisualGameTests.visualAliasesCompile',
+        'ForgeDialogueVisualGameTests.invalidVisualRetainsCatalog',
+        'ForgeDialogueVisualGameTests.presentationsTransferVisualDescriptors',
+        'ForgeDialogueVisualGameTests.changedVisualBlocksRecovery',
+        'ForgeDialoguePresentationProviderGameTests.providerJarRegistersThroughPublicEvent',
+        'ForgeDialoguePresentationProviderGameTests.dynamicLinePresentationUsesProvider',
+        'ForgeDialoguePresentationProviderGameTests.dynamicChoicePresentationKeepsChoices',
+        'ForgeDialoguePresentationProviderGameTests.providerFallbackScenariosUseAuthoredPresentation',
+        'ForgeDialoguePresentationProviderGameTests.ambiguousProvidersUseAuthoredFallback',
+        'ForgeDialoguePresentationProviderGameTests.providerSessionsCloseWithCatalog'
+]
+
+configurations {
+    embeddedExternalRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = true
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
+}
+
+if (project.findProperty('echoDialogueJarClientSmoke') == 'true') {
+    configurations.runtimeClasspath {
+        exclude group: 'io.github.kxyr0.echoscript'
+    }
+}
+
+sourceSets {
+    gameTest {
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+base {
+    archivesName = artifact_name
+}
+
+jarJar.enable()
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            lazyToken('minecraft_classpath') {
+                if (project.findProperty('echoDialogueJarClientSmoke') == 'true') {
+                    return ''
+                }
+                configurations.embeddedExternalRuntime.copyRecursive().resolve()
+                        .collect { it.absolutePath }
+                        .join(File.pathSeparator)
+            }
+            if (project.findProperty('echoDialogueJarClientSmoke') != 'true') {
+                mods {
+                    "${mod_id}" {
+                        source sourceSets.main
+                        embeddedDialogueProjects.each { dialogueProject ->
+                            source dialogueProject.sourceSets.main
+                        }
+                    }
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            if (project.findProperty('echoDialogueClientSmoke') == 'true'
+                    || project.findProperty('echoDialogueJarClientSmoke') == 'true') {
+                args '--username', 'EchoSmoke'
+                args '--quickPlayMultiplayer', '127.0.0.1'
+            }
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            mods {
+                "${mod_id}" {
+                    source sourceSets.gameTest
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    jarJar(group: 'io.github.kxyr0.echoaudio', name: 'echo-audio', version: '[0.1,0.2)') {
+        jarJar.pin(it, '0.1.0')
+        transitive = false
+    }
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':dialogue-contracts')
+    implementation project(':dialogue-presentation-api')
+    implementation project(':dialogue-core')
+    implementation project(':dialogue-persistence')
+    implementation project(':dialogue-echoscript-extension-api')
+    implementation project(':dialogue-echoscript-adapter')
+    implementation project(':dialogue-forge-api-1.20.1')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    implementation "io.github.kxyr0.echo:echo-ui-animations:${echo_ui_animations_version}"
+    embeddedExternalRuntime "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    embeddedExternalRuntime "io.github.kxyr0.echo:echo-ui-animations:${echo_ui_animations_version}"
+    jarJar(group: 'io.github.kxyr0.echoscript',
+            name: 'echo-script-api',
+            version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+    jarJar(group: 'io.github.kxyr0.echoscript',
+            name: 'echo-script-language',
+            version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+    jarJar(group: 'io.github.kxyr0.echo',
+            name: 'echo-ui-animations',
+            version: "[${echo_ui_animations_version},)") {
+        jarJar.pin(it, echo_ui_animations_version)
+    }
+    testImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedDialogueProjects.collect { "${it.path}:classes" }
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    manifest {
+        attributes('Automatic-Module-Name': mod_id)
+    }
+    embeddedDialogueProjects.each { dialogueProject ->
+        from(dialogueProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJar'
+}
+
+tasks.named('jarJar', Jar).configure {
+    dependsOn embeddedDialogueProjects.collect { "${it.path}:classes" }
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    manifest {
+        attributes('Automatic-Module-Name': mod_id)
+    }
+    embeddedDialogueProjects.each { dialogueProject ->
+        from(dialogueProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJarJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    description = 'Проверяет содержимое final production JAR Echo Dialogue.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('reobfJarJar')
+    doLast {
+        def jarFile = layout.buildDirectory
+                .file("libs/${artifact_name}-${mod_version}-all.jar")
+                .get()
+                .asFile
+        if (!jarFile.isFile()) {
+            throw new GradleException("Production JAR was not created: ${jarFile}")
+        }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def missing = []
+        def requiredEntries = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echodialogue/forge/EchoDialogueMod.class',
+                'io/github/kxyr0/echodialogue/forge/api/EchoDialogueServiceLookupEvent.class',
+                'io/github/kxyr0/echodialogue/forge/api/EchoDialogueSpeakerPresentationRegistrationEvent.class',
+                'io/github/kxyr0/echodialogue/forge/api/client/EchoDialogueTransientLineEvent.class',
+                'io/github/kxyr0/echodialogue/forge/client/ClientDialogueClient.class',
+                'io/github/kxyr0/echodialogue/forge/client/ClientTransientDialogueOverlay.class',
+                'io/github/kxyr0/echodialogue/forge/client/input/ClientDialogueChoiceScreen.class',
+                'io/github/kxyr0/echodialogue/forge/client/input/ClientDialogueChoiceScreenController.class',
+                'io/github/kxyr0/echodialogue/forge/client/ui/image/UiImageRenderer.class',
+                'io/github/kxyr0/echodialogue/forge/client/ui/image/UiImageRenderMode.class',
+                'io/github/kxyr0/echodialogue/forge/client/ui/image/paint/UiTiledImagePainter.class',
+                'io/github/kxyr0/echodialogue/forge/client/ui/image/paint/UiFilledImagePainter.class',
+                'io/github/kxyr0/echodialogue/forge/client/visual/ClientSpeakerVisualRenderer.class',
+                'io/github/kxyr0/echodialogue/forge/client/visual/ClientSpeakerVisualResolver.class',
+                'io/github/kxyr0/echodialogue/forge/network/DialogueNetwork.class',
+                'io/github/kxyr0/echodialogue/core/session/DialogueSessionEngine.class',
+                'io/github/kxyr0/echodialogue/api/visual/SpeakerVisualRef.class',
+                'io/github/kxyr0/echodialogue/presentation/api/SpeakerPresentationRequest.class',
+                'io/github/kxyr0/echodialogue/presentation/api/SpeakerPresentationProviderSession.class',
+                'io/github/kxyr0/echodialogue/forge/presentation/ForgeSpeakerPresentationCatalog.class',
+                'io/github/kxyr0/echodialogue/persistence/file/FileDialogueSessionRepository.class',
+                'io/github/kxyr0/echodialogue/echoscript/EchoScriptDialogueCompiler.class',
+                'META-INF/jarjar/metadata.json',
+                "META-INF/jarjar/echo-ui-animations-${echo_ui_animations_version}.jar",
+                'data/sample/echo_dialogue/dialogues/sample_greeting.dialogue.es',
+                'data/sample/echo_dialogue/dialogues/sample_visual_showcase.dialogue.es',
+                'assets/echo_dialogue/textures/gui/panel/test_dialogue_panel.png',
+                'assets/sample/textures/echo_dialogue/portraits/merchant.png',
+                'assets/sample/textures/echo_dialogue/skins/father.png'
+        ]
+        requiredEntries.each { required ->
+            def requiredEntry = required.toString()
+            if (!entries.contains(requiredEntry)) {
+                missing.add(requiredEntry)
+            }
+        }
+        def forbidden = entries.findAll { entry ->
+            entry == 'module-info.class'
+                    || entry.startsWith('META-INF/versions/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/forge/gametest/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/presentationtest/')
+                    || entry.startsWith('data/echo_dialogue_test/')
+                    || entry.startsWith('assets/echo_dialogue_test/')
+                    || entry.startsWith('io/github/kxyr0/echouianimations/')
+                    || entry.startsWith('io/github/kxyr0/echoscript/')
+                    || entry.startsWith('io/github/kxyr0/echostoryengine/')
+                    || entry.startsWith('net/minecraft/')
+                    || entry.startsWith('net/minecraftforge/')
+                    || entry.startsWith('org/junit/')
+                    || entry.startsWith('org/opentest4j/')
+                    || entry.startsWith('org/apiguardian/')
+                    || entry.startsWith('com/tngtech/archunit/')
+                    || entry.startsWith('com/google/gson/')
+                    || entry.startsWith('net/sourceforge/pmd/')
+                    || entry.startsWith('com/puppycrawl/tools/checkstyle/')
+                    || entry.startsWith('META-INF/maven/')
+                    || entry.startsWith('docs/')
+                    || entry.startsWith('build/')
+                    || entry.startsWith('run/')
+                    || entry == 'AGENTS.md'
+                    || entry == 'PLANS.md'
+                    || entry == 'PROGRESS.md'
+        }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            def jarJarEntries = entries.findAll { entry -> entry.startsWith('META-INF/jarjar/') }
+            throw new GradleException("Production JAR verification failed."
+                    + "\nchecked jar: ${jarFile}"
+                    + "\nmissing entries:\n" + missing.join('\n')
+                    + "\nforbidden entries:\n" + forbidden.join('\n')
+                    + "\njarjar entries:\n" + jarJarEntries.join('\n'))
+        }
+        println "Echo Dialogue production JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyProductionJarContents')
+}
+
+tasks.register('preparePresentationProviderGameTestMod') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Кладёт отдельный D6 provider mod в run/mods перед Forge GameTest server.'
+    dependsOn rootProject.tasks.named('buildPresentationTestProvider')
+    doLast {
+        def modsDir = project.file('run/mods')
+        delete fileTree(modsDir) {
+            include 'echo-dialogue-presentation-test-*.jar'
+        }
+        copy {
+            from rootProject.file('integration-tests/echo-dialogue-presentation-test-mod/build/libs')
+            include 'echo-dialogue-presentation-test-*.jar'
+            into modsDir
+        }
+    }
+}
+
+tasks.register('preparePresentationProviderClientAcceptanceMod') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Кладёт отдельный D6 provider mod в run/mods перед ручной client acceptance.'
+    dependsOn tasks.named('preparePresentationProviderGameTestMod')
+}
+
+tasks.matching { it.name == 'prepareRunGameTestServer' }.configureEach {
+    dependsOn tasks.named('preparePresentationProviderGameTestMod')
+    dependsOn tasks.named('processGameTestResources')
+    doLast {
+        copy {
+            from sourceSets.gameTest.resources
+            include 'gameteststructures/**'
+            into project.file('run')
+        }
+    }
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doLast {
+        def logFile = project.file('run/logs/latest.log')
+        if (!logFile.isFile()) {
+            throw new GradleException("GameTest log was not created: ${logFile}")
+        }
+        def text = logFile.getText('UTF-8')
+        def missing = requiredEchoDialogueGameTests.findAll { testName ->
+            !text.contains("EDLG-GAMETEST-RUN ${testName}")
+        }
+        def discovered = firstInt(text, /Running test batch '[^']+' \((\d+) tests\)/)
+        def executed = firstInt(text, /(\d+) tests are now running!/)
+        def passed = firstInt(text, /All (\d+) required tests passed/)
+        if (discovered <= 0 || executed <= 0 || passed <= 0 || !missing.isEmpty()) {
+            throw new GradleException("Echo Dialogue GameTests were not fully verified."
+                    + "\ndiscovered=${discovered}, executed=${executed}, passed=${passed}"
+                    + "\nmissing markers=${missing.join(', ')}")
+        }
+        println "Echo Dialogue GameTests verified: discovered=${discovered}, executed=${executed}, passed=${passed}"
+    }
+}
+
+int firstInt(String text, String pattern) {
+    def matcher = text =~ pattern
+    return matcher.find() ? matcher.group(1).toInteger() : 0
+}
+
+ dependencies {
+    compileOnly 'io.github.kxyr0.echoevents:echo-events:0.1.0'
+    compileOnly 'io.github.kxyr0.echoevents:events-forge-1.20.1:0.1.0'
+    testImplementation 'io.github.kxyr0.echoevents:echo-events:0.1.0'
+    testImplementation files(rootProject.file('../echo-events/events-forge-1.20.1/build/classes/java/main'))
+ }

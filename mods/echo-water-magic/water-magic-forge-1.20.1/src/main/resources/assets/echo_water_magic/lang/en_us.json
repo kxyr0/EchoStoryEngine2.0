@@ -1,0 +1,6 @@
+{
+  "command.echo_water_magic.setup.unavailable": "Echo Magic service is unavailable.",
+  "command.echo_water_magic.setup.not_loaded": "Water Bolt was not loaded.",
+  "command.echo_water_magic.setup.success": "Water Bolt selected for %1$s. Use the configured \"%2$s\" control."
+}
+

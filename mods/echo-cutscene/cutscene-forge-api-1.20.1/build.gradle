@@ -1,0 +1,15 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Forge 1.20.1 public API boundary for Echo Cutscene.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':cutscene-contracts')
+    compileOnly "net.minecraftforge:eventbus:6.0.5"
+}

@@ -1,0 +1,29 @@
+---
+title: "Ошибки профиля"
+description: "Коды diagnostics и recovery-поведение для template, skin и mutation."
+section: "Player"
+pageKind: "diagnostic"
+status: "review"
+since: "P1"
+updated: "2026-07-25"
+relatedIds: ["PlayerProfileDiagnostic", "PlayerProfileResult"]
+relatedPages: ["player/templates", "player/skin"]
+sourceRepositories: ["echo-content-player"]
+sourcePaths: ["D:/JDHSeason/mods/echo-content-player/player-contracts"]
+visualIdentity: "player-diagnostics"
+interactiveModules: []
+searchKeywords: ["diagnostics", "errors", "fallback", "mutation conflict"]
+---
+
+# Ошибки профиля
+
+Коды P1:
+
+- `PLAYER_NAME_INVALID`;
+- `PLAYER_SKIN_INVALID`;
+- `PLAYER_TEMPLATE_PARSE_ERROR`;
+- `PLAYER_TEMPLATE_BIND_ERROR`;
+- `PLAYER_MUTATION_CONFLICT`;
+- `PLAYER_PROFILE_MISSING`.
+
+Broken template не перезаписывает существующие профили. Broken skin не публикуется и не делает игрока невидимым. Mutation conflict не выполняет вторую операцию.

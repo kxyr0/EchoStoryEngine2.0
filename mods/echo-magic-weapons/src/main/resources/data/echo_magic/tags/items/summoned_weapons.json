@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "echo_magic_weapons:fire_spear",
+    "echo_magic_weapons:water_whip",
+    "echo_magic_weapons:stone_gauntlets",
+    "echo_magic_weapons:air_blade",
+    "echo_magic_weapons:void_dagger"
+  ]
+}

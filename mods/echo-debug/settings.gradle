@@ -1,0 +1,24 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-debug'
+
+includeBuild '../echo-trigger'
+includeBuild '../echo-navigation'
+includeBuild '../echo-cutscene'
+includeBuild '../echo-story-engine'
+includeBuild '../echo-seating'
+include 'debug-core'
+include 'debug-forge-1.20.1'

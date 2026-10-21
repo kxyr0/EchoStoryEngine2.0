@@ -1,0 +1,2 @@
+description = 'Platform-neutral public contracts for Echo Trigger.'
+dependencies { api 'io.github.kxyr0.echoevents:echo-events:0.1.0' }

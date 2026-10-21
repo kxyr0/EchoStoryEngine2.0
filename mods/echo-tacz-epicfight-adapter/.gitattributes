@@ -1,0 +1,8 @@
+* text=auto
+*.gradle text eol=lf
+*.properties text eol=lf
+*.java text eol=lf
+*.toml text eol=lf
+*.mcmeta text eol=lf
+*.md text eol=lf
+gradle/wrapper/gradle-wrapper.jar binary

@@ -1,0 +1,772 @@
+[
+  {
+    "type": "Page",
+    "title": "adapters/adapter-principle",
+    "section": "Platform",
+    "url": "/docs/adapters/adapter-principle/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "adapters/allowed-dependencies",
+    "section": "Platform",
+    "url": "/docs/adapters/allowed-dependencies/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "adapters/dialogue-npc",
+    "section": "Platform",
+    "url": "/docs/adapters/dialogue-npc/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "Dialogue и Trigger",
+    "section": "Adapters",
+    "url": "/docs/adapters/dialogue-trigger/",
+    "context": "Как reactive callbacks запускают диалоги через public APIs без жесткой зависимости."
+  },
+  {
+    "type": "Page",
+    "title": "adapters/failure-isolation",
+    "section": "Platform",
+    "url": "/docs/adapters/failure-isolation/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "adapters/npc-animation",
+    "section": "Platform",
+    "url": "/docs/adapters/npc-animation/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "NPC-навигация",
+    "section": "Adapters",
+    "url": "/docs/adapters/npc-navigation/",
+    "context": "Как Echo NPC получает движение через Echo Navigation и отдельный adapter."
+  },
+  {
+    "type": "Page",
+    "title": "HUD adapters",
+    "section": "Adapters",
+    "url": "/docs/adapters/player-hud/",
+    "context": "Как Vitals и Content Player отдают метрики в HUD без обратных зависимостей."
+  },
+  {
+    "type": "Page",
+    "title": "adapters/story-npc",
+    "section": "Platform",
+    "url": "/docs/adapters/story-npc/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "Жизненный цикл NPC-анимации",
+    "section": "Animation",
+    "url": "/docs/animation/a4-npc-lifecycle-integration/",
+    "context": "Автоматическая привязка долговечных NPC-актёров к субъектам анимации с согласованием, binding профиля и восстановлением после повторной материализации."
+  },
+  {
+    "type": "Page",
+    "title": "animation/animation-ids",
+    "section": "Platform",
+    "url": "/docs/animation/animation-ids/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "Обзор анимации",
+    "section": "Animation",
+    "url": "/docs/animation/animation-overview/",
+    "context": "Карта AnimationProfile, AnimationSubject, channels, leases и жизненного цикла playback без зависимости от NPC."
+  },
+  {
+    "type": "Page",
+    "title": "animation/animation-profiles",
+    "section": "Platform",
+    "url": "/docs/animation/animation-profiles/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "animation/authoring-tutorial",
+    "section": "Platform",
+    "url": "/docs/animation/authoring-tutorial/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "animation/channels-and-leases",
+    "section": "Platform",
+    "url": "/docs/animation/channels-and-leases/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "animation/client-synchronization",
+    "section": "Platform",
+    "url": "/docs/animation/client-synchronization/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "animation/clips",
+    "section": "Platform",
+    "url": "/docs/animation/clips/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "animation/diagnostics",
+    "section": "Platform",
+    "url": "/docs/animation/diagnostics/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "Лицо в диалогах",
+    "section": "Animation",
+    "url": "/docs/animation/facial-dialogue-animations/",
+    "context": "Face rig, portrait overlay, FacialAnimation surfaces, SetAnimationFace, StopFaceAnimation и SetAnimationFaceClear."
+  },
+  {
+    "type": "Page",
+    "title": "animation/full-reference",
+    "section": "Platform",
+    "url": "/docs/animation/full-reference/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "animation/graphs",
+    "section": "Platform",
+    "url": "/docs/animation/graphs/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "animation/hot-reload",
+    "section": "Platform",
+    "url": "/docs/animation/hot-reload/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "animation/npc-animation-bindings",
+    "section": "Platform",
+    "url": "/docs/animation/npc-animation-bindings/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "animation/restart-recovery",
+    "section": "Platform",
+    "url": "/docs/animation/restart-recovery/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "animation/rig-and-bones",
+    "section": "Platform",
+    "url": "/docs/animation/rig-and-bones/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "animation/segmented-humanoid",
+    "section": "Platform",
+    "url": "/docs/animation/segmented-humanoid/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "animation/whole-animations",
+    "section": "Platform",
+    "url": "/docs/animation/whole-animations/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "Echo Effects",
+    "section": "Effects",
+    "url": "/docs/effects/overview/",
+    "context": "EF1 declarative EffectResource pipeline, typed channels, core lifecycle and Forge host."
+  },
+  {
+    "type": "Page",
+    "title": "Echo Magic и Void Magic",
+    "section": "Magic",
+    "url": "/docs/magic/overview/",
+    "context": "M1/VM1: общий SpellResource engine, server-authoritative projectile и независимая Void school."
+  },
+  {
+    "type": "Page",
+    "title": "npc/actor-id-vs-entity",
+    "section": "Platform",
+    "url": "/docs/npc/actor-id-vs-entity/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "npc/animation-integration",
+    "section": "Platform",
+    "url": "/docs/npc/animation-integration/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "npc/chunk-lifecycle",
+    "section": "Platform",
+    "url": "/docs/npc/chunk-lifecycle/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "npc/durable-actor-state",
+    "section": "Platform",
+    "url": "/docs/npc/durable-actor-state/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "Формы NPC",
+    "section": "NPC",
+    "url": "/docs/npc/forms/",
+    "context": "Child/adult формы одного NPC без подмены durable identity."
+  },
+  {
+    "type": "Page",
+    "title": "npc/materialization",
+    "section": "Platform",
+    "url": "/docs/npc/materialization/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "npc/restart-reconstruction",
+    "section": "Platform",
+    "url": "/docs/npc/restart-reconstruction/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "Постановка NPC и сон",
+    "section": "NPC",
+    "url": "/docs/npc/scene-placement-sleep/",
+    "context": "Npc.SpawnAt, Npc.SleepAt, Npc.WakeUp и exact-bed runtime."
+  },
+  {
+    "type": "Page",
+    "title": "Консольные команды",
+    "section": "Platform",
+    "url": "/docs/platform/console-commands/",
+    "context": "Практический справочник по реальным /echo_* командам: что вводить после правки .es, как проверять Story, Dialogue, NPC, Animation и контент-пак."
+  },
+  {
+    "type": "Page",
+    "title": "platform/content-workspace",
+    "section": "Platform",
+    "url": "/docs/platform/content-workspace/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "Правила зависимостей",
+    "section": "Platform",
+    "url": "/docs/platform/dependency-rules/",
+    "context": "Интерактивное поле разрешённых и запрещённых связей между Echo NPC, Echo Animation и адаптером."
+  },
+  {
+    "type": "Page",
+    "title": "Диалоги .es",
+    "section": "Platform",
+    "url": "/docs/platform/dialogue-authoring/",
+    "context": "Cookbook для DialogueResource: полный набор разрешенных .dialogue.es конструкций, готовые куски кода, ограничения и проверка в игре."
+  },
+  {
+    "type": "Page",
+    "title": "platform/hot-reload",
+    "section": "Platform",
+    "url": "/docs/platform/hot-reload/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "platform/id-system",
+    "section": "Platform",
+    "url": "/docs/platform/id-system/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "Обзор системы",
+    "section": "Platform",
+    "url": "/docs/platform/overview/",
+    "context": "Карта основных контрактов Echo во время игры: durable ID, авторитет сервера, граница адаптера и generated contracts."
+  },
+  {
+    "type": "Page",
+    "title": "platform/repository-map",
+    "section": "Platform",
+    "url": "/docs/platform/repository-map/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "platform/save-before-dispatch",
+    "section": "Platform",
+    "url": "/docs/platform/save-before-dispatch/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "platform/server-authority",
+    "section": "Platform",
+    "url": "/docs/platform/server-authority/",
+    "context": ""
+  },
+  {
+    "type": "Page",
+    "title": "Сюжет .es",
+    "section": "Platform",
+    "url": "/docs/platform/story-authoring/",
+    "context": "Cookbook для StoryResource: как собрать сюжетную цепочку, вызвать NPC, диалог, анимацию, сохранить output и проверить результат."
+  },
+  {
+    "type": "Page",
+    "title": "Ошибки профиля",
+    "section": "Player",
+    "url": "/docs/player/diagnostics/",
+    "context": "Коды diagnostics и recovery-поведение для template, skin и mutation."
+  },
+  {
+    "type": "Page",
+    "title": "HUD игрока",
+    "section": "Player",
+    "url": "/docs/player/hud/",
+    "context": "Полоски health, Spark и stamina через metric providers без владения gameplay state."
+  },
+  {
+    "type": "Page",
+    "title": "Имя игрока",
+    "section": "Player",
+    "url": "/docs/player/names/",
+    "context": "Account name против Echo display name и правила CUSTOM."
+  },
+  {
+    "type": "Page",
+    "title": "Persistence профиля",
+    "section": "Player",
+    "url": "/docs/player/persistence/",
+    "context": "Что сохраняется и почему DTO не является domain API."
+  },
+  {
+    "type": "Page",
+    "title": "Профиль игрока",
+    "section": "Player",
+    "url": "/docs/player/profile/",
+    "context": "Durable profile игрока: EchoPlayerId, имя, Искра, base appearance и template provenance."
+  },
+  {
+    "type": "Page",
+    "title": "Справочник Player API",
+    "section": "Player",
+    "url": "/docs/player/reference/",
+    "context": "Контракты, сервисы, команды и допустимые зависимости."
+  },
+  {
+    "type": "Page",
+    "title": "Скин игрока",
+    "section": "Player",
+    "url": "/docs/player/skin/",
+    "context": "ACCOUNT/RESOURCE, CLASSIC/SLIM и fallback для custom PNG."
+  },
+  {
+    "type": "Page",
+    "title": "Искра",
+    "section": "Player",
+    "url": "/docs/player/spark/",
+    "context": "Current/max, atomic spend и политики изменения maximum."
+  },
+  {
+    "type": "Page",
+    "title": "Синхронизация профиля",
+    "section": "Player",
+    "url": "/docs/player/synchronization/",
+    "context": "Full snapshot, delta, revision и stale packet handling."
+  },
+  {
+    "type": "Page",
+    "title": "Шаблоны профилей",
+    "section": "Player",
+    "url": "/docs/player/templates/",
+    "context": ".player.es через EchoScript parser и player binder."
+  },
+  {
+    "type": "Page",
+    "title": "Vitals игрока",
+    "section": "Player",
+    "url": "/docs/player/vitals/",
+    "context": "Усталость, запас сил, hunger removal и server-authoritative movement modifier."
+  },
+  {
+    "type": "Page",
+    "title": "Основа Wardrobe",
+    "section": "Player",
+    "url": "/docs/player/wardrobe-boundary/",
+    "context": "Public boundary для будущего Echo Wardrobe без хранения одежды."
+  },
+  {
+    "type": "Page",
+    "title": "Игрок как актёр",
+    "section": "Player",
+    "url": "/docs/player-actor/actor/",
+    "context": "Как настоящее тело игрока становится управляемым актёром без fake player и spectator."
+  },
+  {
+    "type": "Page",
+    "title": "Управление телом",
+    "section": "Player",
+    "url": "/docs/player-actor/body-control/",
+    "context": "Командный поток от EchoScript к настоящему body игрока."
+  },
+  {
+    "type": "Page",
+    "title": "Control Lease",
+    "section": "Player",
+    "url": "/docs/player-actor/control-lease/",
+    "context": "Exclusive право управлять телом игрока во время катсцены или другой scripted сцены."
+  },
+  {
+    "type": "Page",
+    "title": "Катсцены",
+    "section": "Player",
+    "url": "/docs/player-actor/cutscenes/",
+    "context": "Как Cutscene adapter получает lease и оставляет камеру отдельной системой."
+  },
+  {
+    "type": "Page",
+    "title": "Ошибки",
+    "section": "Player",
+    "url": "/docs/player-actor/errors/",
+    "context": "Стабильные failure codes для Player Actor."
+  },
+  {
+    "type": "Page",
+    "title": "Interact",
+    "section": "Player",
+    "url": "/docs/player-actor/interact/",
+    "context": "Серверное взаимодействие с блоком без симуляции ввода."
+  },
+  {
+    "type": "Page",
+    "title": "LookAt",
+    "section": "Player",
+    "url": "/docs/player-actor/look-at/",
+    "context": "Вычисление yaw/pitch от eye position до мировой точки."
+  },
+  {
+    "type": "Page",
+    "title": "Move",
+    "section": "Player",
+    "url": "/docs/player-actor/move/",
+    "context": "Blocking движение настоящего ServerPlayer через PlayerActorMotor."
+  },
+  {
+    "type": "Page",
+    "title": "Recovery",
+    "section": "Player",
+    "url": "/docs/player-actor/recovery/",
+    "context": "Idempotency, restart boundaries и emergency release."
+  },
+  {
+    "type": "Page",
+    "title": "Rotate",
+    "section": "Player",
+    "url": "/docs/player-actor/rotate/",
+    "context": "Абсолютный yaw/pitch для body и головы игрока."
+  },
+  {
+    "type": "Page",
+    "title": "StandUp",
+    "section": "Player",
+    "url": "/docs/player-actor/stand-up/",
+    "context": "Безопасное вставание без Shift simulation."
+  },
+  {
+    "type": "Page",
+    "title": "Взаимодействие с блоками",
+    "section": "Trigger",
+    "url": "/docs/trigger/blocks/",
+    "context": "Block ID/tag events, optional area, hand filtering and duplicate callback coalescing."
+  },
+  {
+    "type": "Page",
+    "title": "Эффекты",
+    "section": "Trigger",
+    "url": "/docs/trigger/effects/",
+    "context": "HasEffect, amplifier, duration и effect transition events."
+  },
+  {
+    "type": "Page",
+    "title": "Руки и экипировка",
+    "section": "Trigger",
+    "url": "/docs/trigger/hands-equipment/",
+    "context": "Main hand, offhand, armor slots, hand-change events и equipment events."
+  },
+  {
+    "type": "Page",
+    "title": "Предметы и инвентарь",
+    "section": "Trigger",
+    "url": "/docs/trigger/items-inventory/",
+    "context": "Item ID, Item Tag, count predicates и inventory events в Echo Trigger T2."
+  },
+  {
+    "type": "Page",
+    "title": "Состояние игрока",
+    "section": "Trigger",
+    "url": "/docs/trigger/player-state/",
+    "context": "Health, food, movement flags, damage, death, respawn and sleep events."
+  },
+  {
+    "type": "Page",
+    "title": "Predicate против Event",
+    "section": "Trigger",
+    "url": "/docs/trigger/predicate-event/",
+    "context": "Разница между state condition и transition event в Echo Trigger T2."
+  },
+  {
+    "type": "Page",
+    "title": "Прогресс и достижения",
+    "section": "Trigger",
+    "url": "/docs/trigger/progression/",
+    "context": "AdvancementCompleted, AdvancementGranted, ExperienceLevelAtLeast and ExperienceLevelReached."
+  },
+  {
+    "type": "Page",
+    "title": "Reactive геометрия",
+    "section": "Trigger",
+    "url": "/docs/trigger/reactive-geometry/",
+    "context": "OnTriggerEnter, OnTriggerExit и OnTriggerStay для Echo Trigger T3."
+  },
+  {
+    "type": "Page",
+    "title": "Reactive runtime",
+    "section": "Trigger",
+    "url": "/docs/trigger/reactive-runtime/",
+    "context": "Как Echo Trigger T3 вычисляет enter, exit и stay без зависимостей на другие модули."
+  },
+  {
+    "type": "Page",
+    "title": "Seating triggers",
+    "section": "Trigger",
+    "url": "/docs/trigger/seating/",
+    "context": "SeatZoneResource, Player.SeatedIn and Player.SeatedAt for authored seating scenes."
+  },
+  {
+    "type": "Page",
+    "title": "Полный справочник T2",
+    "section": "Trigger",
+    "url": "/docs/trigger/t2-reference/",
+    "context": "Фильтруемый справочник vanilla trigger expressions."
+  },
+  {
+    "type": "Page",
+    "title": "Время и погода",
+    "section": "Trigger",
+    "url": "/docs/trigger/time-weather/",
+    "context": "World day time, day index and weather transition triggers."
+  },
+  {
+    "type": "Page",
+    "title": "Trigger Wand",
+    "section": "Trigger",
+    "url": "/docs/trigger/trigger-wand/",
+    "context": "Development-only инструмент Echo Debug для создания T3 trigger areas из Minecraft."
+  },
+  {
+    "type": "Page",
+    "title": "Измерения и режим игры",
+    "section": "Trigger",
+    "url": "/docs/trigger/world-mode/",
+    "context": "Dimension and game mode predicates and transition events."
+  },
+  {
+    "type": "Page",
+    "title": "Animation Face",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/animation-face/",
+    "context": "How face animation consumes resolved appearance without depending on Wardrobe implementation."
+  },
+  {
+    "type": "Page",
+    "title": "Dialogue Portrait",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/dialogue-portrait/",
+    "context": "How portraits consume Content Player resolved appearance without importing Wardrobe."
+  },
+  {
+    "type": "Page",
+    "title": "Empty Catalog",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/empty-catalog/",
+    "context": "Why an empty wardrobe catalog still produces a deterministic base appearance."
+  },
+  {
+    "type": "Page",
+    "title": "Face Slot",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/face-accessories/",
+    "context": "Glasses are FACE selections in OutfitKey, with optional item model descriptors."
+  },
+  {
+    "type": "Page",
+    "title": "Wardrobe W2 Reference",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/full-reference/",
+    "context": "Contracts, content paths, commands, diagnostics and dependency rules for exact outfit resolution."
+  },
+  {
+    "type": "Page",
+    "title": "Full Skins",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/full-skin-import/",
+    "context": "How exact outfit variants reference full 64x64 PNG resources in W2."
+  },
+  {
+    "type": "Page",
+    "title": "Glasses",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/glasses/",
+    "context": "HEAD item, FACE wearable, optional item model, exact outfit skin and portrait faceSkin."
+  },
+  {
+    "type": "Page",
+    "title": "Wardrobe Hot Reload",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/hot-reload/",
+    "context": "Profile, wearable, outfit and asset reload with last-known-good catalog retention."
+  },
+  {
+    "type": "Page",
+    "title": "Echo Wardrobe",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/overview/",
+    "context": "W2 exact outfit resolution: equipment, item IDs, OutfitKey, full PNG and resolved appearance."
+  },
+  {
+    "type": "Page",
+    "title": "Removed Overlay Workflow",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/skin-overlays/",
+    "context": "W2 does not compose runtime skin layers; use exact outfit variants with full PNG assets."
+  },
+  {
+    "type": "Page",
+    "title": "Slots",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/slots/",
+    "context": "FACE, TOP, BOTTOM, FEET and their vanilla equipment mappings for exact outfit keys."
+  },
+  {
+    "type": "Page",
+    "title": "Unified Player Appearance",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/unified-appearance/",
+    "context": "How Wardrobe contributes exact outfit data through Echo Content Player without implementation imports."
+  },
+  {
+    "type": "Page",
+    "title": "Wearable Models",
+    "section": "Wardrobe",
+    "url": "/docs/wardrobe/wearable-models/",
+    "context": "Standard Minecraft item models attached to W2 wearable selections."
+  },
+  {
+    "type": "Command",
+    "title": "/reload",
+    "section": "Commands",
+    "url": "/docs/platform/console-commands/",
+    "context": "Minecraft command syntax для проверки Echo content pack"
+  },
+  {
+    "type": "Command",
+    "title": "/echo_story health",
+    "section": "Commands",
+    "url": "/docs/platform/console-commands/",
+    "context": "Minecraft command syntax для проверки Echo content pack"
+  },
+  {
+    "type": "Command",
+    "title": "/echo_story diagnostics 20",
+    "section": "Commands",
+    "url": "/docs/platform/console-commands/",
+    "context": "Minecraft command syntax для проверки Echo content pack"
+  },
+  {
+    "type": "Command",
+    "title": "/echo_dialogue play jdh:chapter_1_home_arrival",
+    "section": "Commands",
+    "url": "/docs/platform/console-commands/",
+    "context": "Minecraft command syntax для проверки Echo content pack"
+  },
+  {
+    "type": "Command",
+    "title": "/echo_dialogue diagnostics 20",
+    "section": "Commands",
+    "url": "/docs/platform/console-commands/",
+    "context": "Minecraft command syntax для проверки Echo content pack"
+  },
+  {
+    "type": "Command",
+    "title": "/echo_npc spawn jdh:john_father jdh:john_father ~ ~ ~",
+    "section": "Commands",
+    "url": "/docs/platform/console-commands/",
+    "context": "Minecraft command syntax для проверки Echo content pack"
+  },
+  {
+    "type": "Command",
+    "title": "/echo_npc actor jdh:john_father",
+    "section": "Commands",
+    "url": "/docs/platform/console-commands/",
+    "context": "Minecraft command syntax для проверки Echo content pack"
+  },
+  {
+    "type": "Command",
+    "title": "/echo_npc_animation health",
+    "section": "Commands",
+    "url": "/docs/platform/console-commands/",
+    "context": "Minecraft command syntax для проверки Echo content pack"
+  },
+  {
+    "type": "Command",
+    "title": "/echo_npc_animation bindings",
+    "section": "Commands",
+    "url": "/docs/platform/console-commands/",
+    "context": "Minecraft command syntax для проверки Echo content pack"
+  },
+  {
+    "type": "Command",
+    "title": "/echo_animation play_animation jdh:wave jdh:john_father",
+    "section": "Commands",
+    "url": "/docs/platform/console-commands/",
+    "context": "Minecraft command syntax для проверки Echo content pack"
+  },
+  {
+    "type": "Command",
+    "title": "/echo_animation stop_animation jdh:john_father jdh:wave",
+    "section": "Commands",
+    "url": "/docs/platform/console-commands/",
+    "context": "Minecraft command syntax для проверки Echo content pack"
+  },
+  {
+    "type": "Command",
+    "title": "/echo_item validate",
+    "section": "Commands",
+    "url": "/docs/platform/console-commands/",
+    "context": "Minecraft command syntax для проверки Echo content pack"
+  }
+]

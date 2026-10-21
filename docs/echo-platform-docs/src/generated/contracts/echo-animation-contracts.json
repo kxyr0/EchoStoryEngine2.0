@@ -1,0 +1,62 @@
+{
+    "repository": "echo-animation",
+    "publicIds": [
+        "AnimationId",
+        "AnimationPlaybackId",
+        "AnimationSubjectId",
+        "AnimationProfileId",
+        "AnimationProfileFingerprint",
+        "AnimationSubjectLifecycleOwnerId"
+    ],
+    "commands": [
+        "/echo_animation health",
+        "/echo_animation profiles",
+        "/echo_animation play_animation <animation_id> <npc_id>",
+        "/echo_animation stop_animation <npc_id> [animation_id]"
+    ],
+    "resultCodes": {
+        "provisioning": [
+            "CREATED",
+            "EXISTING",
+            "PROFILE_NOT_FOUND",
+            "PROFILE_REBIND_REQUIRED",
+            "PROVENANCE_CONFLICT",
+            "SERVICE_UNAVAILABLE"
+        ],
+        "playbackOutcome": [
+            "COMPLETED",
+            "STOPPED",
+            "INTERRUPTED",
+            "SUBJECT_OWNER_REMOVED"
+        ]
+    },
+    "contentPaths": {
+        "packagedProfiles": "data/<namespace>/echo_animation/animation_profiles/",
+        "externalProfiles": "<gameDir>/story/content-pack/<namespace>/echo_animation/animation_profiles/"
+    },
+    "echoScript": {
+        "profileIntrinsic": "AnimationProfile",
+        "profileExtension": ".animation-profile.es",
+        "requiredFields": [
+            "id",
+            "rig",
+            "graph",
+            "render",
+            "initialStates",
+            "requiredChannels"
+        ],
+        "optionalFields": [
+            "metadata"
+        ]
+    },
+    "phaseRules": {
+        "lifecycle": "ENTER -> MAIN -> EXIT -> TARGET",
+        "ensureSubject": "idempotent unless subject is newly created or safely rebound",
+        "rebind": "active playback creates pending rebind; terminal state applies safe rebind"
+    },
+    "architectureConstraints": [
+        "Echo Animation does not import Echo NPC.",
+        "AnimationSubjectId is logical and must not derive from Entity UUID.",
+        "Initial states are applied only on first subject creation or explicit safe rebind."
+    ]
+}

@@ -1,0 +1,98 @@
+plugins { id 'net.minecraftforge.gradle' }
+
+base { archivesName = artifact_name }
+description = 'Forge 1.20.1 runtime for Echo Background NPC.'
+
+def embeddedProjects = [
+        project(':background-npc-contracts'),
+        project(':background-npc-core'),
+        project(':background-npc-echoscript-adapter'),
+        project(':background-npc-time-adapter-1.20.1'),
+        project(':background-npc-navigation-adapter-1.20.1'),
+        project(':background-npc-animation-adapter-1.20.1'),
+        project(':background-npc-dialogue-adapter-1.20.1'),
+        project(':background-npc-voice-adapter-1.20.1'),
+        project(':background-npc-quest-adapter-1.20.1'),
+        project(':background-npc-forge-api-1.20.1')
+]
+
+jarJar.enable()
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods {
+                echo_background_npc {
+                    source sourceSets.main
+                    embeddedProjects.each { value -> source value.sourceSets.main }
+                }
+            }
+        }
+        client { }
+        server { args '--nogui' }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    embeddedProjects.each { value -> implementation value }
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    compileOnly "io.github.kxyr0.echotime:time-forge-api-1.20.1:${echo_time_version}"
+    compileOnly "io.github.kxyr0.echonavigation:navigation-forge-api-1.20.1:${echo_navigation_version}"
+    compileOnly "io.github.kxyr0.echoanimation:animation-forge-api-1.20.1:${echo_animation_version}"
+    compileOnly "io.github.kxyr0.echodialogue:dialogue-forge-api-1.20.1:${echo_dialogue_version}"
+    compileOnly "io.github.kxyr0.echovoice:voice-forge-api-1.20.1:${echo_voice_version}"
+    compileOnly "io.github.kxyr0.echoquests:quest-forge-api-1.20.1:${echo_quests_version}"
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-api', version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-language', version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var values = [minecraft_version_range: minecraft_version_range, forge_version_range: forge_version_range,
+                  loader_version_range: loader_version_range, mod_license: mod_license, mod_version: mod_version,
+                  mod_authors: mod_authors, mod_description: mod_description,
+                  echo_animation_version: echo_animation_version]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand values + [project: project] }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedProjects.collect { "${it.path}:classes" }
+    embeddedProjects.each { value -> from(value.sourceSets.main.output) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJar'
+}
+
+tasks.named('jarJar', Jar).configure {
+    dependsOn embeddedProjects.collect { "${it.path}:classes" }
+    embeddedProjects.each { value -> from(value.sourceSets.main.output) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJarJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    dependsOn tasks.named('reobfJarJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}-all.jar").get().asFile
+        if (!jarFile.isFile()) throw new GradleException("Production JAR missing: ${jarFile}")
+        def required = ['META-INF/mods.toml',
+                        'io/github/kxyr0/echobackgroundnpc/api/identity/agent/BackgroundNpcId.class',
+                        'io/github/kxyr0/echobackgroundnpc/core/simulation/BackgroundAgentRuntime.class',
+                        'io/github/kxyr0/echobackgroundnpc/quest/EchoQuestAmbientQuestDispatcher.class',
+                        'io/github/kxyr0/echobackgroundnpc/forge/EchoBackgroundNpcMod.class']
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            def missing = required.findAll { zip.getEntry(it) == null }
+            if (!missing.isEmpty()) throw new GradleException("Production JAR missing entries:\n" + missing.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') { dependsOn tasks.named('verifyProductionJarContents') }

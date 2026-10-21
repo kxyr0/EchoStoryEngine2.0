@@ -1,0 +1,24 @@
+---
+title: "Animation Face"
+description: "How face animation consumes resolved appearance without depending on Wardrobe implementation."
+section: "Wardrobe"
+pageKind: "architecture"
+status: "review"
+since: "W2"
+updated: "2026-07-27"
+relatedIds: ["ResolvedPlayerAppearance", "ResolvedOutfit"]
+relatedPages: ["animation/facial-dialogue-animations", "wardrobe/face-accessories"]
+sourceRepositories: ["echo-wardrobe", "echo-animation", "echo-content-player"]
+sourcePaths: ["D:/JDHSeason/mods/echo-wardrobe/docs/architecture/WARDROBE_ANIMATION_INTEGRATION.md"]
+visualIdentity: "wardrobe-animation-face"
+interactiveModules: ["GlassesPortraitLab"]
+searchKeywords: ["Animation", "faceSkin", "glasses", "resolved appearance"]
+---
+
+import { GlassesPortraitLab } from "../../../components/WardrobeLabs";
+
+# Animation Face
+
+Echo Animation reads Content Player resolved appearance. Animation owns pose and rig state; Wardrobe owns exact outfit resolution and the contributed appearance revision.
+
+<GlassesPortraitLab client:load />

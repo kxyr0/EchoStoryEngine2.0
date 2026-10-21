@@ -1,0 +1,5 @@
+description = 'Thin Echo NPC public API boundary for Echo Animator Editor.'
+
+dependencies {
+    api project(':animation-editor-contracts')
+}

@@ -1,0 +1,29 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-ik'
+
+if (file('../echo-animation/settings.gradle').isFile()) {
+    includeBuild('../echo-animation')
+}
+if (file('../echo-npc/settings.gradle').isFile()) {
+    includeBuild('../echo-npc')
+}
+
+include 'echo-ik-core'
+include 'echo-ik-runtime'
+include 'echo-ik-animation-adapter'
+include 'echo-ik-debug'
+include 'echo-ik-minecraft-forge'

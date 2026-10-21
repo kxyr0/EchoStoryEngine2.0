@@ -1,0 +1,14 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Public Forge service and lifecycle API for Echo Visibility.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':visibility-contracts')
+}

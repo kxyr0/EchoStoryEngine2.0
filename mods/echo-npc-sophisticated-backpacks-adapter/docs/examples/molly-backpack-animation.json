@@ -1,0 +1,6 @@
+{
+  "npc": "jdh:molly",
+  "form": "*",
+  "equip_animation": "jdh:molly/equip_backpack",
+  "unequip_animation": "jdh:molly/unequip_backpack"
+}

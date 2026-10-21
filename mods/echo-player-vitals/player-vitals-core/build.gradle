@@ -1,0 +1,9 @@
+description = 'Plain Java domain runtime for Echo Player Vitals.'
+
+base {
+    archivesName = 'player-vitals-core'
+}
+
+dependencies {
+    api project(':player-vitals-contracts')
+}

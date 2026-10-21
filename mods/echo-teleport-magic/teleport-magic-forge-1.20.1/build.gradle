@@ -1,0 +1,60 @@
+plugins { id 'net.minecraftforge.gradle' }
+minecraft {
+    mappings channel: 'official', version: '1.20.1'
+    runs {
+        client {
+            workingDirectory project.file('run')
+            args '--mixin', 'echo_teleport_magic.mixins.json'
+            if (project.hasProperty('etmSmoke')) property 'etm.smoke', 'true'
+            if (project.hasProperty('etmSeated')) property 'etm.seated', 'true'
+            if (project.hasProperty('etmManual')) property 'etm.manual', 'true'
+            mods {
+                echo_teleport_magic { source sourceSets.main; source project(':teleport-magic-core').sourceSets.main }
+                echo_teleport_magic_test { source project(':teleport-magic-testmod-1.20.1').sourceSets.main }
+            }
+        }
+        server {
+            workingDirectory project.file('run-server'); args '--nogui'
+            mods { echo_teleport_magic { source sourceSets.main; source project(':teleport-magic-core').sourceSets.main } }
+            if (project.hasProperty('etmServerSmoke')) {
+                property 'etm.serverSmoke', 'true'
+                mods { echo_teleport_magic_test { source project(':teleport-magic-testmod-1.20.1').sourceSets.main } }
+            }
+        }
+    }
+}
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.20.1-47.4.10'
+    implementation project(':teleport-magic-core')
+    compileOnly 'io.github.kxyr0.echoscene:echo-scene:0.3.0'
+    compileOnly 'io.github.kxyr0.echoscene:scene-forge-1.20.1:0.3.0'
+    compileOnly 'io.github.kxyr0.echonpc:npc-contracts:0.1.0'
+    compileOnly 'io.github.kxyr0.echonpc:npc-forge-api-1.20.1:0.1.0'
+    compileOnly 'io.github.kxyr0.echoevents:echo-events:0.1.0'
+    compileOnly 'io.github.kxyr0.echoevents:events-forge-1.20.1:0.1.0'
+}
+tasks.named('jar') {
+    archiveBaseName = 'echo-teleport-magic'
+    from project(':teleport-magic-core').sourceSets.main.output
+    finalizedBy 'reobfJar'
+}
+tasks.named('processResources') { filesMatching('META-INF/mods.toml') { expand version: project.version } }
+tasks.matching { it.name == 'runClient' }.configureEach { dependsOn ':teleport-magic-testmod-1.20.1:classes' }
+tasks.matching { it.name == 'runServer' }.configureEach { dependsOn ':teleport-magic-testmod-1.20.1:classes' }
+
+dependencies { compileOnly 'io.github.kxyr0.echoaudio:audio-forge-1.20.1:0.1.0' }
+if (project.hasProperty('etmNpc')) {
+    def npcModules = ['npc-contracts', 'npc-core', 'npc-persistence', 'npc-echoscript-adapter', 'npc-forge-api-1.20.1', 'npc-forge-1.20.1']
+    def npcSmokeJar = tasks.register('prepareNpcSmokeJar', Jar) {
+        dependsOn gradle.includedBuild('echo-npc').task(':npc-forge-1.20.1:classes')
+        archiveFileName = 'echo-npc-smoke-dev.jar'
+        destinationDirectory = layout.buildDirectory.dir('smoke-mods')
+        from(zipTree(file('../../echo-npc/npc-forge-1.20.1/build/libs/echo-npc-0.8.0-SNAPSHOT-all.jar'))) {
+            exclude 'io/github/kxyr0/echonpc/**', 'META-INF/MANIFEST.MF'
+        }
+        npcModules.each { module -> from file("../../echo-npc/${module}/build/classes/java/main") }
+    }
+    dependencies { runtimeOnly files(npcSmokeJar.flatMap { it.archiveFile }) }
+    tasks.matching { it.name == 'runClient' }.configureEach { dependsOn npcSmokeJar }
+}
+tasks.named('jar') { manifest { attributes('MixinConfigs': 'echo_teleport_magic.mixins.json') } }

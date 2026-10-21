@@ -1,0 +1,14 @@
+package io.github.kxyr0.echovoice.api.playback;
+
+public enum VoiceStopReason {
+    LINE_ADVANCED,
+    DIALOGUE_COMPLETED,
+    DIALOGUE_CANCELLED,
+    DIALOGUE_REPLACED,
+    PLAYER_DISCONNECTED,
+    WORLD_UNLOADED,
+    ASSET_RELOAD_FAILURE,
+    SOUND_ENGINE_RESET,
+    EXPLICIT_STOP,
+    INTERNAL_FAILURE
+}

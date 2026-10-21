@@ -1,0 +1,23 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-npc'
+
+include 'npc-contracts'
+include 'npc-core'
+include 'npc-persistence'
+include 'npc-echoscript-adapter'
+include 'npc-forge-api-1.20.1'
+include 'npc-forge-1.20.1'

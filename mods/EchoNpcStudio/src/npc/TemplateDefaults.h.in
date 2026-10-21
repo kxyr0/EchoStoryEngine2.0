@@ -1,0 +1,4 @@
+#pragma once
+namespace echo {
+inline constexpr char defaultBackgroundTemplate[] = R"ECHO_JSON(@BACKGROUND_TEMPLATE_JSON@)ECHO_JSON";
+}

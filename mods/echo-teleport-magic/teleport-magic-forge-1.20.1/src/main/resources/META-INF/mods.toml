@@ -1,0 +1,32 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+[[mods]]
+modId="echo_teleport_magic"
+version="${version}"
+displayName="Echo Teleport Magic"
+description='''White and gold cinematic teleportation.'''
+[[dependencies.echo_teleport_magic]]
+modId="forge"
+mandatory=true
+versionRange="[47.4,)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.echo_teleport_magic]]
+modId="echo_scene"
+mandatory=false
+versionRange="[0.4.0,)"
+ordering="AFTER"
+side="BOTH"
+[[dependencies.echo_teleport_magic]]
+modId="echo_events"
+mandatory=false
+versionRange="[0.2.0,)"
+ordering="AFTER"
+side="BOTH"
+[[dependencies.echo_teleport_magic]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"

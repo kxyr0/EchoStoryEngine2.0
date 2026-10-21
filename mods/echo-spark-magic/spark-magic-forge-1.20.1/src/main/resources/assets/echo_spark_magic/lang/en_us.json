@@ -1,0 +1,7 @@
+{
+  "command.echo_spark_magic.enabled": "Spark Magic movement trail enabled for %1$s. It appears only while moving.",
+  "command.echo_spark_magic.disabled": "Spark Magic movement trail disabled for %1$s.",
+  "command.echo_spark_magic.status.enabled": "Spark Magic movement trail for %1$s: enabled.",
+  "command.echo_spark_magic.status.disabled": "Spark Magic movement trail for %1$s: disabled."
+}
+

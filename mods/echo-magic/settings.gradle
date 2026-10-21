@@ -1,0 +1,20 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-magic'
+include 'magic-contracts'
+include 'magic-core'
+include 'magic-forge-api-1.20.1'
+include 'magic-forge-1.20.1'
+include 'magic-script-adapter-1.20.1'
+include 'magic-testmod-1.20.1'
+

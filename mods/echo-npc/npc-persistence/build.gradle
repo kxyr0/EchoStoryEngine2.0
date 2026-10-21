@@ -1,0 +1,7 @@
+description = 'Plain Java actor save schema and file repository for Echo NPC.'
+
+dependencies {
+    api project(':npc-core')
+    implementation project(':npc-contracts')
+    implementation 'com.google.code.gson:gson:2.10.1'
+}

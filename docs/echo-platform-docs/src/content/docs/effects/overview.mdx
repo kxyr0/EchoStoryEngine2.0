@@ -1,0 +1,38 @@
+---
+title: "Echo Effects"
+description: "EF1 declarative EffectResource pipeline, typed channels, core lifecycle and Forge host."
+section: "Effects"
+pageKind: "architecture"
+status: "review"
+since: "EF1"
+updated: "2026-08-01"
+relatedIds: ["EffectId", "EffectDefinition", "ActiveEffectView", "EffectService"]
+relatedPages: ["platform/content-workspace", "platform/server-authority", "wardrobe/hot-reload"]
+sourceRepositories: ["echo-effects", "echo-script"]
+sourcePaths: ["D:/JDHSeason/mods/echo-effects", "D:/JDHSeason/mods/echo-script"]
+visualIdentity: "effects-overview"
+interactiveModules: []
+searchKeywords: ["Effects", "EffectResource", "Effect.ApplyToPlayer", "camera", "screen tint"]
+---
+
+# Echo Effects
+
+Echo Effects adds declarative player effects defined as `.es` content:
+
+```text
+EffectResource
+-> EchoScript parser
+-> EffectResource binder
+-> immutable EffectDefinition
+-> EffectRuntime
+-> ActiveEffectInstance
+-> channel contributions
+```
+
+Content path:
+
+```text
+<gameDir>/story/content-pack/<namespace>/echo_effects/effects/
+```
+
+The EF1 repository is `D:/JDHSeason/mods/echo-effects`. It contains neutral `effects-contracts`, plain Java `effects-core`, `effects-script-adapter-1.20.1`, `effects-forge-api-1.20.1`, `effects-forge-1.20.1`, and a development-only testmod.

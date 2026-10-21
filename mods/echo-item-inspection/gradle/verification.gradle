@@ -1,0 +1,247 @@
+def productionJava = {
+    fileTree(rootDir) {
+        include 'inspection-*/src/main/java/**/*.java'
+        exclude 'inspection-testmod-1.20.1/**', '**/build/**'
+    }
+}
+def productionScripts = {
+    fileTree(rootDir) {
+        include 'inspection-*/src/main/resources/**/*.es'
+        exclude 'inspection-testmod-1.20.1/**', '**/build/**'
+    }
+}
+def countLogicalLines = { String text ->
+    int lines = 0
+    boolean hasCode = false, blockComment = false, lineComment = false, textBlock = false, escaped = false
+    String quote = null
+    for (int index = 0; index < text.length(); index++) {
+        String current = text.substring(index, index + 1)
+        if (current == '\n') {
+            if (hasCode) lines++
+            hasCode = false
+            lineComment = false
+            escaped = false
+            continue
+        }
+        if (lineComment) continue
+        if (blockComment) {
+            if (text.startsWith('*/', index)) { blockComment = false; index++ }
+            continue
+        }
+        if (textBlock || quote != null) {
+            if (!current.trim().isEmpty()) hasCode = true
+            if (escaped) escaped = false
+            else if (current == '\\') escaped = true
+            else if (textBlock && text.startsWith('"""', index)) { textBlock = false; index += 2 }
+            else if (!textBlock && current == quote) quote = null
+            continue
+        }
+        if (text.startsWith('//', index)) { lineComment = true; index++; continue }
+        if (text.startsWith('/*', index)) { blockComment = true; index++; continue }
+        if (!current.trim().isEmpty()) hasCode = true
+        if (text.startsWith('"""', index)) { textBlock = true; index += 2 }
+        else if (current == '"' || current == "'") quote = current
+    }
+    lines + (hasCode ? 1 : 0)
+}
+def enforceSourceShape = { Collection<File> javaFiles, Collection<File> scriptFiles, boolean reportReviews ->
+    def violations = []
+    def review = []
+    [javaFiles, scriptFiles].each { sources ->
+        def counts = [:].withDefault { 0 }
+        sources.sort().each { source ->
+            def relative = relativePath(source)
+            counts[source.parentFile]++
+            def logical = countLogicalLines(source.getText('UTF-8'))
+            if (logical > 180) violations << "${relative}: ${logical} logical LOC; hard max 180"
+            if (source.name.endsWith('.java') && logical > 100) {
+                review << "${relative}: ${logical} logical LOC; mandatory SRP review"
+            }
+            if (relative =~ /(?i)(^|[\\\/])(misc|helpers?|utils2|part1|part2|inspection2|render2|internal2|impl2|services2)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            if (source.name.endsWith('.java') && source.getText('UTF-8') =~ /(?m)^import\s+.*\.\*;/) {
+                violations << "${relative}: wildcard import"
+            }
+        }
+        counts.each { folder, count ->
+            if (count > 7) violations << "${relativePath(folder)}: ${count} production files; hard max 7"
+        }
+    }
+    if (reportReviews) review.each { logger.lifecycle(it) }
+    if (violations) throw new GradleException('Source shape violations:\n' + violations.join('\n'))
+}
+
+def reportMethodReviews = { Collection<File> sources ->
+    def compiler = javax.tools.ToolProvider.systemJavaCompiler
+    if (compiler == null) throw new GradleException('Source method review requires a JDK compiler.')
+    def diagnostics = new javax.tools.DiagnosticCollector<javax.tools.JavaFileObject>()
+    compiler.getStandardFileManager(diagnostics, null, java.nio.charset.StandardCharsets.UTF_8).withCloseable { manager ->
+        def parse = compiler.getTask(null, manager, diagnostics, ['-proc:none', '-source', '17'], null,
+                manager.getJavaFileObjectsFromFiles(sources))
+        def positions = com.sun.source.util.Trees.instance(parse).sourcePositions
+        parse.parse().each { unit ->
+            def text = unit.sourceFile.getCharContent(true).toString()
+            def visitor = new com.sun.source.util.TreeScanner<Void, Void>() {
+                @Override Void visitMethod(com.sun.source.tree.MethodTree method, Void unused) {
+                    long start = positions.getStartPosition(unit, method)
+                    long end = positions.getEndPosition(unit, method)
+                    if (start >= 0 && end >= start) {
+                        def size = countLogicalLines(text.substring((int) start, (int) end))
+                        if (size > 30) logger.lifecycle("Method review: ${unit.sourceFile.name}:${unit.lineMap.getLineNumber(start)} ${method.name} = ${size} logical LOC (>30)")
+                    }
+                    return super.visitMethod(method, unused)
+                }
+            }
+            visitor.scan(unit, null)
+        }
+    }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Enforces production Java/EchoScript size and semantic package boundaries.'
+    inputs.files(productionJava, productionScripts)
+    doLast {
+        enforceSourceShape(productionJava().files, productionScripts().files, true)
+        reportMethodReviews(productionJava().files)
+        logger.lifecycle('Source shape: Java >180=0; EchoScript >180=0; Java/ES leaf folders >7=0')
+    }
+}
+
+tasks.register('verifySourceShapeEnforcement') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Exercises the production checker against synthetic size/package boundary violations.'
+    doLast {
+        def root = layout.buildDirectory.dir('source-shape-probes').get().asFile
+        def makeSource = { String group, String name, int lines ->
+            def source = new File(root, "${group}/${name}")
+            source.parentFile.mkdirs()
+            source.setText((1..lines).collect { "line${it};" }.join('\n') + '\n', 'UTF-8')
+            source
+        }
+        int verified = 0
+        def expectFailure = { List<File> javaFiles, List<File> scripts, String expected ->
+            boolean rejected = false
+            try { enforceSourceShape(javaFiles, scripts, false) }
+            catch (GradleException failure) {
+                if (!failure.message.contains(expected)) throw failure
+                rejected = true
+            }
+            if (!rejected) throw new GradleException("Source shape probe failed to reject: ${expected}")
+            verified++
+        }
+        enforceSourceShape([makeSource('java-boundary', 'Limit.java', 180)], [], false)
+        verified++
+        expectFailure([makeSource('java-overflow', 'Limit.java', 181)], [], '181 logical LOC; hard max 180')
+        enforceSourceShape([], [makeSource('es-boundary', 'limit.inspection.es', 180)], false)
+        verified++
+        expectFailure([], [makeSource('es-overflow', 'limit.inspection.es', 181)], '181 logical LOC; hard max 180')
+        def javaLeaf = (1..8).collect { makeSource('java-leaf', "Probe${it}.java", 1) }
+        enforceSourceShape(javaLeaf.take(7), [], false)
+        verified++
+        expectFailure(javaLeaf, [], '8 production files; hard max 7')
+        def scriptLeaf = (1..8).collect { makeSource('es-leaf', "probe${it}.inspection.es", 1) }
+        enforceSourceShape([], scriptLeaf.take(7), false)
+        verified++
+        expectFailure([], scriptLeaf, '8 production files; hard max 7')
+        ['java', 'es'].each { extension ->
+            def literal = makeSource("${extension}-literal", "Literal.${extension}", 1)
+            literal.setText('value("/*");\n' + (1..179).collect { "line${it};" }.join('\n') + '\nvalue("*/");\n', 'UTF-8')
+            expectFailure(extension == 'java' ? [literal] : [], extension == 'es' ? [literal] : [], '181 logical LOC; hard max 180')
+            def comments = makeSource("${extension}-comments", "Comments.${extension}", 1)
+            comments.setText('/*\n' + (1..200).collect { 'comment text' }.join('\n') + '\n*/\nvalue(); // tail comment\n', 'UTF-8')
+            enforceSourceShape(extension == 'java' ? [comments] : [], extension == 'es' ? [comments] : [], false)
+            verified++
+        }
+        logger.lifecycle("Source shape enforcement probes: ${verified}/12 PASS (180/181 LOC, 7/8 files, comment/string boundaries, Java + ES)")
+    }
+}
+
+tasks.register('architectureTest') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks platform-free core and isolation of optional gameplay integrations.'
+    inputs.files(productionJava)
+    doLast {
+        def violations = []
+        productionJava().files.each { source ->
+            def text = source.getText('UTF-8')
+            if (source.toPath().startsWith(file('inspection-core').toPath())
+                    && text =~ /(?m)^import\s+(net\.minecraft|net\.minecraftforge|com\.mojang)\./) {
+                violations << "${relativePath(source)}: Minecraft/Forge dependency in pure core"
+            }
+            if (text =~ /(?m)^import\s+com\.akicater\./
+                    && !source.path.replace('\\', '/').contains('/integration/ipla/')) {
+                violations << "${relativePath(source)}: IPLA import outside integration/ipla"
+            }
+            if (source.path.replace('\\', '/').contains('/client/integration/')
+                    && text =~ /java\.lang\.reflect|MethodHandles|Class\.forName/) {
+                violations << "${relativePath(source)}: reflection in optional integration"
+            }
+            if (text =~ /(?m)^import\s+io\.github\.kxyr0\.(echoobservation|echothoughtspace|echostoryengine|echoitemattachments)\./) {
+                violations << "${relativePath(source)}: prohibited optional gameplay dependency"
+            }
+            if (!source.toString().contains(File.separator + 'client' + File.separator)
+                    && text =~ /(?m)^import\s+(net\.minecraft\.client|com\.mojang\.blaze3d)\./) {
+                violations << "${relativePath(source)}: client class import outside client boundary"
+            }
+        }
+        if (violations) throw new GradleException('Architecture violations:\n' + violations.join('\n'))
+    }
+}
+
+tasks.register('verifyProductionJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks the reobfuscated production artifact embeds core and excludes fixtures.'
+    dependsOn ':inspection-forge-1.20.1:reobfJarJar'
+    doLast {
+        def artifact = project(':inspection-forge-1.20.1').layout.buildDirectory
+                .file("libs/${artifact_name}-${mod_version}-all.jar").get().asFile
+        if (!artifact.isFile() || artifact.length() == 0L) throw new GradleException("Missing production JAR: ${artifact}")
+        new java.util.zip.ZipFile(artifact).withCloseable { archive ->
+            def names = archive.entries().collect { it.name }
+            def required = ['META-INF/mods.toml', 'META-INF/jarjar/metadata.json',
+                    'assets/echo_item_inspection/lang/en_us.json', 'assets/echo_item_inspection/lang/ru_ru.json']
+            def missing = required.findAll { !names.contains(it) }
+            ['model', 'forge'].each { area ->
+                if (!names.any { it.startsWith("io/github/kxyr0/echoiteminspection/${area}/") && it.endsWith('.class') }) {
+                    missing << "${area} production classes"
+                }
+            }
+            def forbidden = names.findAll { name ->
+                name.startsWith('io/github/kxyr0/echoiteminspection/testmod/')
+                        || name.startsWith('assets/echo_item_inspection_testmod/')
+                        || name.startsWith('net/minecraft/') || name.startsWith('net/minecraftforge/')
+                        || name.startsWith('org/junit/') || name.startsWith('gameteststructures/')
+                        || name.startsWith('com/akicater/') || name.startsWith('dev/architectury/')
+                        || name.startsWith('docs/') || name.startsWith('run/') || name.startsWith('build/')
+            }
+            def entry = archive.getEntry('META-INF/mods.toml')
+            def descriptor = entry ? archive.getInputStream(entry).getText('UTF-8') : ''
+            if (!descriptor.contains('modId="echo_item_inspection"') || descriptor.contains('${')) missing << 'expanded production descriptor'
+            if (missing || forbidden) throw new GradleException("Invalid production JAR.\nMissing: ${missing}\nForbidden: ${forbidden}")
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        fileTree(rootDir) {
+            include '**/*.java', '**/*.gradle', '**/*.properties', '**/*.md', '**/*.toml', '**/*.json', '**/*.es', '**/*.snbt'
+            exclude '**/build/**', '**/run/**', '**/.gradle/**', '**/.git/**'
+        }.files.each { source ->
+            def text = source.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) violations << "${relativePath(source)}:${index + 1}: trailing whitespace"
+                if (line.contains('\t')) violations << "${relativePath(source)}:${index + 1}: tab"
+            }
+            if (text && !text.endsWith('\n')) violations << "${relativePath(source)}: missing final newline"
+        }
+        if (violations) throw new GradleException(violations.join('\n'))
+    }
+}
+tasks.named('check') {
+    dependsOn 'sourceShapeCheck', 'verifySourceShapeEnforcement', 'architectureTest', 'verifyProductionJarContents', 'checkWhitespace'
+}

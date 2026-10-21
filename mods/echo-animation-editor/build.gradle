@@ -1,0 +1,190 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+allprojects {
+    repositories {
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+def productionFiles = {
+    fileTree(rootDir) {
+        include 'animation-editor-*/src/main/java/**/*.java'
+        exclude '**/build/**'
+    }
+}
+
+def checkedTextFiles = {
+    fileTree(rootDir) {
+        include '*.gradle', 'gradle.properties', '.gitignore', '.gitattributes'
+        include 'config/**/*.xml'
+        include 'animation-editor-*/src/**/*.java'
+        include 'animation-editor-*/src/**/*.json'
+        include 'animation-editor-*/src/**/*.toml'
+        include 'animation-editor-*/src/**/*.mcmeta'
+        include 'README.md', 'CHANGELOG.md', 'docs/**/*.md'
+        exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    apply plugin: 'jacoco'
+
+    version = rootProject.version
+    group = rootProject.group
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+        withSourcesJar()
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    checkstyle {
+        toolVersion = checkstyle_version
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    }
+
+    pmd {
+        toolVersion = pmd_version
+        ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+        ruleSets = []
+        consoleOutput = true
+    }
+
+    jacoco {
+        toolVersion = jacoco_version
+    }
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Runs all unit tests.'
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks AE1 source shape and forbidden vague production boundaries.'
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        productionFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()] = counts[file.parentFile.toPath()] + 1
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            if ((text =~ /(?m)\bstatic\s+(?!final\b)(?:[^;{=()]+)[;=]/).find()) {
+                violations << "${relative}: mutable static field candidate"
+            }
+            if (relative =~ /(?i)(^|[\\\/])(misc|helpers?|more|part1|part2|editor2|camera2|gizmo2|timeline2|inspector2|services2|internal2|impl2)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 180) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 180"
+            }
+            if ((text =~ /(?m)^\s*public\s+(?:final\s+)?(?:class|interface|record|enum)\s+.*(?:Manager|Helper|Utils|Processor|Handler|Impl)\b/).find()) {
+                violations << "${relative}: forbidden vague production type name"
+            }
+        }
+        counts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+        println 'Source shape: Java files > 180 logical LOC = 0'
+        println 'Source shape: leaf Java packages > 7 files = 0'
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks UTF-8 text files for tabs, trailing whitespace, and final newlines.'
+    doLast {
+        def violations = []
+        checkedTextFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/ || line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: whitespace violation"
+                }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('verifyNoAnimationRuntimeCopy') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks that AE1 does not copy Echo Animation runtime/parser/compiler symbols.'
+    doLast {
+        def forbidden = ['GenericAnimationManager', 'EchoScriptAnimationCompiler',
+                         'AnimationResourceBinder', 'ClipSampler', 'CurveCompiler']
+        def hits = []
+        productionFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            forbidden.findAll { text.contains(it) }.each { marker ->
+                hits << "${rootDir.toPath().relativize(file.toPath())}: ${marker}"
+            }
+        }
+        if (!hits.isEmpty()) {
+            throw new GradleException("Forbidden runtime duplication markers:\n" + hits.join('\n'))
+        }
+        println 'duplicate Animation Engine = 0'
+        println 'duplicate parser = 0'
+        println 'duplicate curve compiler = 0'
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyNoAnimationRuntimeCopy')
+}

@@ -1,0 +1,238 @@
+{
+  "EchoStory Event": {
+    "prefix": "ese-event",
+    "description": "Story event with trigger, if condition, effects, and fireOnce.",
+    "body": [
+      "{",
+      "\tid: \"${1:event_id}\",",
+      "\ttrigger: {",
+      "\t\ttype: \"manual\",",
+      "\t\tkey: \"${2:event.signal}\",",
+      "\t},",
+      "\tif: { type: \"always_true\" },",
+      "\teffects: [",
+      "\t\t{ type: \"start_dialogue\", dialogueId: \"${3:dialogue_id}\" },",
+      "\t],",
+      "\tfireOnce: true,",
+      "}"
+    ]
+  },
+  "EchoStory Area Trigger Event": {
+    "prefix": "ese-event-area",
+    "description": "Area enter event with min/max coordinates.",
+    "body": [
+      "{",
+      "\tid: \"${1:area_event_id}\",",
+      "\ttrigger: {",
+      "\t\ttype: \"area_enter\",",
+      "\t\tkey: \"${2:chapter.area.enter}\",",
+      "\t\tdimensionId: \"minecraft:overworld\",",
+      "\t\tmin: { x: ${3:0}, y: ${4:64}, z: ${5:0} },",
+      "\t\tmax: { x: ${6:4}, y: ${7:68}, z: ${8:4} },",
+      "\t},",
+      "\tif: {",
+      "\t\ttype: \"not\",",
+      "\t\tcondition: { type: \"state_exists\", key: \"memory.${1:area_event_id}.done\" },",
+      "\t},",
+      "\teffects: [",
+      "\t\t{ type: \"set_state\", key: \"memory.${1:area_event_id}.done\", value: true },",
+      "\t\t{ type: \"start_scene\", sceneId: \"${9:scene_id}\" },",
+      "\t],",
+      "\tfireOnce: true,",
+      "}"
+    ]
+  },
+  "EchoStory Dialogue": {
+    "prefix": "ese-dialogue",
+    "description": "Dialogue with one start node and choice.",
+    "body": [
+      "{",
+      "\tid: \"${1:dialogue_id}\",",
+      "\tspeaker: \"${2:speaker_id}\",",
+      "\tstart: \"start\",",
+      "\tnodes: {",
+      "\t\tstart: {",
+      "\t\t\tsay: [",
+      "\t\t\t\t\"${3:Line text}\",",
+      "\t\t\t],",
+      "\t\t\tchoices: [",
+      "\t\t\t\t{ id: \"continue\", text: \"${4:Continue}\", next: \"end\" },",
+      "\t\t\t],",
+      "\t\t},",
+      "\t\tend: {",
+      "\t\t\tsay: [\"${5:End line}\"],",
+      "\t\t},",
+      "\t},",
+      "}"
+    ]
+  },
+  "EchoStory Scene": {
+    "prefix": "ese-scene",
+    "description": "Scene with dialogue lines and completion effects.",
+    "body": [
+      "{",
+      "\tid: \"${1:scene_id}\",",
+      "\tlockPlayer: true,",
+      "\tskippable: true,",
+      "\treplayable: false,",
+      "\tspeakerAliases: {",
+      "\t\tj: \"jdh\",",
+      "\t\tm: \"${2:speaker_id}\",",
+      "\t},",
+      "\tsteps: [",
+      "\t\t{ type: \"wait\", ticks: 10 },",
+      "\t\t[\"m\", \"${3:Scene line}\"],",
+      "\t\t{",
+      "\t\t\ttype: \"apply_effects\",",
+      "\t\t\teffects: [",
+      "\t\t\t\t{ type: \"set_state\", key: \"memory.${1:scene_id}.done\", value: true },",
+      "\t\t\t],",
+      "\t\t},",
+      "\t],",
+      "}"
+    ]
+  },
+  "EchoStory Speaker": {
+    "prefix": "ese-speaker",
+    "description": "Speaker/NPC definition with interaction dialogue.",
+    "body": [
+      "{",
+      "\tid: \"${1:speaker_id}\",",
+      "\tdisplayName: \"${2:Display Name}\",",
+      "\tportraitId: \"${1:speaker_id}\",",
+      "\tinteractionDialogue: \"${3:dialogue_id}\",",
+      "\tinteractionActions: [",
+      "\t\t{",
+      "\t\t\tid: \"talk\",",
+      "\t\t\tlabel: \"${4:Talk}\",",
+      "\t\t\teffects: [",
+      "\t\t\t\t{ type: \"start_dialogue\", dialogueId: \"${3:dialogue_id}\" },",
+      "\t\t\t],",
+      "\t\t},",
+      "\t],",
+      "}"
+    ]
+  },
+  "Effect: conditional": {
+    "prefix": "ese-if",
+    "description": "Conditional story effect.",
+    "body": [
+      "{",
+      "\ttype: \"if\",",
+      "\tif: { type: \"state_equals\", key: \"${1:memory.flag}\", value: true },",
+      "\tthen: [",
+      "\t\t{ type: \"${2:notify}\", title: \"${3:Title}\", text: \"${4:Text}\" },",
+      "\t],",
+      "\telse: [],",
+      "}"
+    ]
+  },
+  "Effect: NPC command": {
+    "prefix": "ese-npc-command",
+    "description": "NPC command effect.",
+    "body": [
+      "{",
+      "\ttype: \"npc_command\",",
+      "\tcommand: {",
+      "\t\ttype: \"${1:spawn}\",",
+      "\t\tnpcId: \"${2:npc_id}\",",
+      "\t\tdimensionId: \"minecraft:overworld\",",
+      "\t\tx: ${3:0},",
+      "\t\ty: ${4:64},",
+      "\t\tz: ${5:0},",
+      "\t},",
+      "}"
+    ]
+  },
+  "Condition: all_of": {
+    "prefix": "ese-all-of",
+    "description": "All-of story condition.",
+    "body": [
+      "{",
+      "\ttype: \"all_of\",",
+      "\tconditions: [",
+      "\t\t{ type: \"state_exists\", key: \"${1:memory.flag}\" },",
+      "\t\t{ type: \"player_money_at_least\", amount: ${2:50} },",
+      "\t],",
+      "}"
+    ]
+  },
+  "Effect: NPC spawn near player": {
+    "prefix": "ese-npc-spawn-near",
+    "description": "NPC command effect that spawns an NPC near the player.",
+    "body": [
+      "{",
+      "\ttype: \"npc_command\",",
+      "\tcommand: {",
+      "\t\ttype: \"spawn_near_player\",",
+      "\t\tnpcId: \"${1:npc_id}\",",
+      "\t\tforwardOffset: ${2:2.0},",
+      "\t\tsideOffset: ${3:0.0},",
+      "\t\tyOffset: ${4:0.0},",
+      "\t},",
+      "}"
+    ]
+  },
+  "Effect: NPC held item": {
+    "prefix": "ese-npc-held-item",
+    "description": "NPC command effect that puts an item into an NPC hand.",
+    "body": [
+      "{",
+      "\ttype: \"npc_command\",",
+      "\tcommand: {",
+      "\t\ttype: \"set_held_item\",",
+      "\t\tnpcId: \"${1:npc_id}\",",
+      "\t\titemId: \"${2:minecraft:paper}\",",
+      "\t\tcount: ${3:1},",
+      "\t\thand: \"mainhand\",",
+      "\t},",
+      "}"
+    ]
+  },
+  "Effect: World set block": {
+    "prefix": "ese-world-set-block",
+    "description": "World command effect that sets a block.",
+    "body": [
+      "{",
+      "\ttype: \"world_command\",",
+      "\tcommand: {",
+      "\t\ttype: \"set_block\",",
+      "\t\tdimensionId: \"minecraft:overworld\",",
+      "\t\tx: ${1:0},",
+      "\t\ty: ${2:64},",
+      "\t\tz: ${3:0},",
+      "\t\tblockId: \"${4:minecraft:air}\",",
+      "\t},",
+      "}"
+    ]
+  },
+  "Effect: Vehicle trip": {
+    "prefix": "ese-vehicle-trip",
+    "description": "World command effect that starts a vehicle trip.",
+    "body": [
+      "{",
+      "\ttype: \"world_command\",",
+      "\tcommand: {",
+      "\t\ttype: \"vehicle_trip\",",
+      "\t\tnpcId: \"${1:driver_npc}\",",
+      "\t\tspawnId: \"${2:vehicle_spawn}\",",
+      "\t\tfromSegmentId: \"${3:from_segment}\",",
+      "\t\ttoSegmentId: \"${4:to_segment}\",",
+      "\t\tcategory: \"car\",",
+      "\t\tbackend: \"native_preferred\",",
+      "\t\tspeed: ${5:6.5},",
+      "\t},",
+      "}"
+    ]
+  },
+  "String shortcut: dialogue": {
+    "prefix": "ese-shortcut-dialogue",
+    "description": "String shortcut that starts a dialogue.",
+    "body": "\"dialogue:${1:dialogue_id}\""
+  },
+  "String shortcut: scene": {
+    "prefix": "ese-shortcut-scene",
+    "description": "String shortcut that starts a scene.",
+    "body": "\"scene:${1:scene_id}\""
+  }
+}

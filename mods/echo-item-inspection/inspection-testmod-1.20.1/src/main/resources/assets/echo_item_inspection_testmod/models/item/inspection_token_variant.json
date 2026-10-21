@@ -1,0 +1,14 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {"all": "minecraft:block/amethyst_block", "particle": "#all"},
+  "elements": [
+    {
+      "from": [2, 4, 6], "to": [14, 12, 10],
+      "faces": {
+        "north": {"texture": "#all"}, "south": {"texture": "#all"},
+        "west": {"texture": "#all"}, "east": {"texture": "#all"},
+        "up": {"texture": "#all"}, "down": {"texture": "#all"}
+      }
+    }
+  ]
+}

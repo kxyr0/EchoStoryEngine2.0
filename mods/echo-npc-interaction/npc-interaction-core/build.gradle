@@ -1,0 +1,5 @@
+description = 'Plain Java command lifecycle core for Echo NPC Interaction.'
+
+dependencies {
+    api project(':npc-interaction-contracts')
+}

@@ -1,0 +1,5 @@
+description = 'Public dynamic speaker presentation provider API for Echo Dialogue.'
+
+dependencies {
+    api project(':dialogue-contracts')
+}

@@ -1,0 +1,17 @@
+{
+  "item.echo_magic_weapons.fire_spear": "Огненное копьё",
+  "item.echo_magic_weapons.water_whip": "Водяной хлыст",
+  "item.echo_magic_weapons.stone_gauntlets": "Каменные перчатки",
+  "item.echo_magic_weapons.air_blade": "Воздушный клинок",
+  "item.echo_magic_weapons.void_dagger": "Пустотный кинжал",
+  "item.echo_magic_weapons.temporary": "Временное оружие Эхо",
+  "item.echo_magic_weapons.fire_spear.hint": "Перегрев: следующая атака выпускает волну. Shift+ПКМ — линия огня",
+  "item.echo_magic_weapons.water_whip.hint": "Взмах зависит от мыши. ПКМ — притянуть слабую цель или предмет",
+  "item.echo_magic_weapons.stone_gauntlets.hint": "ПКМ — тяжёлый блок. Удар сверху — трещина",
+  "item.echo_magic_weapons.air_blade.hint": "Спринт и прыжок усиливают. ПКМ — парирование, заряд — рывок",
+  "item.echo_magic_weapons.void_dagger.hint": "Метка усиливает урон. Заряд ПКМ — перемещение за отмеченную цель",
+  "message.echo_magic_weapons.summoned": "Призвано: %s",
+  "message.echo_magic_weapons.faded": "Оружие Эхо рассеялось",
+  "command.echo_magic_weapons.unavailable": "Движок Echo Magic недоступен",
+  "command.echo_magic_weapons.success": "%s получил все заклинания элементального арсенала"
+}

@@ -1,0 +1,7 @@
+description = 'Portable durable persistence for Echo Dialogue sessions.'
+
+dependencies {
+    api project(':dialogue-core')
+    implementation project(':dialogue-contracts')
+    implementation "com.google.code.gson:gson:${gson_version}"
+}

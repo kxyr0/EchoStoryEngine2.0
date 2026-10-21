@@ -1,0 +1,62 @@
+---
+title: "Reactive геометрия"
+description: "OnTriggerEnter, OnTriggerExit и OnTriggerStay для Echo Trigger T3."
+section: "Trigger"
+pageKind: "syntax"
+status: "review"
+since: "T3"
+updated: "2026-07-25"
+relatedIds: ["Vector3", "AreaShape", "TriggerCallbackInvocation"]
+relatedPages: ["trigger/reactive-runtime", "adapters/dialogue-trigger", "trigger/predicate-event"]
+sourceRepositories: ["echo-trigger", "echo-dialogue-trigger-adapter"]
+sourcePaths: ["D:/JDHSeason/mods/echo-trigger/docs/authoring/TRIGGER_REACTIVE_GEOMETRY.md"]
+visualIdentity: "trigger-reactive-geometry"
+interactiveModules: []
+searchKeywords: ["trigger", "reactive", "geometry", "OnTriggerEnter", "OnTriggerExit", "OnTriggerStay"]
+---
+
+# Reactive геометрия
+
+T3 добавляет callback-style trigger resources. Если ресурс объявляет `OnTriggerEnter`, `OnTriggerExit` или
+`OnTriggerStay`, `Start(...)` больше не обязателен.
+
+```csharp
+class ReactiveHouseBoundary : TriggerResource
+{
+    private TriggerArea House = BoxArea(Vector3(180, 64, 192), Vector3(188, 70, 200));
+
+    private void Init()
+    {
+        Id("jdh:reactive_house_boundary");
+        Scope(PLAYER);
+        Dimension("minecraft:overworld");
+        Bind(House);
+        Cooldown(Ticks(40));
+    }
+
+    private void OnTriggerEnter(PlayerRef player)
+    {
+        Dialogue.Start("sample:greeting");
+    }
+}
+```
+
+`Dimension(...)` и `Bind(...)` разделены намеренно: форма описывает геометрию, а измерение задает runtime context.
+Один reactive resource может иметь ровно одну primary area.
+
+Поддерживаются `BoxArea`, `SphereArea`, `CylinderArea`, `CircleArea` как alias цилиндра и `PolygonArea`.
+`PolygonArea` требует не менее трех точек, общий `minY` и отсутствие самопересечений.
+
+Сигнатура callback может быть пустой, с `PlayerRef` или с `TriggerEvent`. Перегрузки одного callback имени
+отклоняются, потому что dispatch иначе неоднозначен.
+
+Policies:
+
+- `FireOnlyOnce()`, `EnterOnlyOnce()`, `ExitOnlyOnce()`, `StayOnlyOnce()`
+- `FireCount(n)`
+- `Cooldown(Ticks(n))`
+- `StayInterval(Ticks(n))`
+- `StayPolicy(SKIP_WHILE_RUNNING)` или `StayPolicy(QUEUE_ONE)`
+
+Echo Trigger сохраняет тело callback как neutral action descriptors. Выполнение `Dialogue.Start(...)` делает adapter
+через public Dialogue API.

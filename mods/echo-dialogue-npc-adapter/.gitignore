@@ -1,0 +1,9 @@
+.gradle/
+build/
+run/
+run-client-visual/
+out/
+*.log
+logs/
+*.iml
+.idea/

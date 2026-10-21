@@ -1,0 +1,45 @@
+# Disable autocrlf on generated files, they always generate with LF
+# Add any extra files or paths here to make git stop saying they
+# are changed when only line endings change.
+src/generated/**/.cache/cache text eol=lf
+src/generated/**/*.json text eol=lf
+# Все текстовые файлы храним в репозитории с LF
+* text=auto eol=lf
+
+# Windows-скриптам нужен CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Unix-скрипты и Gradle wrapper
+*.sh text eol=lf
+gradlew text eol=lf
+
+# Явно текстовые форматы
+*.java text eol=lf
+*.gradle text eol=lf
+*.properties text eol=lf
+*.xml text eol=lf
+*.json text eol=lf
+*.json5 text eol=lf
+*.es text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+
+# Бинарные файлы не трогаем
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.jar binary
+*.zip binary
+*.gz binary
+*.mp3 binary
+*.ogg binary
+*.wav binary
+*.mp4 binary
+*.ttf binary
+*.otf binary

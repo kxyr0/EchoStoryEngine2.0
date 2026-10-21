@@ -1,0 +1,33 @@
+---
+title: "Predicate против Event"
+description: "Разница между state condition и transition event в Echo Trigger T2."
+section: "Trigger"
+pageKind: "concept"
+status: "review"
+since: "T2"
+updated: "2026-07-24"
+relatedIds: ["TriggerExpressionKind", "TriggerEvent", "TriggerCondition"]
+relatedPages: ["trigger/items-inventory", "trigger/t2-reference"]
+sourceRepositories: ["echo-trigger", "echo-dialogue-trigger-adapter"]
+sourcePaths: ["D:/JDHSeason/mods/echo-trigger", "D:/JDHSeason/mods/echo-dialogue-trigger-adapter"]
+visualIdentity: "trigger-predicate-event"
+interactiveModules: ["InventoryTriggerLab"]
+searchKeywords: ["trigger", "predicate", "event", "recovery", "ItemAdded", "HasItem"]
+---
+import { InventoryTriggerLab } from "../../../components/VanillaTriggerLabs";
+
+# Predicate против Event
+
+Predicate проверяет текущее состояние: `HasItem`, `HealthAtMost`, `HasEffect`, `InDimension`.
+
+Event фиксирует переход после подписки: `ItemAdded`, `PlayerDied`, `BlockInteracted`, `TimeReached`.
+
+После restart или recovery predicate можно переоценить по текущему snapshot. Event нельзя синтетически создать из уже
+существующего состояния.
+
+<InventoryTriggerLab client:load />
+
+```csharp
+Trigger.Wait(HasItem("minecraft:diamond"));
+Trigger.Wait(ItemAdded("minecraft:diamond"));
+```

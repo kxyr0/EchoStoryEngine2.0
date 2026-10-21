@@ -1,0 +1,35 @@
+---
+title: "Glasses"
+description: "HEAD item, FACE wearable, optional item model, exact outfit skin and portrait faceSkin."
+section: "Wardrobe"
+pageKind: "tutorial"
+status: "review"
+since: "W2"
+updated: "2026-07-27"
+relatedIds: ["WearableDefinition", "WearableModelContribution", "OutfitKey"]
+relatedPages: ["wardrobe/face-accessories", "wardrobe/wearable-models", "wardrobe/slots"]
+sourceRepositories: ["echo-wardrobe"]
+sourcePaths: ["D:/JDHSeason/mods/echo-wardrobe/wardrobe-testmod-1.20.1/src/main/resources/data/echo_wardrobe_test/echo_wardrobe/wearables/john/origin/origin_john_glasses.wearable.es"]
+visualIdentity: "wardrobe-glasses"
+interactiveModules: ["GlassesPortraitLab"]
+searchKeywords: ["glasses", "FACE", "HEAD", "origin_john_glasses"]
+---
+
+import { GlassesPortraitLab } from "../../../components/WardrobeLabs";
+
+# Glasses
+
+The origin glasses fixture is a `FACE` wearable:
+
+```es
+Id("jdh:origin_john_glasses");
+Profile("jdh:john");
+Item("jdh:origin_john_glasses");
+Slot(FACE);
+EquipmentSlot(HEAD);
+Model("jdh:item/origin_john_glasses");
+```
+
+<GlassesPortraitLab client:load />
+
+The full outfit PNG includes the final glasses pixels. The model descriptor is additional geometry, not a runtime skin layer.

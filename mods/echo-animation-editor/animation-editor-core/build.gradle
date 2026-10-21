@@ -1,0 +1,5 @@
+description = 'Plain Java editor state, layout, gizmo, and timeline core.'
+
+dependencies {
+    api project(':animation-editor-contracts')
+}

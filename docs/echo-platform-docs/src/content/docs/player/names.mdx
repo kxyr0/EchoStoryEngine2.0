@@ -1,0 +1,24 @@
+---
+title: "Имя игрока"
+description: "Account name против Echo display name и правила CUSTOM."
+section: "Player"
+pageKind: "reference"
+status: "review"
+since: "P1"
+updated: "2026-07-25"
+relatedIds: ["PlayerDisplayName", "PlayerNameMode", "PlayerIdentitySnapshot"]
+relatedPages: ["player/profile"]
+sourceRepositories: ["echo-content-player"]
+sourcePaths: ["D:/JDHSeason/mods/echo-content-player/player-contracts"]
+visualIdentity: "player-names"
+interactiveModules: []
+searchKeywords: ["имя", "ACCOUNT", "CUSTOM", "display name"]
+---
+
+# Имя игрока
+
+`ACCOUNT` берёт resolved display name из текущего `GameProfile`. Смена имени аккаунта обновляет presentation name при следующем login, но `EchoPlayerId` остаётся прежним.
+
+`CUSTOM` хранит plain `PlayerDisplayName`. Смена имени аккаунта не меняет custom name.
+
+Validation: имя не пустое, не состоит только из пробелов, не содержит control characters и не превышает 48 Unicode code points. Formatting injection, MiniMessage и HTML не входят в P1.

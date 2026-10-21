@@ -1,0 +1,93 @@
+plugins {
+    id 'java'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'checkstyle'
+    id 'pmd'
+}
+version = mod_version
+group = mod_group_id
+base { archivesName = artifact_name }
+java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+}
+jarJar.enable()
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'debug'
+            mods { "${mod_id}" { source sourceSets.main } }
+        }
+        client { }
+    }
+}
+dependencies {
+    compileOnly files('../echo-core/build/libs/echo-core-0.2.0.jar')
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly files("../echo-observation/build/libs/echo-observation-${echo_observation_version}.jar")
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-api',
+            version: "[${echo_script_version},)") { jarJar.pin(it, echo_script_version) }
+    jarJar(group: 'io.github.kxyr0.echoscript', name: 'echo-script-language',
+            version: "[${echo_script_version},)") { jarJar.pin(it, echo_script_version) }
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+tasks.withType(Test).configureEach { useJUnitPlatform() }
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+checkstyle { toolVersion = checkstyle_version; configFile = rootProject.file('config/checkstyle/checkstyle.xml') }
+pmd {
+    toolVersion = pmd_version
+    ruleSetFiles = files(rootProject.file('config/pmd/pmd.xml'))
+    ruleSets = []
+    consoleOutput = true
+}
+tasks.named('processResources', ProcessResources).configure {
+    def values = [minecraft_version_range: minecraft_version_range, forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range, mod_id: mod_id, mod_name: mod_name,
+            mod_license: mod_license, mod_version: mod_version, mod_authors: mod_authors,
+            mod_description: mod_description]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand values }
+}
+tasks.named('jar', Jar).configure {
+    manifest { attributes('Automatic-Module-Name': mod_id) }
+    finalizedBy 'reobfJar'
+}
+tasks.named('jarJar', Jar).configure {
+    manifest { attributes('Automatic-Module-Name': mod_id) }
+    finalizedBy 'reobfJarJar'
+}
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []; def counts = [:].withDefault { 0 }
+        fileTree('src/main/java') { include '**/*.java' }.files.each { file ->
+            def text = file.getText('UTF-8'); def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()]++
+            def logical = text.readLines().count { line ->
+                def value = line.trim(); value && !value.startsWith('//') && !value.startsWith('*')
+            }
+            if (logical > 180) violations << "${relative}: ${logical} logical lines; max is 180"
+            if (relative =~ /(?i)(^|[\\\/])(misc|helpers?|more|part1|part2|thought2|render2|internal2|impl2|services2)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+        }
+        counts.each { path, count ->
+            if (count > 7) violations << "${rootDir.toPath().relativize(path)}: ${count} files; max is 7"
+        }
+        if (!violations.isEmpty()) throw new GradleException(violations.join('\n'))
+        println 'Java files >180 = 0; leaf packages >7 = 0'
+    }
+}
+tasks.named('check') { dependsOn tasks.named('sourceShapeCheck') }

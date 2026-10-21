@@ -1,0 +1,7 @@
+{
+  "attributes": {
+    "one_hand": { "armor_negation": 3.0, "impact": 0.85, "max_strikes": 2 },
+    "two_hand": { "armor_negation": 4.0, "impact": 1.0, "max_strikes": 2 }
+  },
+  "type": "epicfight:uchigatana"
+}

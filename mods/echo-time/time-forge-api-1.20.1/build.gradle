@@ -1,0 +1,10 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+minecraft { mappings channel: mapping_channel, version: mapping_version }
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':time-contracts')
+}

@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "heated=false": { "model": "echo_fire_magic:block/blacksmith_blank" },
+    "heated=true": { "model": "echo_fire_magic:block/blacksmith_blank_heated" }
+  }
+}

@@ -1,0 +1,16 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="echo_background_npc_testmod"
+version="0.1.0"
+displayName="Echo Background NPC Testmod"
+description='''Controlled development benchmark scenes for Echo Background NPC.'''
+
+[[dependencies.echo_background_npc_testmod]]
+modId="echo_background_npc"
+mandatory=true
+versionRange="[0.2.0,)"
+ordering="AFTER"
+side="BOTH"

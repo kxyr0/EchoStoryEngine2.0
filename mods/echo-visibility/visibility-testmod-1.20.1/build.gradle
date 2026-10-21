@@ -1,0 +1,30 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Development-only VIS1 acceptance scenarios.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':visibility-contracts')
+    implementation project(':visibility-forge-api-1.20.1')
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def values = [
+            minecraft_version_range: minecraft_version_range,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+    ]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand values + [project: project]
+    }
+}

@@ -1,0 +1,25 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-visibility'
+
+includeBuild '../echo-script'
+includeBuild '../echo-npc'
+include 'visibility-contracts'
+include 'visibility-core'
+include 'visibility-forge-api-1.20.1'
+include 'visibility-forge-1.20.1'
+include 'visibility-script-adapter-1.20.1'
+include 'visibility-testmod-1.20.1'

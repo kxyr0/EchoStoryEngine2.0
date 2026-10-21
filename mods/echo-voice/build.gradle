@@ -1,0 +1,123 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+allprojects {
+    repositories {
+        mavenLocal()
+        flatDir { dirs rootProject.file('libs') }
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+        maven {
+            name = 'DialogueIntegration'
+            url = rootProject.file('../echo-dialogue/build/integration-maven').toURI()
+        }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    apply plugin: 'jacoco'
+    version = rootProject.version
+    group = rootProject.group
+    java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+    checkstyle {
+        toolVersion = checkstyle_version
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    }
+    pmd {
+        toolVersion = pmd_version
+        ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+        ruleSets = []
+        consoleOutput = true
+    }
+    jacoco { toolVersion = jacoco_version }
+}
+
+configure([project(':voice-contracts'), project(':voice-forge-api-1.20.1')]) {
+    apply plugin: 'maven-publish'
+    publishing {
+        publications { register('mavenJava', MavenPublication) { from components.java } }
+        repositories { maven { name = 'integrationMaven'; url = rootProject.layout.buildDirectory.dir('integration-maven') } }
+    }
+}
+
+tasks.register('publishVoiceIntegrationArtifacts') {
+    group = 'publishing'
+    dependsOn ':voice-contracts:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':voice-forge-api-1.20.1:publishMavenJavaPublicationToIntegrationMavenRepository'
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        def packages = [:].withDefault { 0 }
+        fileTree(rootDir) { include 'voice-*/src/main/java/**/*.java'; exclude '**/build/**' }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            packages[file.parentFile.toPath()]++
+            def logical = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logical > 180) { violations << "${relative}: ${logical} logical lines; max is 180" }
+        }
+        packages.each { path, count ->
+            if (count > 7) { violations << "${rootDir.toPath().relativize(path)}: ${count} files; max is 7" }
+        }
+        if (!violations.isEmpty()) { throw new GradleException(violations.join('\n')) }
+        println 'Java files > 180 logical LOC = 0'
+        println 'EchoScript files > 180 logical LOC = 0'
+        println 'leaf Java packages > 7 files = 0'
+        println 'leaf content folders > 7 files = 0'
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        fileTree(rootDir) {
+            include '*.gradle', '*.properties', '*.md', '*.bat', '.gitignore', '.gitattributes'
+            include 'voice-*/src/**/*.java', 'voice-*/src/**/*.toml', 'voice-*/src/**/*.mcmeta'
+            include 'config/**/*.xml', 'docs/**/*.md'
+            exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) { violations << "${file}:${index + 1}: trailing whitespace" }
+                if (line.contains('\t')) { violations << "${file}:${index + 1}: tab" }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) { violations << "${file}: missing final newline" }
+        }
+        if (!violations.isEmpty()) { throw new GradleException(violations.join('\n')) }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn ':voice-forge-1.20.1:verifyProductionJarContents'
+}

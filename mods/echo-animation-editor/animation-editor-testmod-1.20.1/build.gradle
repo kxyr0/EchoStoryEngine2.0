@@ -1,0 +1,33 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Development-only test host for Echo Animator Editor.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                echo_animation_editor_test {
+                    source sourceSets.main
+                }
+            }
+        }
+        client { }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly project(':animation-editor-contracts')
+}
+
+tasks.named('jar', Jar).configure {
+    finalizedBy 'reobfJar'
+}

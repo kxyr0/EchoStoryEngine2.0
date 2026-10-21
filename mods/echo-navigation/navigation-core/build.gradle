@@ -1,0 +1,5 @@
+description = 'Plain Java lifecycle, idempotency, settings, progress and recovery core.'
+
+dependencies {
+    api project(':navigation-contracts')
+}

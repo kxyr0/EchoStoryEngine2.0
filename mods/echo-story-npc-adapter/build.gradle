@@ -1,0 +1,324 @@
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = artifact_name
+}
+
+repositories {
+    maven {
+        name = 'EchoStoryIntegration'
+        url = uri('../echo-story-engine/build/integration-maven')
+    }
+    maven {
+        name = 'EchoNpcIntegration'
+        url = uri('../echo-npc/build/integration-maven')
+    }
+    mavenCentral()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    withSourcesJar()
+}
+
+sourceSets {
+    architectureTest {
+        java.srcDir 'src/architectureTest/java'
+        resources.srcDir 'src/architectureTest/resources'
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+configurations {
+    architectureTestImplementation.extendsFrom testImplementation
+    architectureTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+        client {
+        }
+        server {
+            args '--nogui'
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    compileOnly "io.github.kxyr0.echostoryengine:story-contracts:${story_engine_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-api:${story_engine_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:${story_engine_version}"
+    compileOnly "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
+    compileOnly "io.github.kxyr0.echonpc:npc-forge-api-1.20.1:${echo_npc_version}"
+
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation "io.github.kxyr0.echostoryengine:story-contracts:${story_engine_version}"
+    testImplementation "io.github.kxyr0.echostoryengine:story-extension-api:${story_engine_version}"
+    testImplementation "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
+    architectureTestImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+    architectureTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+            story_engine_mod_version_range: story_engine_mod_version_range,
+            echo_npc_mod_version_range: echo_npc_mod_version_range,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('architectureTest', Test) {
+    description = 'Запускает архитектурные проверки adapter.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = sourceSets.architectureTest.output.classesDirs
+    classpath = sourceSets.architectureTest.runtimeClasspath
+    shouldRunAfter tasks.named('test')
+}
+
+tasks.register('sourceShapeCheck') {
+    description = 'Проверяет размер production classes и seven-file limit.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        def productionJava = fileTree(rootDir) {
+            include 'src/main/java/**/*.java'
+            exclude '**/build/**'
+        }
+        productionJava.files.groupBy { it.parentFile }.each { dir, files ->
+            if (files.size() > 7) {
+                violations << "${rootDir.toPath().relativize(dir.toPath())}: ${files.size()} java files; max is 7"
+            }
+        }
+        productionJava.files.each { file ->
+            def logicalLines = file.readLines('UTF-8').count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+                        && !trimmed.startsWith('/**') && !trimmed.startsWith('*/')
+            }
+            if (logicalLines > 200) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: ${logicalLines} logical lines; max is 200"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    description = 'Проверяет trailing whitespace, tabs и финальный newline.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        fileTree(rootDir) {
+            include '*.gradle', 'gradle.properties', '.gitignore', '.gitattributes'
+            include 'src/**/*.java', 'src/**/*.toml', 'src/**/*.mcmeta'
+            include 'AGENTS.md', 'PLANS.md', 'PROGRESS.md', 'README.md', 'docs/**/*.md'
+            include 'integration-tests/**/*.gradle', 'integration-tests/**/*.properties'
+            include 'integration-tests/**/*.ps1'
+            include 'integration-tests/src/**/*.java', 'integration-tests/src/**/*.toml'
+            include 'integration-tests/src/**/*.mcmeta', 'integration-tests/src/**/*.es'
+            include 'integration-tests/src/**/*.snbt'
+            exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: trailing whitespace"
+                }
+                if (line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: tab character"
+                }
+            }
+            if (!text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('verifyProductionJarContents') {
+    description = 'Проверяет содержимое production adapter JAR.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('reobfJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile
+        if (!jarFile.isFile()) {
+            throw new GradleException("Production JAR не создан: ${jarFile}")
+        }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echostoryengine/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/api/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/forge/api/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/forge/entity/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/forge/client/')
+                    || entry.startsWith('io/github/kxyr0/echoscript/')
+                    || entry.startsWith('net/minecraft/')
+                    || entry.startsWith('net/minecraftforge/')
+                    || entry.startsWith('org/junit/')
+                    || entry.startsWith('com/tngtech/archunit/')
+                    || entry.startsWith('docs/')
+                    || entry == 'AGENTS.md'
+                    || entry == 'PLANS.md'
+                    || entry == 'PROGRESS.md'
+        }
+        if (!entries.contains('META-INF/mods.toml') || !forbidden.isEmpty()) {
+            throw new GradleException("Adapter JAR verification failed."
+                    + "\nforbidden entries:\n" + forbidden.take(40).join('\n'))
+        }
+        println "Echo Story NPC Adapter JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.register('publishStoryIntegrationArtifacts', GradleBuild) {
+    description = 'Публикует public Story artifacts для isolated adapter build.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dir = file(story_engine_project_dir)
+    tasks = ['publishExtensionIntegrationArtifacts']
+}
+
+tasks.register('publishEchoNpcIntegrationArtifacts', GradleBuild) {
+    description = 'Публикует public Echo NPC artifacts для isolated adapter build.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dir = file(echo_npc_project_dir)
+    tasks = ['publishNpcIntegrationArtifacts', 'verifyPublicationMetadata']
+}
+
+tasks.register('verifySiblingPublicArtifacts') {
+    description = 'Проверяет наличие ожидаемых Story/NPC public artifacts в generated Maven repositories.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('publishStoryIntegrationArtifacts')
+    dependsOn tasks.named('publishEchoNpcIntegrationArtifacts')
+    doLast {
+        def storyRepo = file("${story_engine_project_dir}/build/integration-maven/io/github/kxyr0/echostoryengine")
+        def npcRepo = file("${echo_npc_project_dir}/build/integration-maven/io/github/kxyr0/echonpc")
+        def required = [
+                [storyRepo, 'story-contracts', story_engine_version],
+                [storyRepo, 'story-extension-api', story_engine_version],
+                [storyRepo, 'story-extension-forge-1.20.1', story_engine_version],
+                [npcRepo, 'npc-contracts', echo_npc_version],
+                [npcRepo, 'npc-forge-api-1.20.1', echo_npc_version],
+        ]
+        def found = []
+        def missing = []
+        required.each { spec ->
+            def versionDir = file("${spec[0]}/${spec[1]}/${spec[2]}")
+            def exact = file("${versionDir}/${spec[1]}-${spec[2]}.jar")
+            def jars = versionDir.isDirectory()
+                    ? versionDir.listFiles().findAll { it.name.endsWith('.jar') && !it.name.contains('-sources') }
+                    : []
+            if (exact.isFile()) {
+                found << exact
+            } else if (!jars.isEmpty()) {
+                found << jars.max { it.lastModified() }
+            } else {
+                missing << exact
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Public artifacts не найдены:\n" + missing.join('\n'))
+        }
+        println "Story/NPC public artifacts verified: ${found.size()} files."
+    }
+}
+
+tasks.register('buildAcceptanceMod', GradleBuild) {
+    description = 'Собирает отдельный test-only acceptance Forge mod.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dependsOn project.tasks.named('verifySiblingPublicArtifacts')
+    dir = file('integration-tests/echo-story-npc-acceptance-mod')
+    tasks = ['build']
+}
+
+tasks.named('build') {
+    mustRunAfter tasks.named('verifySiblingPublicArtifacts')
+}
+
+tasks.named('buildAcceptanceMod') {
+    mustRunAfter project.tasks.named('build')
+}
+
+tasks.register('n3IntegrationBuild') {
+    description = 'Публикует public artifacts, собирает adapter и test-only acceptance mod.'
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dependsOn tasks.named('verifySiblingPublicArtifacts')
+    dependsOn tasks.named('build')
+    dependsOn tasks.named('buildAcceptanceMod')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('architectureTest')
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyProductionJarContents')
+}

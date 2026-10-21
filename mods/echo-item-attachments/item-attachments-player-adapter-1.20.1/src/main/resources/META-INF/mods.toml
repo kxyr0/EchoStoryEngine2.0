@@ -1,0 +1,23 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="echo_item_attachments_player_adapter"
+version="${mod_version}"
+displayName="Echo Item Attachments Player Adapter"
+description='''Player Actor lease, movement, hand anchor and rendering integration.'''
+
+[[dependencies.echo_item_attachments_player_adapter]]
+modId="echo_item_attachments"
+mandatory=true
+versionRange="[${mod_version},)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.echo_item_attachments_player_adapter]]
+modId="echo_player_actor"
+mandatory=true
+versionRange="[${echo_player_actor_version},)"
+ordering="AFTER"
+side="BOTH"

@@ -1,0 +1,22 @@
+---
+title: "Управление телом"
+description: "Командный поток от EchoScript к настоящему body игрока."
+section: "Player"
+pageKind: "architecture"
+status: "review"
+since: "PA1"
+updated: "2026-07-28"
+relatedIds: ["PlayerActorService", "PlayerActorCommandGateway", "PlayerActorResult"]
+relatedPages: ["player-actor/rotate", "player-actor/move"]
+sourceRepositories: ["echo-player-actor"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-actor/player-actor-forge-1.20.1"]
+visualIdentity: "player-body-control"
+interactiveModules: ["PlayerActorSequenceLab"]
+searchKeywords: ["Player.Rotate", "Player.Move", "Player.Interact"]
+---
+
+# Управление телом
+
+Поток команды: EchoScript → script adapter → `PlayerActorService` → lease validation → body operation → result → script resume.
+
+Низкоуровневые команды вроде `PressButton`, `ReleaseButton`, `SimulateInput` и `RightClick` отсутствуют. Сценарий описывает действие героя, а не клавишу пользователя.

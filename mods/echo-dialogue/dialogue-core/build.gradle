@@ -1,0 +1,5 @@
+description = 'Plain Java linear dialogue session model.'
+
+dependencies {
+    api project(':dialogue-contracts')
+}

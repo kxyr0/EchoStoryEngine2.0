@@ -1,0 +1,8 @@
+description = 'EchoScript NpcResource semantic adapter for Echo NPC.'
+
+dependencies {
+    api project(':npc-core')
+    implementation project(':npc-contracts')
+    implementation "io.github.kxyr0.echoscript:echo-script-api:${echo_script_version}"
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}

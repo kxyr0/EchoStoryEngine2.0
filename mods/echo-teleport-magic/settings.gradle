@@ -1,0 +1,7 @@
+pluginManagement { repositories { gradlePluginPortal(); mavenCentral(); maven { url = 'https://maven.minecraftforge.net/' } } }
+rootProject.name = 'echo-teleport-magic'
+include 'teleport-magic-core', 'teleport-magic-forge-1.20.1', 'teleport-magic-testmod-1.20.1'
+includeBuild '../echo-script'
+includeBuild '../echo-scene'
+includeBuild '../echo-npc'
+includeBuild '../echo-events'

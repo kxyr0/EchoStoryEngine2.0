@@ -1,0 +1,45 @@
+---
+title: "HUD игрока"
+description: "Полоски health, Spark и stamina через metric providers без владения gameplay state."
+section: "Player"
+pageKind: "architecture"
+status: "review"
+since: "PH1"
+updated: "2026-07-29"
+relatedIds: ["HudMetricProvider", "HudMetricSnapshot", "HudReferenceCanvasTransform"]
+relatedPages: ["player/vitals", "adapters/player-hud", "player/spark"]
+sourceRepositories: ["echo-player-hud"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-hud"]
+visualIdentity: "player-hud"
+interactiveModules: []
+searchKeywords: ["HUD", "health bar", "spark bar", "stamina bar", "GUI Scale"]
+---
+
+# HUD игрока
+
+Echo Player HUD владеет только отображением. Он не меняет здоровье, Искру, fatigue, hunger или gameplay effects.
+
+Поток рендера:
+
+```text
+HudMetricProvider
+-> HudMetricSnapshot
+-> HudLayoutSnapshot
+-> framebuffer transform
+-> bar fill
+```
+
+Стандартные метрики:
+
+- `echo_player_hud:health`;
+- `echo_player_hud:spark`;
+- `echo_player_hud:stamina`.
+
+Layout считается в framebuffer coordinates от reference canvas `1920x1080`. Minecraft GUI Scale влияет только на
+перевод в `GuiGraphics`, поэтому final framebuffer bounds не меняются при GUI Scale `1`, `2`, `3`, `4` и `Auto`.
+
+Проверка:
+
+```text
+/echo_hud bounds
+```

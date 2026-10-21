@@ -1,0 +1,200 @@
+diff --git a/npc-forge-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/client/EchoNpcEntityRenderer.java b/npc-forge-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/client/EchoNpcEntityRenderer.java
+index 6dca88f..4ff98e2 100644
+--- a/npc-forge-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/client/EchoNpcEntityRenderer.java
++++ b/npc-forge-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/client/EchoNpcEntityRenderer.java
+@@ -9,6 +9,7 @@ import io.github.kxyr0.echonpc.forge.api.client.attachment.NpcVisualAttachmentTr
+ import io.github.kxyr0.echonpc.forge.api.client.render.NpcClientRenderResult;
+ import io.github.kxyr0.echonpc.forge.api.client.render.NpcHeadRenderContext;
+ import io.github.kxyr0.echonpc.forge.client.attachment.NpcBodyAttachmentExtensionSet;
++import io.github.kxyr0.echonpc.forge.client.attachment.NpcReplacementAttachmentAnchorProvider;
+ import io.github.kxyr0.echonpc.forge.client.form.EchoNpcFormPlayerModel;
+ import io.github.kxyr0.echonpc.forge.entity.EchoNpcEntity;
+ import java.util.List;
+@@ -298,33 +299,14 @@ public final class EchoNpcEntityRenderer
+         }
+ 
+         /*
+-         * The animation renderer supplies the current animated
+-         * transform of the requested skeleton bone.
+-         *
+-         * The vanilla PlayerModel part still supplies the base
+-         * humanoid pivot used by body attachments.
++         * Animation providers may expose either historical part-relative
++         * transforms or complete model-space sockets. The provider wrapper
++         * appends vanilla pivots only for the historical contract.
+          */
+         NpcVisualAttachmentTransformProvider animatedAnchors =
+-                (anchor, stack) -> {
+-
+-                    anchorTransforms.apply(
+-                            anchor,
+-                            stack);
+-
+-                    switch (anchor) {
+-                        case TORSO_BACK ->
+-                                activeModel.body
+-                                        .translateAndRotate(stack);
+-
+-                        case LEFT_HAND ->
+-                                activeModel.leftArm
+-                                        .translateAndRotate(stack);
+-
+-                        case RIGHT_HAND ->
+-                                activeModel.rightArm
+-                                        .translateAndRotate(stack);
+-                    }
+-                };
++                new NpcReplacementAttachmentAnchorProvider(
++                        activeModel,
++                        anchorTransforms);
+ 
+         NpcBodyAttachmentRenderContext context =
+                 new NpcBodyAttachmentRenderContext(
+diff --git a/npc-forge-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/client/attachment/NpcReplacementAttachmentAnchorProvider.java b/npc-forge-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/client/attachment/NpcReplacementAttachmentAnchorProvider.java
+new file mode 100644
+index 0000000..8b37ab2
+--- /dev/null
++++ b/npc-forge-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/client/attachment/NpcReplacementAttachmentAnchorProvider.java
+@@ -0,0 +1,72 @@
++package io.github.kxyr0.echonpc.forge.client.attachment;
++
++import com.mojang.blaze3d.vertex.PoseStack;
++import io.github.kxyr0.echonpc.forge.api.client.attachment.NpcVisualAttachmentAnchor;
++import io.github.kxyr0.echonpc.forge.api.client.attachment.NpcVisualAttachmentTransformProvider;
++import io.github.kxyr0.echonpc.forge.api.client.attachment.NpcVisualAttachmentTransformSpace;
++import io.github.kxyr0.echonpc.forge.entity.EchoNpcEntity;
++import java.util.Objects;
++import net.minecraft.client.model.PlayerModel;
++
++/** Composes animation-owned anchor transforms with legacy vanilla pivots only when required. */
++public final class NpcReplacementAttachmentAnchorProvider
++        implements NpcVisualAttachmentTransformProvider {
++
++    private final PlayerModel<EchoNpcEntity> model;
++    private final NpcVisualAttachmentTransformProvider delegate;
++
++    public NpcReplacementAttachmentAnchorProvider(
++            PlayerModel<EchoNpcEntity> model,
++            NpcVisualAttachmentTransformProvider delegate) {
++
++        this.model = Objects.requireNonNull(
++                model,
++                "model");
++        this.delegate = Objects.requireNonNull(
++                delegate,
++                "delegate");
++    }
++
++    @Override
++    public void apply(
++            NpcVisualAttachmentAnchor anchor,
++            PoseStack poses) {
++
++        delegate.apply(
++                anchor,
++                poses);
++
++        if (delegate.space(anchor)
++                == NpcVisualAttachmentTransformSpace.PART_RELATIVE) {
++            applyVanillaPivot(
++                    anchor,
++                    poses);
++        }
++    }
++
++    @Override
++    public NpcVisualAttachmentTransformSpace space(
++            NpcVisualAttachmentAnchor anchor) {
++
++        return delegate.space(anchor);
++    }
++
++    private void applyVanillaPivot(
++            NpcVisualAttachmentAnchor anchor,
++            PoseStack poses) {
++
++        switch (anchor) {
++            case TORSO_BACK ->
++                    model.body
++                            .translateAndRotate(poses);
++
++            case LEFT_HAND ->
++                    model.leftArm
++                            .translateAndRotate(poses);
++
++            case RIGHT_HAND ->
++                    model.rightArm
++                            .translateAndRotate(poses);
++        }
++    }
++}
+diff --git a/npc-forge-api-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/api/client/attachment/NpcVisualAttachmentTransformProvider.java b/npc-forge-api-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/api/client/attachment/NpcVisualAttachmentTransformProvider.java
+index 677f719..1104a49 100644
+--- a/npc-forge-api-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/api/client/attachment/NpcVisualAttachmentTransformProvider.java
++++ b/npc-forge-api-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/api/client/attachment/NpcVisualAttachmentTransformProvider.java
+@@ -1,6 +1,7 @@
+ package io.github.kxyr0.echonpc.forge.api.client.attachment;
+ 
+ import com.mojang.blaze3d.vertex.PoseStack;
++import java.util.Objects;
+ 
+ @FunctionalInterface
+ public interface NpcVisualAttachmentTransformProvider {
+@@ -8,4 +9,15 @@ public interface NpcVisualAttachmentTransformProvider {
+     void apply(
+             NpcVisualAttachmentAnchor anchor,
+             PoseStack poses);
+-}
+\ No newline at end of file
++
++    /**
++     * Tells the NPC renderer whether it must append the vanilla body-part pivot.
++     * Existing lambda providers stay part-relative for compatibility.
++     */
++    default NpcVisualAttachmentTransformSpace space(
++            NpcVisualAttachmentAnchor anchor) {
++
++        Objects.requireNonNull(anchor, "anchor");
++        return NpcVisualAttachmentTransformSpace.PART_RELATIVE;
++    }
++}
+diff --git a/npc-forge-api-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/api/client/attachment/NpcVisualAttachmentTransformSpace.java b/npc-forge-api-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/api/client/attachment/NpcVisualAttachmentTransformSpace.java
+new file mode 100644
+index 0000000..366794d
+--- /dev/null
++++ b/npc-forge-api-1.20.1/src/main/java/io/github/kxyr0/echonpc/forge/api/client/attachment/NpcVisualAttachmentTransformSpace.java
+@@ -0,0 +1,10 @@
++package io.github.kxyr0.echonpc.forge.api.client.attachment;
++
++/** Composition contract for a visual attachment anchor transform. */
++public enum NpcVisualAttachmentTransformSpace {
++    /** Historical transform that still requires the vanilla ModelPart pivot. */
++    PART_RELATIVE,
++
++    /** Complete model-space socket transform. No vanilla ModelPart pivot may be appended. */
++    MODEL_ABSOLUTE
++}
+diff --git a/npc-forge-api-1.20.1/src/test/java/io/github/kxyr0/echonpc/forge/api/client/attachment/NpcVisualAttachmentTransformProviderTest.java b/npc-forge-api-1.20.1/src/test/java/io/github/kxyr0/echonpc/forge/api/client/attachment/NpcVisualAttachmentTransformProviderTest.java
+new file mode 100644
+index 0000000..44ca0af
+--- /dev/null
++++ b/npc-forge-api-1.20.1/src/test/java/io/github/kxyr0/echonpc/forge/api/client/attachment/NpcVisualAttachmentTransformProviderTest.java
+@@ -0,0 +1,18 @@
++package io.github.kxyr0.echonpc.forge.api.client.attachment;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++
++import org.junit.jupiter.api.Test;
++
++final class NpcVisualAttachmentTransformProviderTest {
++    @Test
++    void legacyLambdaProvidersRemainPartRelative() {
++        NpcVisualAttachmentTransformProvider provider =
++                (anchor, poses) -> {
++                };
++
++        assertEquals(
++                NpcVisualAttachmentTransformSpace.PART_RELATIVE,
++                provider.space(NpcVisualAttachmentAnchor.TORSO_BACK));
++    }
++}

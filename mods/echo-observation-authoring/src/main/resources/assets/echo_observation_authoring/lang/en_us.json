@@ -1,0 +1,13 @@
+{
+  "key.categories.echo_observation_authoring": "Echo Observation Authoring",
+  "key.echo_observation_authoring.toggle": "Toggle Observation authoring",
+  "key.echo_observation_authoring.place": "Place selected Observation",
+  "key.echo_observation_authoring.previous": "Previous Observation / resource",
+  "key.echo_observation_authoring.next": "Next Observation / resource",
+  "key.echo_observation_authoring.clear": "Clear selected Observation placement",
+  "key.echo_observation_authoring.picker": "Open Observation picker",
+  "screen.echo_observation_authoring.picker.title": "Observation picker",
+  "screen.echo_observation_authoring.picker.search": "Search resource, ID, or declaration…",
+  "screen.echo_observation_authoring.picker.empty": "No matching observations",
+  "screen.echo_observation_authoring.picker.help": "Enter: select • double-click: select • Esc: cancel"
+}

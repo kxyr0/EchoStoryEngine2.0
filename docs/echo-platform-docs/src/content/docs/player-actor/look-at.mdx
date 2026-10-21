@@ -1,0 +1,22 @@
+---
+title: "LookAt"
+description: "Вычисление yaw/pitch от eye position до мировой точки."
+section: "Player"
+pageKind: "api"
+status: "review"
+since: "PA1"
+updated: "2026-07-28"
+relatedIds: ["PlayerActorLookRequest", "PlayerLookAtResolver"]
+relatedPages: ["player-actor/rotate"]
+sourceRepositories: ["echo-player-actor"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-actor/player-actor-core"]
+visualIdentity: "player-look-at"
+interactiveModules: []
+searchKeywords: ["LookAt", "target", "shortest yaw"]
+---
+
+# LookAt
+
+`Player.LookAt(x, y, z)` вычисляет yaw/pitch от eye position. Resolver проверяет finite coordinates, слишком близкую цель и shortest yaw path.
+
+Default policy: `BODY_AND_HEAD`.

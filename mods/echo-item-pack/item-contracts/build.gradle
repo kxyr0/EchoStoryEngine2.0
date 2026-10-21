@@ -1,0 +1,5 @@
+description = 'Neutral public item definition contracts for Echo Item Pack.'
+
+base {
+    archivesName = 'item-contracts'
+}

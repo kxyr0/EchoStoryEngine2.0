@@ -1,0 +1,15 @@
+plugins { id 'net.minecraftforge.gradle' }
+base { archivesName = 'echo-void-magic-testmod' }
+description = 'Development-only Void Daggers arena checks.'
+minecraft { mappings channel: mapping_channel, version: mapping_version }
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation "io.github.kxyr0.echomagic:magic-contracts:${echo_magic_version}"
+    implementation "io.github.kxyr0.echomagic:magic-forge-api-1.20.1:${echo_magic_version}"
+}
+tasks.named('processResources', ProcessResources).configure {
+    def values = [loader_version_range: loader_version_range, mod_license: mod_license,
+            mod_version: mod_version, mod_authors: mod_authors]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand values + [project: project] }
+}

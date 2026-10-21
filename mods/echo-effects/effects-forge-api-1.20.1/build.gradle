@@ -1,0 +1,18 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+base {
+    archivesName = 'effects-forge-api-1.20.1'
+}
+
+description = 'Public Forge-facing API boundary for Echo Effects.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':effects-contracts')
+}

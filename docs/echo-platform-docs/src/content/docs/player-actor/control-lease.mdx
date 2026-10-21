@@ -1,0 +1,22 @@
+---
+title: "Control Lease"
+description: "Exclusive право управлять телом игрока во время катсцены или другой scripted сцены."
+section: "Player"
+pageKind: "architecture"
+status: "review"
+since: "PA1"
+updated: "2026-07-28"
+relatedIds: ["PlayerControlLease", "PlayerControlLeaseId", "PlayerActorOwnerId"]
+relatedPages: ["player-actor/cutscenes", "player-actor/recovery"]
+sourceRepositories: ["echo-player-actor", "echo-cutscene-player-actor-adapter"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-actor/player-actor-contracts"]
+visualIdentity: "player-control-lease"
+interactiveModules: ["ControlLeaseLab"]
+searchKeywords: ["lease", "owner", "cinematic control"]
+---
+
+# Control Lease
+
+Для одного `PlayerActorId` активен максимум один exclusive lease. Во время катсцены adapter берёт `CINEMATIC_CONTROL`, блокируя пользовательское управление body, но разрешая команды authorised owner.
+
+Конфликтующий owner получает `PLAYER_ACTOR_CONTROL_ALREADY_LEASED` или `PLAYER_ACTOR_CONTROL_OWNER_MISMATCH`.

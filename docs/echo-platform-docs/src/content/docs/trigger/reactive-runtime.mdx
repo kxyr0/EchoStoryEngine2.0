@@ -1,0 +1,38 @@
+---
+title: "Reactive runtime"
+description: "Как Echo Trigger T3 вычисляет enter, exit и stay без зависимостей на другие модули."
+section: "Trigger"
+pageKind: "architecture"
+status: "review"
+since: "T3"
+updated: "2026-07-25"
+relatedIds: ["ReactiveTriggerDefinition", "TriggerCallbackInvocation", "TriggerAreaSnapshot"]
+relatedPages: ["trigger/reactive-geometry", "adapters/dialogue-trigger"]
+sourceRepositories: ["echo-trigger"]
+sourcePaths: ["D:/JDHSeason/mods/echo-trigger/docs/architecture/TRIGGER_REACTIVE_RUNTIME.md"]
+visualIdentity: "trigger-reactive-runtime"
+interactiveModules: []
+searchKeywords: ["trigger", "reactive runtime", "movement", "debug", "area snapshot"]
+---
+
+# Reactive runtime
+
+Forge bridge снимает позицию игрока в конце server tick и отправляет в core предыдущую и текущую позицию вместе с
+previous/current dimension. Первый snapshot считается baseline и не создает synthetic enter.
+
+Core runtime хранит membership по стабильному trigger instance id:
+
+- inside/outside state;
+- общий fire count;
+- consumed one-shot callback kinds;
+- cooldown expiry tick;
+- next stay tick.
+
+Когда transition принят, runtime возвращает `TriggerCallbackInvocation`. Он не исполняет action body сам и не импортирует
+Dialogue, Story или Player implementation modules.
+
+Forge публикует invocation как public `TriggerCallbackInvocationEvent` из `trigger-forge-api-1.20.1`. Любой adapter
+может слушать этот event и решать, какие action names он поддерживает.
+
+Для будущего echo-debug есть read-only `TriggerAreaCatalogView`: trigger id, area name, dimension, shape kind, min, max
+и center. Debug GUI и wands не входят в T3.

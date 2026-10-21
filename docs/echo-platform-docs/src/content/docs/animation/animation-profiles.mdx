@@ -1,0 +1,40 @@
+﻿---
+title: "Синтаксис профиля EchoScript"
+description: "Построчный разбор реального AnimationProfile .es-файла: исходник, AST, связанное состояние и контракт во время игры."
+section: "Animation"
+pageKind: "syntax"
+status: "review"
+since: "A4"
+updated: "2026-07-22"
+relatedIds: ["AnimationProfileId", "AnimationSubjectId", "AnimationProfileFingerprint"]
+relatedPages: ["animation/npc-animation-bindings", "animation/a4-npc-lifecycle-integration"]
+sourceRepositories: ["echo-animation", "echo-story-content-pack"]
+sourcePaths: ["D:/JDHSeason/mods/echo-animation", "D:/JDHSeason/mods/echo-story-content-pack"]
+visualIdentity: "syntax-xray"
+interactiveModules: ["SyntaxXRay", "ContractMatrix"]
+searchKeywords: ["EchoScript", "AnimationProfile", "синтаксис", "AST", "Binder", "контракт во время игры"]
+---
+import { ContractTable } from "../../../components/ContractTable";
+import { SyntaxLens } from "../../../components/SyntaxLens";
+
+# Синтаксис профиля EchoScript
+
+<SyntaxLens example="profile" client:load />
+
+## Что проверяет binder
+
+`AnimationProfile` не является комментарием к Java-коду. Это content resource, который parser переводит в AST, binder связывает с `AnimationProfileId`, а система во время игры использует при `ensure subject`.
+
+Binder проверяет:
+
+- что ID профиля namespaced;
+- что rig существует;
+- что graph описывает разрешённые фазы;
+- что required channels можно занять через lease;
+- что initial state не сбрасывает существующий playback без безопасного rebind.
+
+## Контракт во время игры
+
+После успешного bind профиль становится частью generated contract. Он доступен адаптеру только через публичный API, поэтому NPC integration не импортирует internals анимации.
+
+<ContractTable client:load />

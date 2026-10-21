@@ -1,0 +1,16 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Forge 1.20.1 public service lookup bridge for Echo Dialogue.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':dialogue-contracts')
+    api project(':dialogue-presentation-api')
+    api project(':dialogue-echoscript-extension-api')
+}

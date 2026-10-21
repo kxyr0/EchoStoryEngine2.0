@@ -1,0 +1,10 @@
+{
+  "command.echo_fire_magic.setup.unavailable": "Сервис Echo Magic недоступен.",
+  "command.echo_fire_magic.setup.not_loaded": "Заклинание Fire Bolt не загружено.",
+  "command.echo_fire_magic.setup.success": "Магия огня открыта для %1$s. Используйте назначенную клавишу «%2$s».",
+  "block.echo_fire_magic.blacksmith_blank": "Кузнечная заготовка",
+  "message.echo_fire_magic.blacksmith.no_target": "Рука кузнеца: возьмите переплавляемый предмет или наведитесь на нагреваемый блок.",
+  "message.echo_fire_magic.blacksmith.started": "Рука кузнеца: переплавка начата.",
+  "message.echo_fire_magic.blacksmith.interrupted": "Рука кузнеца: прогрев прерван.",
+  "message.echo_fire_magic.blacksmith.complete": "Рука кузнеца: готово."
+}

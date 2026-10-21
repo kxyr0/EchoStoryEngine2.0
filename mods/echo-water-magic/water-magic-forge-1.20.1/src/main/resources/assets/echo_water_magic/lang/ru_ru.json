@@ -1,0 +1,6 @@
+{
+  "command.echo_water_magic.setup.unavailable": "Сервис Echo Magic недоступен.",
+  "command.echo_water_magic.setup.not_loaded": "Заклинание Water Bolt не загружено.",
+  "command.echo_water_magic.setup.success": "Water Bolt выбран для %1$s. Используйте назначенную клавишу «%2$s»."
+}
+

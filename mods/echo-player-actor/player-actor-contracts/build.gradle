@@ -1,0 +1,5 @@
+description = 'Immutable neutral public contracts for Echo Player Actor.'
+
+dependencies {
+    api "io.github.kxyr0.echonavigation:navigation-contracts:${echo_navigation_version}"
+}

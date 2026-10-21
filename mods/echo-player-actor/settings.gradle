@@ -1,0 +1,29 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-player-actor'
+
+include 'player-actor-contracts'
+include 'player-actor-core'
+include 'player-actor-forge-api-1.20.1'
+include 'player-actor-forge-1.20.1'
+include 'player-actor-script-adapter-1.20.1'
+include 'player-actor-story-adapter-1.20.1'
+include 'player-actor-refurbished-furniture-adapter-1.20.1'
+include 'player-actor-testmod-1.20.1'
+
+includeBuild '../echo-navigation'
+includeBuild '../echo-script'
+includeBuild '../echo-story-engine'

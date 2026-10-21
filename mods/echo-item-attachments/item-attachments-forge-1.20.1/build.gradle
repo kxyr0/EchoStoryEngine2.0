@@ -1,0 +1,90 @@
+plugins { id 'net.minecraftforge.gradle' }
+
+description = 'Forge 1.20.1 server-authoritative item attachment runtime.'
+base { archivesName = artifact_name }
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    source project(':item-attachments-contracts').sourceSets.main
+                    source project(':item-attachments-core').sourceSets.main
+                    source project(':item-attachments-forge-api-1.20.1').sourceSets.main
+                }
+            }
+        }
+        client { }
+        server { args '--nogui' }
+        gameTestServer { property 'forge.enabledGameTestNamespaces', mod_id }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':item-attachments-contracts')
+    implementation project(':item-attachments-core')
+    implementation project(':item-attachments-forge-api-1.20.1')
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def values = [minecraft_version_range: minecraft_version_range,
+            forge_version_range: forge_version_range, loader_version_range: loader_version_range,
+            mod_id: mod_id, mod_name: mod_name, mod_license: mod_license,
+            mod_version: mod_version, mod_authors: mod_authors, mod_description: mod_description]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand values }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn ':item-attachments-contracts:classes', ':item-attachments-core:classes',
+            ':item-attachments-forge-api-1.20.1:classes'
+    from project(':item-attachments-contracts').sourceSets.main.output
+    from project(':item-attachments-core').sourceSets.main.output
+    from project(':item-attachments-forge-api-1.20.1').sourceSets.main.output
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest { attributes('Automatic-Module-Name': mod_id) }
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('jar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def required = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echoitemattachments/api/identity/AttachmentId.class',
+                'io/github/kxyr0/echoitemattachments/core/custody/AttachmentLedger.class',
+                'io/github/kxyr0/echoitemattachments/forge/api/service/ItemAttachmentService.class',
+                'io/github/kxyr0/echoitemattachments/forge/EchoItemAttachmentsMod.class'
+        ]
+        def missing = required.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echoitemattachments/testmod/')
+                    || entry.startsWith('io/github/kxyr0/echoitemattachments/animation/')
+                    || entry.startsWith('io/github/kxyr0/echoitemattachments/script/')
+                    || entry.startsWith('io/github/kxyr0/echoitemattachments/npc/')
+                    || entry.startsWith('io/github/kxyr0/echoitemattachments/player/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/')
+                    || entry.startsWith('io/github/kxyr0/echoanimation/')
+                    || entry.startsWith('io/github/kxyr0/echoplayeractor/')
+        }
+        if (!missing.empty || !forbidden.empty) {
+            throw new GradleException('Production JAR verification failed.\nmissing:\n'
+                    + missing.join('\n') + '\nforbidden:\n' + forbidden.take(40).join('\n'))
+        }
+        println "Item attachments production JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.named('check') { dependsOn 'verifyProductionJarContents' }

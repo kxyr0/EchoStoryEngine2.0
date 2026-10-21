@@ -1,0 +1,10 @@
+package io.github.kxyr0.echonpcbackpack.core.recovery;
+
+public enum BackpackRecoveryDecision {
+    KEEP_SOURCE_AND_FAIL,
+    CONTINUE_WITH_PERSISTED_PAYLOAD,
+    REMOVE_DUPLICATE_SOURCE_THEN_CONTINUE,
+    CONFIRM_DESTINATION_AND_COMPLETE,
+    KEEP_ON_NPC_DESTINATION_OCCUPIED,
+    MANUAL_RECOVERY_REQUIRED
+}

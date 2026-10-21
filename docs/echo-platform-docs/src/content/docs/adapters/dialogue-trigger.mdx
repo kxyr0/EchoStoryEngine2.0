@@ -1,0 +1,40 @@
+---
+title: "Dialogue и Trigger"
+description: "Как reactive callbacks запускают диалоги через public APIs без жесткой зависимости."
+section: "Adapters"
+pageKind: "architecture"
+status: "review"
+since: "T3"
+updated: "2026-07-25"
+relatedIds: ["DialogueService", "EchoDialogueServiceLookupEvent", "TriggerCallbackInvocationEvent"]
+relatedPages: ["trigger/reactive-geometry", "trigger/reactive-runtime", "adapters/allowed-dependencies"]
+sourceRepositories: ["echo-dialogue", "echo-trigger", "echo-dialogue-trigger-adapter"]
+sourcePaths: ["D:/JDHSeason/mods/echo-dialogue-trigger-adapter"]
+visualIdentity: "dialogue-trigger-adapter"
+interactiveModules: []
+searchKeywords: ["dialogue", "trigger", "adapter", "public api", "Dialogue.Start"]
+---
+
+# Dialogue и Trigger
+
+Echo Trigger не зависит от Echo Dialogue. Reactive callback body компилируется в neutral actions:
+
+```csharp
+private void OnTriggerEnter(PlayerRef player)
+{
+    Dialogue.Start("sample:greeting");
+}
+```
+
+Forge Trigger публикует `TriggerCallbackInvocationEvent`. Echo Dialogue Trigger Adapter слушает этот public event,
+находит `Dialogue.Start(...)` и запрашивает `DialogueService` через `EchoDialogueServiceLookupEvent`.
+
+Adapter использует только:
+
+- `dialogue-contracts`
+- `dialogue-forge-api-1.20.1`
+- `trigger-contracts`
+- `trigger-forge-api-1.20.1`
+
+Он не импортирует `ForgeDialogueHost`, `TriggerRuntimeHost` или implementation packages. Это сохраняет правило:
+модули домена ничего не знают друг о друге, а интеграция живет в тонком adapter layer.

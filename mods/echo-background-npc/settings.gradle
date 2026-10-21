@@ -1,0 +1,32 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+plugins { id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0' }
+
+rootProject.name = 'echo-background-npc'
+
+include 'background-npc-contracts'
+include 'background-npc-core'
+include 'background-npc-echoscript-adapter'
+include 'background-npc-time-adapter-1.20.1'
+include 'background-npc-navigation-adapter-1.20.1'
+include 'background-npc-animation-adapter-1.20.1'
+include 'background-npc-dialogue-adapter-1.20.1'
+include 'background-npc-voice-adapter-1.20.1'
+include 'background-npc-quest-adapter-1.20.1'
+include 'background-npc-forge-api-1.20.1'
+include 'background-npc-forge-1.20.1'
+include 'background-npc-testmod-1.20.1'
+
+includeBuild '../echo-script'
+includeBuild '../echo-time'
+includeBuild '../echo-navigation'
+includeBuild '../echo-animation'
+includeBuild '../echo-dialogue'
+includeBuild '../echo-voice'
+includeBuild '../echo-quests'

@@ -1,0 +1,24 @@
+---
+title: "Состояние игрока"
+description: "Health, food, movement flags, damage, death, respawn and sleep events."
+section: "Trigger"
+pageKind: "reference"
+status: "review"
+since: "T2"
+updated: "2026-07-24"
+relatedIds: ["TriggerExpressionKind"]
+relatedPages: ["trigger/effects", "trigger/t2-reference"]
+sourceRepositories: ["echo-trigger"]
+sourcePaths: ["D:/JDHSeason/mods/echo-trigger/docs/authoring/TRIGGER_PLAYER_STATE.md"]
+visualIdentity: "trigger-player-state"
+interactiveModules: ["PlayerStateTriggerLab"]
+searchKeywords: ["HealthAtMost", "FoodAtLeast", "PlayerDied", "SneakStarted"]
+---
+import { PlayerStateTriggerLab } from "../../../components/VanillaTriggerLabs";
+
+# Состояние игрока
+
+Predicates читают server-authoritative state: health, food, sneaking, sprinting, swimming, sleeping, on ground, burning.
+Events фиксируют damage, heal, death, respawn, jump и переходы movement flags.
+
+<PlayerStateTriggerLab client:load />

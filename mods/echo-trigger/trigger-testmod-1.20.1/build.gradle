@@ -1,0 +1,20 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Development-only Echo Trigger test mod.'
+
+base {
+    archivesName = 'echo-trigger-testmod'
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly project(':trigger-contracts')
+    compileOnly project(':trigger-forge-api-1.20.1')
+}

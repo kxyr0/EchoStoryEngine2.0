@@ -1,0 +1,31 @@
+---
+title: "Wearable Models"
+description: "Standard Minecraft item models attached to W2 wearable selections."
+section: "Wardrobe"
+pageKind: "api"
+status: "review"
+since: "W2"
+updated: "2026-07-27"
+relatedIds: ["WearableModelContribution", "WearableModelTransform"]
+relatedPages: ["wardrobe/glasses"]
+sourceRepositories: ["echo-wardrobe"]
+sourcePaths: ["D:/JDHSeason/mods/echo-wardrobe/wardrobe-contracts/src/main/java/io/github/kxyr0/echowardrobe/api/contribution/WearableModelTransform.java"]
+visualIdentity: "wardrobe-models"
+interactiveModules: ["GlassesPortraitLab"]
+searchKeywords: ["Model", "ModelPosition", "ModelRotation", "ModelScale", "Blockbench"]
+---
+
+import { GlassesPortraitLab } from "../../../components/WardrobeLabs";
+
+# Wearable Models
+
+```es
+Model("jdh:item/origin_john_glasses");
+ModelPosition(0, 0, 0);
+ModelRotation(0, 0, 0);
+ModelScale(1, 1, 1);
+```
+
+<GlassesPortraitLab client:load />
+
+The model descriptor is optional geometry attached to the selected wearable. The exact outfit PNG remains the source of final skin pixels.

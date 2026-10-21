@@ -1,0 +1,284 @@
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = artifact_name
+}
+
+repositories {
+    maven {
+        name = 'EchoAnimationIntegration'
+        url = file('../echo-animation/build/integration-maven').toURI()
+        content {
+            includeGroup 'io.github.kxyr0.echoanimation'
+        }
+    }
+    maven {
+        name = 'EchoNpcIntegration'
+        url = file('../echo-npc/build/integration-maven').toURI()
+        content {
+            includeGroup 'io.github.kxyr0.echonpc'
+        }
+    }
+    maven {
+        name = 'EchoNavigationIntegration'
+        url = file('../echo-navigation/build/integration-maven').toURI()
+        content {
+            includeGroup 'io.github.kxyr0.echonavigation'
+        }
+    }
+    mavenLocal()
+    mavenCentral()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+    if (providers.gradleProperty('enableMavenLocal').map { it.toBoolean() }.orElse(false).get()) {
+        mavenLocal()
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    withSourcesJar()
+}
+
+configurations {
+    testCompileOnly.extendsFrom compileOnly
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    compileOnly "io.github.kxyr0.echoanimation:animation-contracts:${echo_animation_version}"
+    compileOnly "io.github.kxyr0.echoanimation:animation-forge-api-1.20.1:${echo_animation_version}"
+    compileOnly "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
+    compileOnly "io.github.kxyr0.echonpc:npc-forge-api-1.20.1:${echo_npc_version}"
+    compileOnly "io.github.kxyr0.echonavigation:navigation-contracts:${echo_navigation_version}"
+    compileOnly "io.github.kxyr0.echonavigation:navigation-forge-api-1.20.1:${echo_navigation_version}"
+    testImplementation "io.github.kxyr0.echoanimation:animation-contracts:${echo_animation_version}"
+    testImplementation "io.github.kxyr0.echoanimation:animation-forge-api-1.20.1:${echo_animation_version}"
+    testImplementation "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
+    testImplementation "io.github.kxyr0.echonpc:npc-forge-api-1.20.1:${echo_npc_version}"
+    testImplementation "io.github.kxyr0.echonavigation:navigation-contracts:${echo_navigation_version}"
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+            echo_animation_mod_version_range: echo_animation_mod_version_range,
+            echo_npc_mod_version_range: echo_npc_mod_version_range,
+            echo_navigation_mod_version_range: echo_navigation_mod_version_range,
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes('Automatic-Module-Name': mod_id)
+    }
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('architectureTest') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет, что adapter использует только public API imports.'
+    dependsOn 'sourceShapeCheck'
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет source-shape и отсутствие implementation imports.'
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        fileTree('src/main/java').matching { include '**/*.java' }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = projectDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()] = counts[file.parentFile.toPath()] + 1
+            if (text.contains('io.github.kxyr0.echonpc.forge.entity')
+                    || text.contains('io.github.kxyr0.echonpc.forge.client')
+                    || text.contains('io.github.kxyr0.echoanimation.forge.resource')) {
+                violations << "${relative}: implementation import"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 180) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 180"
+            }
+        }
+        counts.each { path, count ->
+            if (count > 7) {
+                violations << "${projectDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет UTF-8 text files на tabs, trailing whitespace и final newline.'
+    doLast {
+        def violations = []
+        fileTree(projectDir).matching {
+            include '*.gradle', 'gradle.properties', '.gitignore', '.gitattributes'
+            include 'src/**/*.java', 'src/**/*.toml', 'src/**/*.mcmeta', 'README.md', 'docs/**/*.md'
+            exclude '**/build/**', '**/.gradle/**', '**/.git/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${projectDir.toPath().relativize(file.toPath())}:${index + 1}: trailing whitespace"
+                }
+                if (line.contains('\t')) {
+                    violations << "${projectDir.toPath().relativize(file.toPath())}:${index + 1}: tab"
+                }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${projectDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('verifyAdapterJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет isolated adapter JAR contents.'
+    dependsOn tasks.named('jar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry -> entries.add(entry.name) }
+        }
+        def required = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echonpcanimationadapter/EchoNpcAnimationAdapterMod.class',
+                'io/github/kxyr0/echonpcanimationadapter/client/AdapterClientEvents.class'
+        ]
+        def missing = required.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echoanimation/api/')
+                    || entry.startsWith('io/github/kxyr0/echoanimation/forge/api/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/api/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/forge/api/')
+                    || entry.startsWith('io/github/kxyr0/echonpc/forge/entity/')
+                    || entry.startsWith('io/github/kxyr0/echoanimation/forge/resource/')
+                    || entry.endsWith('.java')
+        }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            throw new GradleException("Adapter JAR verification failed."
+                    + "\nmissing entries:\n" + missing.join('\n')
+                    + "\nforbidden entries:\n" + forbidden.take(40).join('\n'))
+        }
+        println "Echo NPC Animation Adapter JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}
+
+tasks.register('exportDocumentationContracts') {
+    group = 'documentation'
+    description = 'Экспортирует public NPC-Animation Adapter contracts для документационного сайта.'
+    outputs.dir layout.buildDirectory.dir('docs-export')
+    doLast {
+        def output = layout.buildDirectory.dir('docs-export').get().asFile
+        output.mkdirs()
+        def contract = [
+                repository: 'echo-npc-animation-adapter',
+                publicIds: [
+                        'NpcAnimationBindingId',
+                        'NpcAnimationBindingDefinition',
+                        'AnimationSubjectLifecycleOwnerId:echo_npc_animation:actor'
+                ],
+                commands: [
+                        '/echo_npc_animation health',
+                        '/echo_npc_animation bindings',
+                        '/echo_animation play_animation <animation_id> <npc_id>'
+                ],
+                diagnostics: [
+                        'EANIM-A4-UNBOUND',
+                        'EANIM-A4-PROVENANCE',
+                        'EANIM-A4-PROFILE-NOT-FOUND',
+                        'EANIM-A4-SERVICE'
+                ],
+                contentPaths: [
+                        packagedBindings: 'data/<namespace>/echo_npc_animation/bindings/',
+                        externalBindings: '<gameDir>/story/content-pack/<namespace>/echo_npc_animation/bindings/'
+                ],
+                echoScript: [
+                        bindingIntrinsic: 'NpcAnimationBinding',
+                        bindingExtension: '.npc-animation-binding.es',
+                        variants: ['npc: NpcDefinitionId', 'actor: ActorId'],
+                        precedence: ['actor override', 'definition binding', 'UNBOUND']
+                ],
+                reconciliation: [
+                        maxRecordsPerTick: 64,
+                        maxActorSnapshot: 200,
+                        owner: 'echo_npc_animation:actor',
+                        orphanRule: 'retire only adapter-owned subjects when snapshot is not truncated'
+                ],
+                architectureConstraints: [
+                        'Adapter imports public Echo NPC API and public Echo Animation API only.',
+                        'Events are optimization; durable snapshots remain the source of truth.',
+                        'UNBOUND actors keep default NPC rendering and do not auto-create subjects.'
+                ]
+        ]
+        new File(output, 'echo-npc-animation-adapter-contracts.json').setText(
+                groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(contract)) + '\n',
+                'UTF-8')
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('architectureTest')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyAdapterJarContents')
+}

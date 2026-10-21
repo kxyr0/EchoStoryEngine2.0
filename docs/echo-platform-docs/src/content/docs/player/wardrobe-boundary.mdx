@@ -1,0 +1,22 @@
+---
+title: "Основа Wardrobe"
+description: "Public boundary для будущего Echo Wardrobe без хранения одежды."
+section: "Player"
+pageKind: "architecture"
+status: "review"
+since: "P1"
+updated: "2026-07-25"
+relatedIds: ["PlayerAppearanceSnapshot", "EchoPlayerId"]
+relatedPages: ["player/skin", "adapters/adapter-principle"]
+sourceRepositories: ["echo-content-player"]
+sourcePaths: ["D:/JDHSeason/mods/echo-content-player/player-forge-api-1.20.1"]
+visualIdentity: "player-wardrobe-boundary"
+interactiveModules: []
+searchKeywords: ["Wardrobe", "appearance", "boundary", "одежда"]
+---
+
+# Основа Wardrobe
+
+P1 не реализует одежду, шкаф, outfit inventory, cosmetics или armor replacement.
+
+Будущий `echo-wardrobe` сможет читать `EchoPlayerId`, immutable base appearance, skin model и appearance revision через `player-forge-api`. Внутренний repository, SavedData и renderer implementation наружу не раскрываются.

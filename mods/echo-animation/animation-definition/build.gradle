@@ -1,0 +1,6 @@
+description = 'Immutable compiled animation definitions and validation.'
+
+dependencies {
+    api project(':animation-contracts')
+    api project(':animation-core')
+}

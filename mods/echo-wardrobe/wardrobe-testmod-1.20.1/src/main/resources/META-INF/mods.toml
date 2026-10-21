@@ -1,0 +1,31 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="echo_wardrobe_test"
+version="${mod_version}"
+displayName="Echo Wardrobe Testmod"
+authors="${mod_authors}"
+description='''Development-only fixtures for Echo Wardrobe exact outfit checks.'''
+
+[[dependencies.echo_wardrobe_test]]
+modId="forge"
+mandatory=true
+versionRange="${forge_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.echo_wardrobe_test]]
+modId="minecraft"
+mandatory=true
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.echo_wardrobe_test]]
+modId="echo_wardrobe"
+mandatory=true
+versionRange="[0.1.0,)"
+ordering="AFTER"
+side="BOTH"

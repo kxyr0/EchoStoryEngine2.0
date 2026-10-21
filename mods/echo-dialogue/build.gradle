@@ -1,0 +1,358 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+allprojects {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+def productionFiles = {
+    fileTree(rootDir) {
+        include 'dialogue-*/src/main/java/**/*.java'
+        include 'integration-tests/*/src/main/java/**/*.java'
+        exclude '**/build/**'
+    }
+}
+
+def productionEchoScriptFiles = {
+    fileTree(rootDir) {
+        include 'dialogue-*/src/main/resources/**/*.es'
+        include 'integration-tests/*/src/main/resources/**/*.es'
+        exclude '**/build/**'
+    }
+}
+
+def productionContentFiles = {
+    fileTree(rootDir) {
+        include 'dialogue-*/src/main/resources/data/**/*'
+        include 'dialogue-*/src/main/resources/assets/**/*'
+        include 'integration-tests/*/src/main/resources/data/**/*'
+        include 'integration-tests/*/src/main/resources/assets/**/*'
+        exclude '**/build/**'
+    }
+}
+
+def checkedTextFiles = {
+    fileTree(rootDir) {
+        include '*.gradle', 'gradle.properties', '.gitignore', '.gitattributes'
+        include 'config/**/*.xml'
+        include 'dialogue-*/src/**/*.java', 'dialogue-*/src/**/*.dialogue.es'
+        include 'dialogue-*/src/**/*.toml', 'dialogue-*/src/**/*.mcmeta'
+        include 'integration-tests/*/*.gradle', 'integration-tests/*/gradle.properties'
+        include 'integration-tests/*/src/**/*.java', 'integration-tests/*/src/**/*.dialogue.es'
+        include 'integration-tests/*/src/**/*.toml', 'integration-tests/*/src/**/*.mcmeta'
+        include 'AGENTS.md', 'PLANS.md', 'PROGRESS.md', 'README.md', 'docs/**/*.md'
+        exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    apply plugin: 'jacoco'
+
+    version = rootProject.version
+    group = rootProject.group
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    sourceSets {
+        architectureTest {
+            java.srcDir 'src/architectureTest/java'
+            resources.srcDir 'src/architectureTest/resources'
+            compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+            runtimeClasspath += output + compileClasspath
+        }
+    }
+
+    configurations {
+        architectureTestImplementation.extendsFrom testImplementation
+        architectureTestRuntimeOnly.extendsFrom testRuntimeOnly
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        architectureTestImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+        architectureTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    checkstyle {
+        toolVersion = checkstyle_version
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    }
+
+    pmd {
+        toolVersion = pmd_version
+        ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+        ruleSets = []
+        consoleOutput = true
+    }
+
+    jacoco {
+        toolVersion = jacoco_version
+    }
+
+    tasks.register('architectureTest', Test) {
+        description = 'Запускает архитектурные проверки модуля.'
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs = sourceSets.architectureTest.output.classesDirs
+        classpath = sourceSets.architectureTest.runtimeClasspath
+        shouldRunAfter tasks.named('test')
+    }
+
+    tasks.named('check') {
+        dependsOn tasks.named('architectureTest')
+    }
+}
+
+configure([
+        project(':dialogue-contracts'),
+        project(':dialogue-presentation-api'),
+        project(':dialogue-echoscript-extension-api'),
+        project(':dialogue-forge-api-1.20.1')
+]) {
+    apply plugin: 'maven-publish'
+
+    publishing {
+        publications {
+            register('mavenJava', MavenPublication) {
+                from components.java
+            }
+        }
+        repositories {
+            maven {
+                name = 'integrationMaven'
+                url = rootProject.layout.buildDirectory.dir('integration-maven')
+            }
+        }
+    }
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Запускает unit-тесты всех модулей.'
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('architectureTest') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Запускает архитектурные проверки всех модулей.'
+    dependsOn subprojects.collect { "${it.path}:architectureTest" }
+}
+
+tasks.register('publishDialogueIntegrationArtifacts') {
+    group = 'publishing'
+    description = 'Публикует публичные Echo Dialogue artifacts в build/integration-maven для внешних adapter builds.'
+    dependsOn ':dialogue-contracts:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':dialogue-presentation-api:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':dialogue-echoscript-extension-api:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':dialogue-forge-api-1.20.1:publishMavenJavaPublicationToIntegrationMavenRepository'
+}
+
+tasks.register('buildPresentationTestProvider', GradleBuild) {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Собирает отдельный Forge provider mod против опубликованных public Echo Dialogue artifacts.'
+    dependsOn rootProject.tasks.named('publishDialogueIntegrationArtifacts')
+    dir = file('integration-tests/echo-dialogue-presentation-test-mod')
+    tasks = ['clean', 'build', 'verifyTestProviderJar']
+}
+
+tasks.register('stagePresentationProviderIntegrationJars') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Складывает final Echo Dialogue JAR и test-provider JAR для isolated D6 smoke.'
+    dependsOn ':dialogue-forge-1.20.1:reobfJarJar'
+    dependsOn tasks.named('buildPresentationTestProvider')
+    doLast {
+        def output = layout.buildDirectory.dir('presentation-provider-smoke/mods').get().asFile
+        delete output
+        copy {
+            from project(':dialogue-forge-1.20.1').layout.buildDirectory
+                    .file("libs/${artifact_name}-${mod_version}-all.jar")
+            into output
+        }
+        copy {
+            from file('integration-tests/echo-dialogue-presentation-test-mod/build/libs')
+            include 'echo-dialogue-presentation-test-*.jar'
+            into output
+        }
+        println "D6 isolated smoke mods staged: ${output}"
+    }
+}
+
+tasks.register('verifyPresentationProviderIntegrationArtifacts') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет staged D6 JARs: API есть в Echo Dialogue JAR и не скопирован в provider JAR.'
+    dependsOn tasks.named('stagePresentationProviderIntegrationJars')
+    doLast {
+        def mods = layout.buildDirectory.dir('presentation-provider-smoke/mods').get().asFile
+        def dialogueJar = fileTree(mods) { include 'echo-dialogue-*-all.jar' }.singleFile
+        def providerJar = fileTree(mods) { include 'echo-dialogue-presentation-test-*.jar' }.singleFile
+        def dialogueEntries = rootProject.ext.zipEntries(dialogueJar)
+        def providerEntries = rootProject.ext.zipEntries(providerJar)
+        def dialogueModuleName = rootProject.ext.jarManifestValue(dialogueJar, 'Automatic-Module-Name')
+        def providerModuleName = rootProject.ext.jarManifestValue(providerJar, 'Automatic-Module-Name')
+        if (dialogueModuleName != 'echo_dialogue') {
+            throw new GradleException("Echo Dialogue final JAR has invalid Automatic-Module-Name: ${dialogueModuleName}")
+        }
+        if (providerModuleName != 'echo_dialogue_presentation_test') {
+            throw new GradleException("Test provider JAR has invalid Automatic-Module-Name: ${providerModuleName}")
+        }
+        if (!dialogueEntries.contains('io/github/kxyr0/echodialogue/presentation/api/SpeakerPresentationRequest.class')) {
+            throw new GradleException("Echo Dialogue final JAR не содержит presentation API.")
+        }
+        def copiedApi = providerEntries.findAll { entry ->
+            entry.startsWith('io/github/kxyr0/echodialogue/api/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/presentation/api/')
+                    || entry.startsWith('io/github/kxyr0/echodialogue/forge/api/')
+        }
+        if (!copiedApi.isEmpty()) {
+            throw new GradleException("Test provider JAR содержит копии public API:\n" + copiedApi.join('\n'))
+        }
+        println "D6 integration artifacts verified: ${dialogueJar.name}, ${providerJar.name}"
+    }
+}
+
+ext.zipEntries = { File jarFile ->
+    def entries = []
+    new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+        zip.entries().each { entry -> entries.add(entry.name) }
+    }
+    entries
+}
+
+ext.jarManifestValue = { File jarFile, String key ->
+    new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+        def entry = zip.getEntry('META-INF/MANIFEST.MF')
+        if (entry == null) {
+            return null
+        }
+        zip.getInputStream(entry).withCloseable { stream ->
+            new java.util.jar.Manifest(stream).mainAttributes.getValue(key)
+        }
+    }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет ограничения формы production-кода D1.'
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        productionFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()] = counts[file.parentFile.toPath()] + 1
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            if ((text =~ /(?m)\bstatic\s+(?!final\b)[^;{=]+[;=]/).find()) {
+                violations << "${relative}: mutable static field candidate"
+            }
+            if (relative =~ /(?i)(^|[\\\/])(part1|part2|common|misc|helpers?|utils?)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 180) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 180"
+            }
+        }
+        counts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        def scriptCounts = [:].withDefault { 0 }
+        productionEchoScriptFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            scriptCounts[file.parentFile.toPath()] = scriptCounts[file.parentFile.toPath()] + 1
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 180) {
+                violations << "${relative}: ${logicalLines} EchoScript logical lines; max is 180"
+            }
+        }
+        scriptCounts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production .es files; max is 7"
+            }
+        }
+        def contentCounts = [:].withDefault { 0 }
+        productionContentFiles().files.findAll { it.isFile() }.each { file ->
+            contentCounts[file.parentFile.toPath()] = contentCounts[file.parentFile.toPath()] + 1
+        }
+        contentCounts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production content files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Проверяет UTF-8 текстовые файлы на хвостовые пробелы и финальный перевод строки.'
+    doLast {
+        def violations = []
+        checkedTextFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: trailing whitespace"
+                }
+                if (line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: tab"
+                }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('architectureTest')
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyPresentationProviderIntegrationArtifacts')
+}

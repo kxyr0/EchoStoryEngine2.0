@@ -1,0 +1,77 @@
+plugins { id 'net.minecraftforge.gradle' }
+
+description = 'Forge 1.20.1 client implementation for Echo Voice.'
+def embeddedVoiceProjects = [project(':voice-contracts'), project(':voice-core'), project(':voice-forge-api-1.20.1')]
+
+base { archivesName = artifact_name }
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    embeddedVoiceProjects.each { voiceProject -> source voiceProject.sourceSets.main }
+                }
+            }
+        }
+        client { }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':voice-contracts')
+    implementation project(':voice-core')
+    implementation project(':voice-forge-api-1.20.1')
+    implementation files(rootProject.file("libs/jlayer-${jlayer_version}.jar"))
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def values = [minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,
+            forge_version_range: forge_version_range, loader_version_range: loader_version_range,
+            mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+            mod_authors: mod_authors, mod_description: mod_description]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand values + [project: project] }
+}
+
+tasks.withType(Jar).configureEach {
+    dependsOn embeddedVoiceProjects.collect { "${it.path}:classes" }
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    embeddedVoiceProjects.each { voiceProject -> from(voiceProject.sourceSets.main.output) }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+tasks.named('jar', Jar).configure {
+    archiveClassifier = 'all'
+    from({ zipTree(rootProject.file("libs/jlayer-${jlayer_version}.jar")) }) {
+        exclude 'META-INF/MANIFEST.MF'
+    }
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('reobfJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}-all.jar").get().asFile
+        if (!jarFile.isFile()) { throw new GradleException("Production JAR missing: ${jarFile}") }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip -> zip.entries().each { entries << it.name } }
+        def required = ['META-INF/mods.toml', 'io/github/kxyr0/echovoice/forge/EchoVoiceMod.class',
+                'io/github/kxyr0/echovoice/api/identity/VoiceAssetKey.class']
+        def missing = required.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll { it.startsWith('io/github/kxyr0/echovoice/testmod/')
+                || it.startsWith('org/junit/') || it.startsWith('net/minecraft/') }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            throw new GradleException("JAR verification failed. missing=${missing}, forbidden=${forbidden}")
+        }
+        println "Echo Voice production JAR verified: ${jarFile.name}, entries=${entries.size()}"
+    }
+}

@@ -1,0 +1,6 @@
+class ExampleNpc : NpcResource
+{
+    Id("jdh:example_npc");
+    Display("Персонаж");
+    Skin("jdh:example_npc");
+}

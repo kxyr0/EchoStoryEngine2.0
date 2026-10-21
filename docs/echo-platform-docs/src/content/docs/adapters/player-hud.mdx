@@ -1,0 +1,39 @@
+---
+title: "HUD adapters"
+description: "Как Vitals и Content Player отдают метрики в HUD без обратных зависимостей."
+section: "Adapters"
+pageKind: "architecture"
+status: "review"
+since: "PH1"
+updated: "2026-07-29"
+relatedIds: ["HudMetricProviderRegistrationEvent", "EchoPlayerVitalsService", "EchoPlayerService"]
+relatedPages: ["player/hud", "player/vitals", "player/spark"]
+sourceRepositories: ["echo-player-hud-vitals-adapter", "echo-player-hud-content-player-adapter"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-hud-vitals-adapter", "D:/JDHSeason/mods/echo-player-hud-content-player-adapter"]
+visualIdentity: "adapter-lines"
+interactiveModules: []
+searchKeywords: ["HUD adapter", "Vitals adapter", "Content Player adapter", "Spark", "stamina"]
+---
+
+# HUD adapters
+
+HUD adapters связывают владельцев gameplay state с renderer-ом через public API.
+
+```text
+Echo Player Vitals public API
+-> HUD Vitals Adapter
+-> echo_player_hud:stamina
+
+Echo Content Player public API
+-> HUD Content Player Adapter
+-> echo_player_hud:spark
+```
+
+Правила:
+
+- adapter не сохраняет fatigue или Spark;
+- adapter не импортирует core/runtime implementation владельца;
+- HUD получает только `HudMetricSnapshot`;
+- если provider отсутствует, соответствующая bar не рисуется, а остальные продолжают работать.
+
+Spark не дублируется в Vitals. Его owning source остаётся `echo-content-player`.

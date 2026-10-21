@@ -1,0 +1,38 @@
+plugins { id 'net.minecraftforge.gradle' }
+group = rootProject.group
+version = rootProject.mod_version
+minecraft { mappings channel: 'official', version: '1.20.1' }
+jarJar.enable()
+dependencies {
+    compileOnly 'io.github.kxyr0.echodialogue:dialogue-contracts:0.15.0'
+    compileOnly 'io.github.kxyr0.echodialogue:dialogue-forge-api-1.20.1:0.15.0'
+    minecraft 'net.minecraftforge:forge:1.20.1-47.4.10'
+    implementation project(':')
+    jarJar(project(':')) {
+        jarJar.ranged(it, '[0.1,0.2)')
+        jarJar.pin(it, '0.1.0')
+    }
+    compileOnly 'io.github.kxyr0.echovoice:voice-forge-1.20.1:0.2.1'
+    compileOnly 'io.github.kxyr0.echovoice:voice-contracts:0.2.1'
+    // Forge's production jar is reobfuscated; headless codec tests need the compiled development classes.
+    testImplementation 'io.github.kxyr0.echodialogue:dialogue-contracts:0.15.0'
+    testImplementation files(rootProject.file('../echo-voice/voice-forge-1.20.1/build/classes/java/main'))
+    testImplementation 'io.github.kxyr0.echovoice:voice-contracts:0.2.1'
+    testImplementation files('../../echo-voice/libs/jlayer-1.0.1.jar')
+    compileOnly 'io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:1.8.0'
+    compileOnly 'io.github.kxyr0.echostoryengine:story-extension-api:1.8.0'
+    compileOnly 'io.github.kxyr0.echostoryengine:story-contracts:1.8.0'
+}
+tasks.named('processResources') {
+    inputs.property 'version', project.version
+    filesMatching('META-INF/mods.toml') { expand version: project.version }
+}
+tasks.named('jar') {
+    archiveBaseName = 'echo-audio'
+    finalizedBy 'reobfJar'
+}
+tasks.named('jarJar') {
+    archiveBaseName = 'echo-audio'
+    archiveClassifier = 'all'
+    finalizedBy 'reobfJarJar'
+}

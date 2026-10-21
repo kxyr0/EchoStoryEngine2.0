@@ -1,0 +1,197 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = version_id
+group = group_id
+
+allprojects {
+    repositories {
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+        maven {
+            name = 'EchoAnimationIntegration'
+            url = file('../echo-animation/build/integration-maven').toURI()
+            content {
+                includeGroup 'io.github.kxyr0.echoanimation'
+            }
+        }
+        maven {
+            name = 'EchoNpcIntegration'
+            url = file('../echo-npc/build/integration-maven').toURI()
+            content {
+                includeGroup 'io.github.kxyr0.echonpc'
+            }
+        }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+
+    version = rootProject.version
+    group = rootProject.group
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(java_release.toInteger())
+        }
+        withSourcesJar()
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = java_release.toInteger()
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+}
+
+project(':echo-ik-runtime') {
+    dependencies {
+        api project(':echo-ik-core')
+    }
+}
+
+project(':echo-ik-animation-adapter') {
+    dependencies {
+        api project(':echo-ik-core')
+        api project(':echo-ik-runtime')
+        api "io.github.kxyr0.echoanimation:animation-contracts:${echo_animation_version}"
+    }
+}
+
+project(':echo-ik-debug') {
+    dependencies {
+        api project(':echo-ik-core')
+    }
+}
+
+project(':echo-ik-minecraft-forge') {
+    apply plugin: 'net.minecraftforge.gradle'
+
+    def embeddedIkProjects = [
+            project(':echo-ik-core'),
+            project(':echo-ik-runtime'),
+            project(':echo-ik-animation-adapter'),
+            project(':echo-ik-debug')
+    ]
+
+    minecraft {
+        mappings channel: mapping_channel, version: mapping_version
+        copyIdeResources = true
+    }
+
+    dependencies {
+        minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+        implementation project(':echo-ik-runtime')
+        implementation project(':echo-ik-animation-adapter')
+        implementation project(':echo-ik-debug')
+        compileOnly "io.github.kxyr0.echoanimation:animation-forge-api-1.20.1:${echo_animation_version}"
+        compileOnly "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
+        compileOnly "io.github.kxyr0.echonpc:npc-forge-api-1.20.1:${echo_npc_version}"
+    }
+
+    tasks.named('processResources', ProcessResources).configure {
+        var replaceProperties = [
+                minecraft_version: minecraft_version,
+                minecraft_version_range: minecraft_version_range,
+                forge_version: forge_version,
+                forge_version_range: forge_version_range,
+                loader_version_range: loader_version_range,
+                mod_id: mod_id,
+                mod_name: mod_name,
+                mod_license: mod_license,
+                mod_version: mod_version,
+                mod_authors: mod_authors,
+                mod_description: mod_description,
+                echo_animation_mod_version_range: echo_animation_mod_version_range,
+                echo_npc_mod_version_range: echo_npc_mod_version_range,
+        ]
+        inputs.properties replaceProperties
+        filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+            expand replaceProperties + [project: project]
+        }
+    }
+
+    tasks.named('jar', Jar).configure {
+        dependsOn embeddedIkProjects.collect { "${it.path}:classes" }
+        manifest {
+            attributes('Automatic-Module-Name': mod_id)
+        }
+        embeddedIkProjects.each { ikProject -> from(ikProject.sourceSets.main.output) }
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        finalizedBy 'reobfJar'
+    }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks Echo IK source shape and dependency boundaries.'
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        fileTree(rootDir) {
+            include 'echo-ik-*/src/main/java/**/*.java'
+            exclude '**/build/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()] = counts[file.parentFile.toPath()] + 1
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 180) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 180"
+            }
+            if ((relative.startsWith('echo-ik-core') || relative.startsWith('echo-ik-runtime'))
+                    && ((text =~ /(?m)^import\s+.*echoanimation/).find() || text.contains('echo-animation'))) {
+                violations << "${relative}: core/runtime must not reference echo-animation"
+            }
+            if (relative.startsWith('echo-ik-core') && (text =~ /(?m)^import\s+net\.minecraft/).find()) {
+                violations << "${relative}: core must not import Minecraft API"
+            }
+            if ((relative.startsWith('echo-ik-core') || relative.startsWith('echo-ik-runtime'))
+                    && ((text =~ /(?m)^import\s+net\.minecraft/).find()
+                    || (text =~ /(?m)^import\s+net\.minecraftforge/).find())) {
+                violations << "${relative}: core/runtime must not import Minecraft or Forge API"
+            }
+            if ((text =~ /(?m)static\s+final\s+.*(?:INSTANCE|SINGLETON)/).find()) {
+                violations << "${relative}: static singleton field"
+            }
+            if ((text =~ /(?m)\bgetInstance\s*\(/).find()) {
+                violations << "${relative}: singleton accessor"
+            }
+        }
+        counts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('sourceShapeCheck')
+}

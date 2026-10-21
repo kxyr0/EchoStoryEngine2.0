@@ -1,0 +1,31 @@
+---
+title: "Slots"
+description: "FACE, TOP, BOTTOM, FEET and their vanilla equipment mappings for exact outfit keys."
+section: "Wardrobe"
+pageKind: "reference"
+status: "review"
+since: "W2"
+updated: "2026-07-27"
+relatedIds: ["WardrobeSlot", "WardrobeEquipmentSlot", "OutfitKey"]
+relatedPages: ["trigger/hands-equipment", "wardrobe/glasses"]
+sourceRepositories: ["echo-wardrobe"]
+sourcePaths: ["D:/JDHSeason/mods/echo-wardrobe/wardrobe-contracts/src/main/java/io/github/kxyr0/echowardrobe/api/slot/WardrobeSlot.java"]
+visualIdentity: "wardrobe-slots"
+interactiveModules: ["OutfitResolverLab"]
+searchKeywords: ["FACE", "TOP", "BOTTOM", "FEET", "EquipmentSlot"]
+---
+
+import { OutfitResolverLab } from "../../../components/WardrobeLabs";
+
+# Slots
+
+| WardrobeSlot | Vanilla equipment |
+| --- | --- |
+| `FACE` | `HEAD` |
+| `TOP` | `CHEST` |
+| `BOTTOM` | `LEGS` |
+| `FEET` | `FEET` |
+
+<OutfitResolverLab client:load />
+
+These four typed selections define the exact `OutfitKey`.

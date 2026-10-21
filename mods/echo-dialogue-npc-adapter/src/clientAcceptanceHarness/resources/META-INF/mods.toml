@@ -1,0 +1,45 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="Решение о лицензии не принято"
+
+[[mods]]
+modId="echo_dialogue_npc_adapter_client_acceptance"
+version="0.1.0-SNAPSHOT"
+displayName="Echo Dialogue NPC Adapter Client Acceptance"
+authors="kxyr0"
+description='''Test-only N4 client visual acceptance harness. Не устанавливать в production instance.'''
+
+[[dependencies.echo_dialogue_npc_adapter_client_acceptance]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.echo_dialogue_npc_adapter_client_acceptance]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.echo_dialogue_npc_adapter_client_acceptance]]
+    modId="echo_dialogue"
+    mandatory=true
+    versionRange="[0.1.0-SNAPSHOT,)"
+    ordering="AFTER"
+    side="CLIENT"
+
+[[dependencies.echo_dialogue_npc_adapter_client_acceptance]]
+    modId="echo_npc"
+    mandatory=true
+    versionRange="[0.1.0-SNAPSHOT,)"
+    ordering="AFTER"
+    side="CLIENT"
+
+[[dependencies.echo_dialogue_npc_adapter_client_acceptance]]
+    modId="echo_dialogue_npc_adapter"
+    mandatory=true
+    versionRange="[0.1.0-SNAPSHOT,)"
+    ordering="AFTER"
+    side="CLIENT"

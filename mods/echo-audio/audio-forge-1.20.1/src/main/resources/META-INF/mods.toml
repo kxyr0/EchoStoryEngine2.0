@@ -1,0 +1,39 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+[[mods]]
+modId="echo_audio"
+version="${version}"
+displayName="Echo Audio"
+description="Owner-scoped EchoScript sound effects."
+[[dependencies.echo_audio]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.echo_audio]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.echo_audio]]
+modId="echo_voice"
+mandatory=true
+versionRange="[0.2.1,)"
+ordering="AFTER"
+side="CLIENT"
+[[dependencies.echo_audio]]
+modId="echo_story_engine"
+mandatory=true
+versionRange="[1.8,)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.echo_audio]]
+modId="echo_dialogue"
+mandatory=true
+versionRange="[0.15,)"
+ordering="AFTER"
+side="BOTH"

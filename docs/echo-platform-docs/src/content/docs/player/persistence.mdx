@@ -1,0 +1,22 @@
+---
+title: "Persistence профиля"
+description: "Что сохраняется и почему DTO не является domain API."
+section: "Player"
+pageKind: "architecture"
+status: "review"
+since: "P1"
+updated: "2026-07-25"
+relatedIds: ["PlayerProfileData", "PlayerProfileLifecycleMetadata"]
+relatedPages: ["player/profile", "platform/save-before-dispatch"]
+sourceRepositories: ["echo-content-player"]
+sourcePaths: ["D:/JDHSeason/mods/echo-content-player/player-core"]
+visualIdentity: "player-persistence"
+interactiveModules: []
+searchKeywords: ["persistence", "SavedData", "restart", "profile"]
+---
+
+# Persistence профиля
+
+Domain API остаётся typed Java records. NBT/JSON/properties — только формат хранения.
+
+Persistence сохраняет identity, имя, Spark, base appearance, template provenance, lifecycle metadata и revisions. При restart тот же UUID аккаунта восстанавливает тот же `EchoPlayerId`; duplicate profiles для одного игрока недопустимы.

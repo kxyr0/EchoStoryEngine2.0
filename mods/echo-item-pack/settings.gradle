@@ -1,0 +1,22 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-item-pack'
+
+include 'item-contracts'
+include 'item-core'
+include 'item-forge-api-1.20.1'
+include 'item-forge-1.20.1'
+include 'item-testmod-1.20.1'

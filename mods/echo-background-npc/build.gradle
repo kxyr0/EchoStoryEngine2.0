@@ -1,0 +1,117 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+allprojects {
+    repositories {
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+def productionJava = {
+    fileTree(rootDir) {
+        include 'background-npc-*/src/main/java/**/*.java'
+        exclude '**/build/**', 'background-npc-testmod-1.20.1/**'
+    }
+}
+
+def productionScripts = {
+    fileTree(rootDir) {
+        include 'background-npc-*/src/main/resources/**/*.es'
+        exclude '**/build/**', 'background-npc-testmod-1.20.1/**'
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    version = rootProject.version
+    group = rootProject.group
+    java {
+        toolchain { languageVersion = JavaLanguageVersion.of(17) }
+        withSourcesJar()
+    }
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+    tasks.withType(Test).configureEach { useJUnitPlatform() }
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        productionJava().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            counts[file.parentFile.toPath()] = counts[file.parentFile.toPath()] + 1
+            def logical = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logical > 180) violations << "${relative}: ${logical} logical lines; max is 180"
+            if (relative =~ /(?i)(^|[\\\/])(part1|part2|misc|helpers?|more|background2|crowd2|internal2|impl2|services2)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) violations << "${relative}: wildcard import"
+            if ((text =~ /Map<String,\s*Object>/).find()) violations << "${relative}: untyped Map<String,Object>"
+        }
+        counts.each { path, count ->
+            if (count > 7) violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+        }
+        productionScripts().files.each { file ->
+            def logical = file.getText('UTF-8').readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//')
+            }
+            if (logical > 180) violations << "${rootDir.toPath().relativize(file.toPath())}: ${logical} script lines"
+        }
+        if (!violations.isEmpty()) throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        println 'Source shape: Java >180=0, EchoScript >180=0, leaf packages >7=0'
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    doLast {
+        def violations = []
+        fileTree(rootDir) {
+            include '**/*.java', '**/*.gradle', '**/*.properties', '**/*.toml', '**/*.json', '**/*.md', '**/*.es'
+            exclude '**/build/**', '**/.gradle/**', '**/run/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) violations << "${file}:${index + 1}: trailing whitespace"
+                if (line.contains('\t')) violations << "${file}:${index + 1}: tab"
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) violations << "${file}: missing final newline"
+        }
+        if (!violations.isEmpty()) throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+}

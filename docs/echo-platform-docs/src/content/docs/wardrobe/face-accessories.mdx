@@ -1,0 +1,26 @@
+---
+title: "Face Slot"
+description: "Glasses are FACE selections in OutfitKey, with optional item model descriptors."
+section: "Wardrobe"
+pageKind: "concept"
+status: "review"
+since: "W2"
+updated: "2026-07-27"
+relatedIds: ["WardrobeSlot", "WearableModelContribution"]
+relatedPages: ["wardrobe/glasses", "wardrobe/dialogue-portrait"]
+sourceRepositories: ["echo-wardrobe"]
+sourcePaths: ["D:/JDHSeason/mods/echo-wardrobe/docs/authoring/FACE_ACCESSORIES.md"]
+visualIdentity: "wardrobe-face-accessories"
+interactiveModules: ["GlassesPortraitLab"]
+searchKeywords: ["FACE", "glasses", "faceSkin", "portrait"]
+---
+
+import { GlassesPortraitLab } from "../../../components/WardrobeLabs";
+
+# Face Slot
+
+The `FACE` slot maps to the vanilla `HEAD` equipment slot and becomes the `FACE=` part of `OutfitKey`. The resolved face pixels come from `faceSkin`.
+
+<GlassesPortraitLab client:load />
+
+Optional item models can render accessory geometry, but they do not replace the exact full skin.

@@ -1,0 +1,35 @@
+---
+title: "Справочник Player API"
+description: "Контракты, сервисы, команды и допустимые зависимости."
+section: "Player"
+pageKind: "reference"
+status: "review"
+since: "P1"
+updated: "2026-07-25"
+relatedIds: ["PlayerProfileQueryService", "PlayerSparkMutationService", "PlayerAppearanceMutationService"]
+relatedPages: ["player/profile", "player/diagnostics"]
+sourceRepositories: ["echo-content-player"]
+sourcePaths: ["D:/JDHSeason/mods/echo-content-player/player-forge-api-1.20.1"]
+visualIdentity: "player-reference"
+interactiveModules: []
+searchKeywords: ["API", "commands", "dependencies", "contracts"]
+---
+
+# Справочник Player API
+
+Public services:
+
+- `PlayerProfileQueryService`;
+- `PlayerIdentityMutationService`;
+- `PlayerSparkMutationService`;
+- `PlayerAppearanceMutationService`;
+- `PlayerTemplateService`;
+- `PlayerAppearanceClientService`.
+
+Production command:
+
+```text
+/echoplayer inspect
+```
+
+Allowed dependencies: Minecraft/Forge host API, public EchoScript parser/AST API и собственные contracts/modules. Другие Echo engines запрещены.

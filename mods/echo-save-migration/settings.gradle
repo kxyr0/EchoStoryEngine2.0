@@ -1,0 +1,10 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { url = 'https://maven.minecraftforge.net/' }
+        mavenCentral()
+    }
+}
+rootProject.name = 'echo-save-migration'
+include 'save-migration-forge-1.20.1'
+includeBuild '../echo-script'

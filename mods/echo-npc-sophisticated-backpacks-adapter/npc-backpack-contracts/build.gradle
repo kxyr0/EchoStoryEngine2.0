@@ -1,0 +1,5 @@
+description = 'Neutral public contracts for Echo NPC backpack equipment.'
+
+dependencies {
+    api "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
+}

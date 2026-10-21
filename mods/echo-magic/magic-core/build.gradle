@@ -1,0 +1,4 @@
+base { archivesName = 'magic-core' }
+description = 'Plain Java spell validation, state, scheduling, collision geometry, and ledgers.'
+dependencies { api project(':magic-contracts') }
+

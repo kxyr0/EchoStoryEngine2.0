@@ -1,0 +1,18 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+description = 'Environment resources and block-state runtime for Echo Story Engine.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    api project(':story-contracts')
+    api project(':story-definition')
+    implementation project(':story-core')
+    implementation project(':story-echoscript-adapter')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}

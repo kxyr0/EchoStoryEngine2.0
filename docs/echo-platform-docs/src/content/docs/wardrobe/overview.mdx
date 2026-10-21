@@ -1,0 +1,31 @@
+---
+title: "Echo Wardrobe"
+description: "W2 exact outfit resolution: equipment, item IDs, OutfitKey, full PNG and resolved appearance."
+section: "Wardrobe"
+pageKind: "architecture"
+status: "review"
+since: "W2"
+updated: "2026-07-27"
+relatedIds: ["WardrobeProfileDefinition", "OutfitKey", "ResolvedOutfit"]
+relatedPages: ["wardrobe/full-reference", "wardrobe/unified-appearance", "player/wardrobe-boundary"]
+sourceRepositories: ["echo-wardrobe", "echo-content-player"]
+sourcePaths: ["D:/JDHSeason/mods/echo-wardrobe", "D:/JDHSeason/mods/echo-content-player/player-forge-api-1.20.1"]
+visualIdentity: "wardrobe-overview"
+interactiveModules: ["OutfitResolverLab"]
+searchKeywords: ["Wardrobe", "exact outfit", "OutfitKey", "ResolvedOutfit"]
+---
+
+import { OutfitResolverLab } from "../../../components/WardrobeLabs";
+
+# Echo Wardrobe
+
+Echo Wardrobe resolves the player's wardrobe by exact authored combinations:
+
+```text
+Minecraft equipment -> item IDs -> WearableDefinition -> OutfitKey
+-> exact OutfitVariantResource -> full 64x64 PNG -> ResolvedOutfit
+```
+
+<OutfitResolverLab client:load />
+
+The runtime does not compose skins, blend overlays, use UV masks, or choose closest matches. Missing combinations fall back to the profile base skin and report `WARDROBE_OUTFIT_VARIANT_NOT_FOUND`.

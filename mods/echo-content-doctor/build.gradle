@@ -1,0 +1,98 @@
+plugins {
+    id 'java-library'
+    id 'application'
+}
+
+group = 'io.github.kxyr0.echocontentdoctor'
+version = doctor_version
+repositories { mavenCentral() }
+
+dependencies {
+    implementation('io.github.kxyr0.echoobservation:echo-observation:1.3.0') { transitive = false }
+    implementation 'io.github.kxyr0.echotrigger:trigger-contracts:0.6.0'
+    implementation 'io.github.kxyr0.echotrigger:trigger-core:0.6.0'
+    implementation 'io.github.kxyr0.echoevents:echo-events:0.1.0'
+
+    implementation 'io.github.kxyr0.echoaudio:echo-audio:0.1.0'
+    implementation 'io.github.kxyr0.echoiteminspection:inspection-core:0.2.2'
+    implementation 'io.github.kxyr0.echoitem:item-core:0.2.5'
+    implementation 'io.github.kxyr0.echoscene:echo-scene:0.1.0'
+    implementation 'io.github.kxyr0.echosavemigration:echo-save-migration:0.1.0'
+    implementation 'io.github.kxyr0.echodevscenarios:echo-dev-scenarios:0.1.0'
+    implementation 'io.github.kxyr0.echostoryengine:story-contracts:1.8.0'
+    implementation 'io.github.kxyr0.echostoryengine:story-core:1.8.0'
+    implementation 'io.github.kxyr0.echostoryengine:story-definition:1.8.0'
+    implementation 'io.github.kxyr0.echostoryengine:story-echoscript-adapter:1.8.0'
+    implementation 'io.github.kxyr0.echodialogue:dialogue-contracts:0.14.0'
+    implementation 'io.github.kxyr0.echodialogue:dialogue-core:0.14.0'
+    implementation 'io.github.kxyr0.echodialogue:dialogue-echoscript-adapter:0.14.0'
+    implementation 'io.github.kxyr0.echonpc:npc-contracts:0.7.0-SNAPSHOT'
+    implementation 'io.github.kxyr0.echonpc:npc-core:0.7.0-SNAPSHOT'
+    implementation 'io.github.kxyr0.echonpc:npc-echoscript-adapter:0.7.0-SNAPSHOT'
+    implementation 'io.github.kxyr0.echoanimation:animation-contracts:0.8.4-SNAPSHOT'
+    implementation 'io.github.kxyr0.echoanimation:animation-definition:0.8.4-SNAPSHOT'
+    implementation 'io.github.kxyr0.echoanimation:animation-echoscript-adapter:0.8.4-SNAPSHOT'
+    testImplementation platform('org.junit:junit-bom:5.10.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+application { mainClass = 'io.github.kxyr0.echocontentdoctor.cli.ContentDoctorCli' }
+java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+tasks.withType(Test).configureEach { useJUnitPlatform() }
+tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+
+tasks.register('contentDoctor', JavaExec) {
+    group = 'verification'
+    description = 'Validates typed Echo content descriptors and writes the JSON report.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = application.mainClass
+    doFirst {
+        def requestedRoot = providers.gradleProperty('contentRoot').orNull
+        def requestedItems = providers.gradleProperty('itemCatalog').orNull
+        def requestedReport = providers.gradleProperty('contentReport').orElse(
+                layout.buildDirectory.file('reports/echo-content-doctor.json').map { it.asFile.absolutePath }).get()
+        setArgs(requestedRoot == null
+                ? ['--empty-catalog', requestedReport]
+                : requestedItems == null ? ['--resources', requestedRoot, requestedReport]
+                : ['--resources', requestedRoot, '--item-catalog', requestedItems, requestedReport])
+    }
+    dependsOn classes
+}
+
+tasks.register('sourceShapeCheck') {
+    group = 'verification'
+    doLast {
+        def violations = []
+        def counts = [:].withDefault { 0 }
+        fileTree('src/main/java').matching { include '**/*.java' }.files.each { file ->
+            def text = file.getText('UTF-8')
+            def logical = text.readLines().count { def line = it.trim(); line && !line.startsWith('//') && !line.startsWith('*') }
+            if (logical > 180) violations << "${relativePath(file)}: ${logical} logical lines; max 180"
+            def match = text =~ /(?m)^package\s+([a-zA-Z0-9_.]+);/
+            if (match.find()) counts[match.group(1)]++
+        }
+        counts.findAll { it.value > 7 }.each { violations << "${it.key}: ${it.value} files; max 7" }
+        if (violations) throw new GradleException(violations.join(System.lineSeparator()))
+        println 'Source shape: Java >180=0, leaf packages >7=0'
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = 'verification'
+    doLast {
+        fileTree(projectDir).matching {
+            include '**/*.java', '**/*.gradle', '**/*.properties', '**/*.md'
+            exclude '**/build/**', '**/.gradle/**'
+        }.files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line.endsWith(' ') || line.endsWith('\t')) throw new GradleException("Whitespace ${file}:${index + 1}")
+            }
+            if (text && !text.endsWith('\n')) throw new GradleException("Missing final newline: ${file}")
+        }
+    }
+}
+
+tasks.named('check') { dependsOn 'contentDoctor', 'sourceShapeCheck', 'checkWhitespace' }

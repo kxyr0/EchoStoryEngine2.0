@@ -1,0 +1,6 @@
+{
+  "key.categories.echo_player_follow": "Story Controls",
+  "key.echo_player_follow.follow_npc": "Follow Character",
+  "hud.echo_player_follow.prompt": "Hold %s for 1 sec. to follow the NPC",
+  "hud.echo_player_follow.active": "Following %s"
+}

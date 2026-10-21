@@ -1,0 +1,310 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = engine_version
+group = mod_group_id
+
+def echoScriptExternalMaven = layout.buildDirectory.dir('external-maven')
+
+allprojects {
+    repositories {
+        maven {
+            name = 'EchoScriptExternal'
+            url = echoScriptExternalMaven.get().asFile.toURI()
+            content {
+                includeGroup 'io.github.kxyr0.echoscript'
+            }
+        }
+        mavenLocal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+def mainJavaFiles = {
+    fileTree(rootDir) {
+        include 'story-*/src/main/java/**/*.java'
+        exclude '**/build/**'
+    }
+}
+
+def sourceScriptFiles = {
+    fileTree(rootDir) {
+        include 'story-*/src/main/**/*.java'
+        include 'story-*/src/main/**/*.es'
+        exclude '**/build/**'
+    }
+}
+
+tasks.register('prepareEchoScriptArtifacts') {
+    group = LifecycleBasePlugin.BUILD_GROUP
+    description = 'Publishes public EchoScript artifacts into build/external-maven.'
+    // Composite substitution already supplies these artifacts. A nested Gradle build would race
+    // the included build's compiler while overwriting the same classes directories.
+    onlyIf { !gradle.includedBuilds.any { it.name == 'echo-script' } }
+    def siblingRoot = file('../echo-script')
+    inputs.files(fileTree(siblingRoot) {
+        include '*.gradle', 'gradle.properties', 'settings.gradle'
+        include '**/*.java', '**/*.xml'
+        exclude '**/build/**', '**/.gradle/**'
+    })
+    outputs.dir(echoScriptExternalMaven)
+    doLast {
+        if (!siblingRoot.isDirectory()) {
+            throw new GradleException("Sibling EchoScript repository was not found: ${siblingRoot}")
+        }
+        def repo = echoScriptExternalMaven.get().asFile
+        def initFile = layout.buildDirectory.file('tmp/echo-script-publish.init.gradle').get().asFile
+        initFile.parentFile.mkdirs()
+        initFile.setText("""
+allprojects {
+    plugins.withId('maven-publish') {
+        publishing {
+            repositories {
+                maven {
+                    name = 'echoStoryExternal'
+                    url = uri('${repo.toURI()}')
+                }
+            }
+        }
+    }
+}
+""".stripIndent(), 'UTF-8')
+        exec {
+            workingDir siblingRoot
+            commandLine gradleWrapper(siblingRoot),
+                    ':echo-script-api:publishMavenJavaPublicationToEchoStoryExternalRepository',
+                    ':echo-script-language:publishMavenJavaPublicationToEchoStoryExternalRepository',
+                    '--init-script',
+                    initFile.absolutePath,
+                    '--console=plain'
+        }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    apply plugin: 'jacoco'
+
+    version = rootProject.version
+    group = rootProject.group
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+        if (project.name != 'story-forge-1.20.1') {
+            options.compilerArgs.addAll(['-Xlint:all'])
+        }
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    checkstyle {
+        toolVersion = checkstyle_version
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+        configProperties = [rootDir: rootProject.rootDir.absolutePath]
+    }
+
+    pmd {
+        toolVersion = pmd_version
+        ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+        ruleSets = []
+        consoleOutput = true
+    }
+
+    jacoco {
+        toolVersion = jacoco_version
+    }
+
+    tasks.named('check') {
+        dependsOn tasks.named('jacocoTestReport')
+    }
+}
+
+gradle.projectsEvaluated {
+    [project(':story-echoscript-adapter'), project(':echo-envimproment'), project(':story-forge-1.20.1')].each { echoScriptUser ->
+        echoScriptUser.tasks.matching { task ->
+            task.name in ['compileJava', 'compileTestJava', 'jarJar']
+        }.configureEach {
+            dependsOn rootProject.tasks.named('prepareEchoScriptArtifacts')
+        }
+    }
+}
+
+configure([
+        project(':story-contracts'),
+        project(':story-extension-api'),
+        project(':story-extension-forge-1.20.1')
+]) {
+    apply plugin: 'maven-publish'
+
+    publishing {
+        publications {
+            register('mavenJava', MavenPublication) {
+                from components.java
+            }
+        }
+        repositories {
+            maven {
+                name = 'integrationMaven'
+                url = rootProject.layout.buildDirectory.dir('integration-maven')
+            }
+        }
+    }
+}
+
+tasks.register('test') {
+    group = 'verification'
+    description = 'Runs unit tests for all modules.'
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('architectureTest') {
+    group = 'verification'
+    description = 'Runs architecture tests.'
+    dependsOn ':story-extension-api:test'
+    dependsOn ':story-extension-forge-1.20.1:test'
+    dependsOn ':story-definition:test'
+    dependsOn ':story-echoscript-adapter:test'
+    dependsOn ':echo-envimproment:test'
+    dependsOn ':story-persistence:test'
+    dependsOn ':story-forge-1.20.1:test'
+}
+
+tasks.register('publishExtensionIntegrationArtifacts') {
+    group = 'publishing'
+    description = 'Publishes public extension artifacts to build/integration-maven for isolated adapter builds.'
+    dependsOn ':story-contracts:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':story-extension-api:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':story-extension-forge-1.20.1:publishMavenJavaPublicationToIntegrationMavenRepository'
+}
+
+tasks.register('buildExtensionTestAdapter', Exec) {
+    group = 'verification'
+    description = 'Builds the separate Echo Story extension test adapter against published artifacts.'
+    dependsOn tasks.named('publishExtensionIntegrationArtifacts')
+    workingDir rootProject.file('integration-tests/echo-story-extension-test-mod')
+    commandLine rootProject.file('gradlew.bat').absolutePath, '-p', workingDir.absolutePath, 'build', '--console=plain'
+}
+
+tasks.register('sourceShapeCheck') {
+    group = 'verification'
+    description = 'Checks source shape rules that are awkward to express in Checkstyle.'
+
+    doLast {
+        def maxScriptsPerFolder = 7
+        def forbiddenSegments = [
+                'npc', 'roads', 'traffic', 'vehicles', 'combat', 'weapons', 'magic',
+                'navigation', 'world', 'animation', 'cinematic', 'utils', 'helpers',
+                'misc', 'common', 'global', 'everything'
+        ] as Set
+        def forbiddenNames = ['Manager', 'Helper', 'Utils', 'Common', 'GlobalService', 'Impl']
+        def folderCounts = [:].withDefault { 0 }
+        def violations = []
+
+        sourceScriptFiles().files.each { sourceFile ->
+            def folder = rootDir.toPath().relativize(sourceFile.parentFile.toPath()).toString()
+            folderCounts[folder] = folderCounts[folder] + 1
+        }
+
+        folderCounts.each { folder, count ->
+            if (count > maxScriptsPerFolder) {
+                violations << "${folder}: folder has ${count} Java/.es scripts; maximum is ${maxScriptsPerFolder}"
+            }
+        }
+
+        mainJavaFiles().files.each { sourceFile ->
+            def text = sourceFile.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(sourceFile.toPath()).toString()
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+
+            if (logicalLines > 180) {
+                violations << "${relative}: production type exceeds 180 logical lines"
+            }
+
+            def packageMatcher = text =~ /(?m)^\s*package\s+([a-zA-Z0-9_.]+)\s*;/
+            if (packageMatcher.find()) {
+                def packageName = packageMatcher.group(1)
+                packageName.split(/\./).each { segment ->
+                    if (forbiddenSegments.contains(segment)) {
+                        violations << "${relative}: forbidden package segment '${segment}'"
+                    }
+                }
+            }
+
+            def typeMatcher = text =~ /(?m)^\s*public\s+(?:final\s+)?(?:class|interface|record|enum)\s+([A-Za-z0-9_]+)/
+            while (typeMatcher.find()) {
+                def typeName = typeMatcher.group(1)
+                if (forbiddenNames.any { typeName == it || typeName.endsWith(it) }) {
+                    violations << "${relative}: forbidden vague type name '${typeName}'"
+                }
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = 'verification'
+    description = 'Checks project text files for trailing whitespace.'
+
+    doLast {
+        def textFiles = fileTree(rootDir) {
+            include 'build.gradle', 'settings.gradle', 'gradle.properties', '.gitignore'
+            include 'config/**/*.xml'
+            include 'story-*/**/*.java', 'story-*/**/*.gradle', 'story-*/**/*.toml', 'story-*/**/*.mcmeta'
+            include 'AGENTS.md', 'PLANS.md', 'PROGRESS.md', 'PROJECT_MAP.md', 'README.md', 'docs/**/*.md'
+            exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/run-data/**', '**/.git/**'
+        }
+        def violations = []
+        textFiles.files.each { file ->
+            file.readLines('UTF-8').eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    def relative = rootDir.toPath().relativize(file.toPath()).toString()
+                    violations << "${relative}:${index + 1}: trailing whitespace"
+                }
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+}
+
+String gradleWrapper(File root) {
+    return new File(root, org.gradle.internal.os.OperatingSystem.current().isWindows()
+            ? 'gradlew.bat' : 'gradlew').absolutePath
+}

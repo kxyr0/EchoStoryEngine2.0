@@ -1,0 +1,261 @@
+{
+  "name": "echostoryengine-authoring-tools",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
+  "version": "1.11.0",
+  "publisher": "echostoryengine",
+  "icon": "icon.png",
+  "license": "MIT",
+  "private": false,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Snippets",
+    "Other"
+  ],
+  "keywords": [
+    "echostoryengine",
+    "json5",
+    "minecraft",
+    "story",
+    "authoring"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onLanguage:echostory-json5",
+    "onLanguage:echoscript",
+    "workspaceContains:**/src/main/resources/data/*/echo_story/stories/**/*.es",
+    "workspaceContains:**/src/main/resources/data/*/echo_story/environments/**/*.es",
+    "workspaceContains:**/src/main/resources/data/*/echo_dialogue/dialogues/**/*.dialogue.es",
+    "workspaceContains:**/src/main/resources/data/*/echo_npc/npcs/**/*.npc.es",
+    "workspaceContains:**/src/main/resources/data/*/echo_npc/forms/**/*.form.es",
+    "workspaceContains:**/src/main/resources/data/*/echo_npc/forms/**/*.es",
+    "workspaceContains:**/src/main/resources/data/*/echo_player/profile_templates/**/*.player.es",
+    "workspaceContains:**/src/main/resources/data/*/echo_item/items/**/*.weapon.es",
+    "workspaceContains:**/src/main/resources/data/*/echo_trigger/triggers/**/*.trigger.es",
+    "workspaceContains:**/src/main/resources/data/*/echo_animation/**/*.es",
+    "workspaceContains:**/src/main/resources/data/*/echo_npc_animation/bindings/**/*.npc-animation-binding.es",
+    "workspaceContains:**/src/main/resources/data/echostoryengine/story/**/*.json5",
+    "onCommand:echostoryEngine.refreshIndex",
+    "onCommand:echostoryEngine.showIndex",
+    "onCommand:echostoryEngine.formatCurrent",
+    "onCommand:echostoryEngine.openDocs"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "echostory-json5",
+        "aliases": [
+          "EchoStory JSON5",
+          "echostory-json5",
+          "JSON5"
+        ],
+        "extensions": [
+          ".json5"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "echoscript",
+        "aliases": [
+          "EchoScript",
+          "echoscript"
+        ],
+        "extensions": [
+          ".es"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "echostory-json5",
+        "scopeName": "source.echostory-json5",
+        "path": "./syntaxes/echostory-json5.tmLanguage.json"
+      },
+      {
+        "language": "echoscript",
+        "scopeName": "source.echoscript",
+        "path": "./syntaxes/echoscript.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "echostory-json5",
+        "path": "./snippets/echostory-json5.code-snippets"
+      },
+      {
+        "language": "echoscript",
+        "path": "./snippets/echoscript.code-snippets"
+      }
+    ],
+    "commands": [
+      {
+        "command": "echostoryEngine.refreshIndex",
+        "title": "%command.refreshIndex.title%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "echostoryEngine.showIndex",
+        "title": "%command.showIndex.title%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "echostoryEngine.formatCurrent",
+        "title": "%command.formatCurrent.title%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "echostoryEngine.openDocs",
+        "title": "%command.openDocs.title%",
+        "category": "%command.category%"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "echostoryEngine.formatCurrent",
+          "when": "resourceLangId == echostory-json5 || resourceLangId == echoscript",
+          "group": "navigation@20"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "echostoryEngine.openDocs",
+          "when": "resourceExtname == .json5 || resourceExtname == .es",
+          "group": "navigation@20"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "echostoryEngine.refreshIndex"
+        },
+        {
+          "command": "echostoryEngine.showIndex"
+        },
+        {
+          "command": "echostoryEngine.formatCurrent"
+        },
+        {
+          "command": "echostoryEngine.openDocs"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "echostoryEngine.formatCurrent",
+        "key": "ctrl+alt+shift+f",
+        "when": "resourceLangId == echostory-json5 || resourceLangId == echoscript"
+      },
+      {
+        "command": "echostoryEngine.refreshIndex",
+        "key": "ctrl+alt+shift+r",
+        "when": "resourceLangId == echostory-json5 || resourceLangId == echoscript"
+      }
+    ],
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "echostoryEngine.modRoot": {
+          "type": "string",
+          "default": "D:\\\\JDHSeason\\\\mods",
+          "description": "%configuration.modRoot.description%"
+        },
+        "echostoryEngine.storyDataGlob": {
+          "type": "string",
+          "default": "echo-story-content-pack/src/main/resources/data",
+          "description": "%configuration.storyDataGlob.description%"
+        },
+        "echostoryEngine.enableDiagnostics": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.enableDiagnostics.description%"
+        },
+        "echostoryEngine.validateReferences": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.validateReferences.description%"
+        },
+        "echostoryEngine.strictUnknownFields": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.strictUnknownFields.description%"
+        },
+        "echostoryEngine.autoRefreshIndex": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.autoRefreshIndex.description%"
+        },
+        "echostoryEngine.inlayHints.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.inlayHints.enabled.description%"
+        },
+        "echostoryEngine.questVisuals.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.questVisuals.enabled.description%"
+        },
+        "echostoryEngine.questVisuals.codeLens.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.questVisuals.codeLens.enabled.description%"
+        },
+        "echostoryEngine.indexRefreshIntervalSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "maximum": 600,
+          "description": "%configuration.indexRefreshIntervalSeconds.description%"
+        },
+        "echostoryEngine.formatter.useTabs": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.formatter.useTabs.description%"
+        },
+        "echostoryEngine.formatter.tabSize": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 8,
+          "description": "%configuration.formatter.tabSize.description%"
+        },
+        "echostoryEngine.formatter.trailingComma": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.formatter.trailingComma.description%"
+        },
+        "echostoryEngine.formatter.quote": {
+          "type": "string",
+          "enum": [
+            "double",
+            "single"
+          ],
+          "default": "double",
+          "description": "%configuration.formatter.quote.description%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "check": "node --check src/extension.js && node --check src/catalog/defaultCatalog.js && node --check src/config/configurationService.js && node --check src/json5/json5Parser.js && node --check src/json5/commentPreservingFormatter.js && node --check src/json5/json5Formatter.js && node --check src/language/codeActionProvider.js && node --check src/language/completionProvider.js && node --check src/language/definitionProvider.js && node --check src/language/diagnosticsService.js && node --check src/language/documentLinkProvider.js && node --check src/language/hoverProvider.js && node --check src/language/documentSymbolProvider.js && node --check src/language/dialogueNodeRename.js && node --check src/language/echoscriptCompletionModel.js && node --check src/language/echoscriptCompletionProvider.js && node --check src/language/echoscriptFormatter.js && node --check src/language/echoscriptNavigation.js && node --check src/language/echoscriptSignatureHelp.js && node --check src/language/echoscriptSignatureHelpProvider.js && node --check src/language/echoscriptStaticSymbols.js && node --check src/language/echoscriptSupport.js && node --check src/language/inlayHintsProvider.js && node --check src/language/localStoryContext.js && node --check src/language/questCodeLensProvider.js && node --check src/language/questDecorationsService.js && node --check src/language/questVisuals.js && node --check src/language/referenceResolver.js && node --check src/language/referencesProvider.js && node --check src/language/renameProvider.js && node --check src/language/semanticTokensProvider.js && node --check src/language/snippetFactory.js && node --check src/language/storyReferenceScanner.js && node --check src/language/valueCompletionModel.js && node --check src/language/workspaceSymbolProvider.js && node --check src/shared/authoringKeyModel.js && node --check src/workspace/authoringKeys.js && node --check src/workspace/localizationKeys.js && node --check src/workspace/storyWorkspaceIndex.js && node --check scripts/smoke-test.js",
+    "smoke": "node scripts/smoke-test.js && node scripts/event-smoke-test.js",
+    "package": "vsce package --allow-missing-repository --no-rewrite-relative-links",
+    "publish": "vsce publish --packagePath echostoryengine-authoring-tools-1.9.0.vsix",
+    "publish:pat": "vsce publish --pat %VSCE_PAT%",
+    "install:local": "powershell -ExecutionPolicy Bypass -File scripts/install-local.ps1"
+  },
+  "dependencies": {
+    "json5": "^2.2.3",
+    "prettier": "^3.9.1"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.5.0"
+  }
+}

@@ -1,0 +1,1260 @@
+---
+title: "Диалоги .es"
+description: "Cookbook для DialogueResource: полный набор разрешенных .dialogue.es конструкций, готовые куски кода, ограничения и проверка в игре."
+section: "Platform"
+pageKind: "syntax"
+status: "review"
+since: "current"
+updated: "2026-07-24"
+relatedIds: ["DialogueId", "DialogueNodeId", "ChoiceId", "DialogueOutcomeId", "SpeakerId", "BodyAnimationId", "FaceAnimationId"]
+relatedPages: ["platform/story-authoring", "platform/console-commands", "platform/content-workspace", "adapters/dialogue-npc", "animation/animation-overview"]
+sourceRepositories: ["echo-script", "echo-dialogue", "echo-story-content-pack"]
+sourcePaths: ["D:/JDHSeason/mods/echo-dialogue", "D:/JDHSeason/mods/echo-story-content-pack"]
+visualIdentity: "state-lines"
+interactiveModules: []
+searchKeywords: ["DialogueResource", ".dialogue.es", "Line", "Choice", "Complete", "Dialogue.GoTo", "Dialogue.Load", "SetAnimation", "SetAnimationFace", "StopFaceAnimation", "SetAnimationFaceClear", "if else", "/echo_dialogue"]
+---
+
+# Диалоги .es
+
+Эта страница написана для автора контента, который реально пишет сюжет. Здесь нет roadmap-меток. Здесь только то, что можно положить в `.dialogue.es`, как оно связывается с системой во время игры и какие формы кода компилятор принимает.
+
+## Куда класть файл
+
+Dialogue loader читает только файлы с расширением `.dialogue.es` под `echo_dialogue/dialogues`.
+
+```text
+data/<namespace>/echo_dialogue/dialogues/**/*.dialogue.es
+```
+
+Примеры реальных путей:
+
+```text
+src/main/resources/data/jdh/echo_dialogue/dialogues/chapter_1/home/home_arrival.dialogue.es
+C:/Users/kxyr0/AppData/Roaming/PrismLauncher/instances/Форма Мысли/minecraft/story/content-pack/jdh/data/jdh/echo_dialogue/dialogues/chapter_1/home/home_arrival.dialogue.es
+```
+
+Имя файла не задает `DialogueId`. ID задается только внутри файла через `Id("namespace:path")`.
+
+## Скелет файла
+
+```echoscript
+namespace JDH.Chapter1.Home;
+
+class HomeArrivalDialogue : DialogueResource
+{
+    private void Init()
+    {
+        Id("jdh:chapter_1_home_arrival");
+        Start(Greeting);
+
+        Alias("father", "jdh:john_father", display: "Отец");
+        Alias("john", "jdh:john", display: "Джон");
+    }
+
+    private void Greeting()
+    {
+        Line("father", "Ты поздно вернулся.");
+        Line("father", "Скажи прямо, где ты был?");
+        Choice("tell_truth", "Сказать правду.", ToldTruth);
+        Choice("lie", "Солгать.", Lied);
+    }
+
+    private void ToldTruth()
+    {
+        Line("john", "Я был у старой дороги.");
+        Complete("jdh:told_truth");
+    }
+
+    private void Lied()
+    {
+        Line("john", "Я просто гулял.");
+        Complete("jdh:lied");
+    }
+}
+```
+
+Минимальные обязательные части:
+
+| Часть | Что делает | Пример |
+| --- | --- | --- |
+| `class ... : DialogueResource` | Помечает файл как диалог | `class HomeArrivalDialogue : DialogueResource` |
+| `Init()` | Настраивает ID, старт и говорящих | `private void Init()` |
+| `Id(...)` | Задает `DialogueId` | `Id("jdh:chapter_1_home_arrival")` |
+| `Start(...)` | Указывает стартовый node method | `Start(Greeting)` |
+| `Alias(...)` | Связывает короткое имя с `SpeakerId` | `Alias("father", "jdh:john_father")` |
+| `private void Node()` | Создает узел диалога | `private void Greeting()` |
+| `Line(...)` | Добавляет реплику | `Line("father", "Текст.")` |
+| `LineAfterMove(...)` | Реплика только после прихода NPC, запущенного через `Npc.Move(...)` | `LineAfterMove("father", "Я на месте.")` |
+| `Choice(...)` | Показывает выбор игроку | `Choice("yes", "Да.", Yes)` |
+| `Complete(...)` | Завершает диалог outcome-ом | `Complete("jdh:done")` |
+
+## Какие вызовы понимает binder
+
+Dialogue binder читает только специальные вызовы. Остальной код не исполняется.
+
+| Вызов | Где писать | Разрешенная форма |
+| --- | --- | --- |
+| `Id` | Только `Init()` | `Id("namespace:path")` |
+| `Start` | Только `Init()` | `Start(MethodName)` |
+| `Alias` | Только `Init()` | `Alias("alias", "namespace:speaker", display: "...", visual: Portrait(...))` |
+| `NodeId` | Первой командой node method | `NodeId("old_node_id")` |
+| `Line` | В node method | `Line("alias", "text", "optional.key", thought: true)` |
+| `LineAfterMove` | В node method после `Npc.Move(...)` | `LineAfterMove("alias", "text")` |
+| `Choice` | После `Line` в node method | `Choice("choice_id", "text", TargetMethod)` |
+| `Complete` | После `Line` в node method | `Complete("namespace:outcome")` |
+| `Dialogue.GoTo` | После `Line` в node method | `Dialogue.GoTo(TargetMethod)` |
+| `Dialogue.Load` | После `Line` в node method | `Dialogue.Load("namespace:dialogue")` |
+| `SetAnimation` | В цепочке после `Line` | `.SetAnimation(BodyAnimationIdOrString)` |
+| `SetAnimationFace` | В цепочке после `Line` | `.SetAnimationFace(FaceAnimationIdOrString)` |
+| `StopFaceAnimation` | В цепочке после `Line` | `.StopFaceAnimation()` |
+| `SetAnimationFaceClear` | В цепочке после `Line` | `.SetAnimationFaceClear()` |
+| `Portrait` | В `Alias(..., visual: ...)` | `Portrait("namespace:path")` |
+| `SkinHead` | В `Alias(..., visual: ...)` | `SkinHead("namespace:path")` |
+
+## ID и имена
+
+Namespaced IDs пишутся маленькими буквами:
+
+```text
+jdh:chapter_1_home_arrival
+jdh:john_father
+jdh:chapter_1/home/home_arrival
+```
+
+`DialogueId`, `SpeakerId`, `DialogueOutcomeId`, visual IDs и animation IDs используют форму:
+
+```text
+namespace:path
+```
+
+`ChoiceId` не namespaced. Он уникален внутри одного диалога:
+
+```text
+accept
+refuse
+tell_truth
+ask.about_father
+leave-quietly
+```
+
+Имена методов пишите в PascalCase, потому что node ID будет выведен автоматически:
+
+```echoscript
+private void Greeting()          // greeting
+private void AskedAboutStreet()  // asked_about_street
+private void FatherLeavesRoom()  // father_leaves_room
+```
+
+Если система уже хранит старый node ID и его нельзя менять, зафиксируйте его:
+
+```echoscript
+private void FatherFinalWarning()
+{
+    NodeId("father.final-warning");
+    Line("father", "Это последнее предупреждение.");
+    Complete("jdh:father_warning");
+}
+```
+
+## Поля-переменные
+
+Поля удобны для ID, которые повторяются. Binder умеет читать строковое значение поля.
+
+```echoscript
+private DialogueId StreetSelfTalk = "jdh:chapter_1_street_talk_with_self";
+private BodyAnimationId PointToDoor = "jdh:father_point_to_door";
+private FaceAnimationId SuspiciousFace = "jdh:father_suspicious";
+```
+
+Использование:
+
+```echoscript
+private void LeaveHouse()
+{
+    Line("john", "Пойду на улицу.");
+    Dialogue.Load(StreetSelfTalk);
+}
+
+private void Warning()
+{
+    Line("father", "Дверь там.")
+        .SetAnimation(PointToDoor)
+        .SetAnimationFace(SuspiciousFace);
+}
+```
+
+Что важно:
+
+- поле должно иметь строковый initializer;
+- `Dialogue.Load(SomeField)` читает значение поля;
+- `SetAnimation(SomeField)` и `SetAnimationFace(SomeField)` читают значение поля;
+- `StopFaceAnimation()` не принимает аргументы и запускает `exit` текущей face-анимации;
+- `SetAnimationFaceClear()` не принимает аргументы и не требует поля;
+- если поле типизировано как `FaceAnimationId`, его нельзя передавать в `SetAnimation`;
+- если поле типизировано как `BodyAnimationId`, его нельзя передавать в `SetAnimationFace`;
+- обычные вычисления и функции не выполняются.
+
+Нельзя:
+
+```echoscript
+private DialogueId Next = BuildNextId();       // Функции не выполняются.
+private string Prefix = "jdh:";
+private DialogueId Next = Prefix + "street";   // Операторы не поддерживаются.
+
+private void Broken()
+{
+    Dialogue.Load(Next());                      // Нужна строка или поле, не вызов функции.
+}
+```
+
+## `Init()`: ID, старт, говорящие
+
+`Init()` обязателен.
+
+```echoscript
+private void Init()
+{
+    Id("jdh:chapter_1_home_arrival");
+    Start(Greeting);
+
+    Alias("father", "jdh:john_father", display: "Отец", visual: SkinHead("jdh:john_father"));
+    Alias("john", "jdh:john", display: "Джон");
+    Alias("thought", "jdh:john", display: "Мысли");
+}
+```
+
+Правила:
+
+- `Id(...)` должен быть ровно один;
+- `Start(...)` должен быть ровно один;
+- `Start(Greeting)` указывает на `private void Greeting()`;
+- `Start("greeting")` является старой совместимой формой, но новый контент так не пишет;
+- `Alias` должен быть объявлен до использования alias в `Line`;
+- `display` необязателен;
+- `visual` необязателен.
+
+## Визуалы говорящих
+
+Visual задается на speaker alias, не на отдельной строке.
+
+```echoscript
+Alias("father", "jdh:john_father", display: "Отец", visual: SkinHead("jdh:john_father"));
+Alias("merchant", "jdh:merchant", display: "Торговец", visual: Portrait("jdh:merchant"));
+Alias("john", "jdh:john", display: "Джон");
+```
+
+Пути ассетов:
+
+```text
+Portrait("jdh:merchant")
+-> assets/jdh/textures/echo_dialogue/portraits/merchant.png
+
+SkinHead("jdh:john_father")
+-> assets/jdh/textures/echo_dialogue/skins/john_father.png
+```
+
+Если подключен provider динамического представления говорящего, он может заменить display/visual во время игры. Авторский `Alias(...)` всё равно нужен как запасной вариант.
+
+Нельзя:
+
+```echoscript
+Line("father", "Смотри на меня.", visual: Portrait("jdh:father_angry"));
+```
+
+Можно:
+
+```echoscript
+Alias("father", "jdh:john_father", display: "Отец", visual: Portrait("jdh:john_father"));
+
+private void Greeting()
+{
+    Line("father", "Смотри на меня.");
+}
+```
+
+## Реплики `Line`
+
+Базовая реплика:
+
+```echoscript
+Line("father", "Где ты был?");
+```
+
+Реплика с ключом:
+
+```echoscript
+Line("father", "Где ты был?", "chapter_1.home.father.where_were_you");
+```
+
+Реплика-мысль:
+
+```echoscript
+Line("thought", "Надо отвечать осторожно.", "chapter_1.home.john.thought_1", thought: true);
+```
+
+Реплика с простыми metadata:
+
+```echoscript
+Line("father", "Я ждал у дома.", mood: "irritated", intensity: 2);
+Line("john", "Я понял.", quiet: true);
+```
+
+Named properties, кроме `key` и `thought`, сохраняются как cues:
+
+```text
+mood: "irritated" -> property.mood = irritated
+intensity: 2      -> property.intensity = 2
+quiet: true       -> property.quiet = true
+```
+
+Допустимые простые значения:
+
+```echoscript
+Line("father", "Строка.", mood: "angry");
+Line("father", "Строка.", level: 3);
+Line("father", "Строка.", urgent: true);
+Line("father", "Строка.", tag: AngryMood);
+```
+
+Не используйте сложные выражения:
+
+```echoscript
+Line("father", "Строка.", mood: GetMood());
+Line("father", "Строка.", tags: ["angry", "home"]);
+Line("father", "Строка.", data: new Mood("angry"));
+```
+
+## Порядок команд в узле
+
+Внутри узла сначала идут `Line`, потом один terminal block: `Choice`, `Complete`, `Dialogue.GoTo` или `Dialogue.Load`.
+
+Можно:
+
+```echoscript
+private void Question()
+{
+    Line("father", "Ты скажешь правду?");
+    Line("john", "Я...");
+    Choice("truth", "Сказать правду.", ToldTruth);
+    Choice("lie", "Солгать.", Lied);
+}
+```
+
+Можно:
+
+```echoscript
+private void Warning()
+{
+    Line("father", "Я не закончил.");
+    Dialogue.GoTo(SecondWarning);
+}
+```
+
+Нельзя:
+
+```echoscript
+private void Broken()
+{
+    Choice("answer", "Ответить.", Answer);
+    Line("father", "Эта реплика уже недопустима.");
+}
+```
+
+Нельзя:
+
+```echoscript
+private void Broken()
+{
+    Line("father", "Выбирай.");
+    Choice("one", "Один.", One);
+    Dialogue.GoTo(Other);
+}
+```
+
+## Анимационные cues
+
+Body animation:
+
+```echoscript
+private BodyAnimationId PointToDoor = "jdh:father_point_to_door";
+
+private void Warning()
+{
+    Line("father", "В комнату. Сейчас.")
+        .SetAnimation(PointToDoor);
+}
+```
+
+Face animation:
+
+```echoscript
+private FaceAnimationId AngryFace = "jdh:father_angry";
+
+private void Warning()
+{
+    Line("father", "Не заставляй меня повторять.")
+        .SetAnimationFace(AngryFace);
+    Line("father", "Я жду ответа.")
+        .StopFaceAnimation();
+}
+```
+
+`SetAnimationFace(...)` запускает `enter`, затем держит `stay`. `StopFaceAnimation()` запускает `exit` текущей face-анимации у говорящего. Это основной способ убрать выражение плавно.
+
+Clear explicit face animation:
+
+```echoscript
+private void BackToNeutral()
+{
+    Line("john", "Я могу объяснить.")
+        .SetAnimationFaceClear();
+}
+```
+
+`SetAnimationFaceClear()` мгновенно очищает текущие explicit face-анимации диалога. Idle blink остается включенным, если он включен в face rig или portrait overlay.
+
+Обе cues на одной строке:
+
+```echoscript
+private BodyAnimationId PointToDoor = "jdh:father_point_to_door";
+private FaceAnimationId AngryFace = "jdh:father_angry";
+
+private void Warning()
+{
+    Line("father", "В комнату. Сейчас.")
+        .SetAnimationFace(AngryFace)
+        .SetAnimation(PointToDoor);
+}
+```
+
+Можно передать строку напрямую:
+
+```echoscript
+Line("father", "Смотри туда.")
+    .SetAnimation("jdh:father_point_to_door")
+    .SetAnimationFace("jdh:father_suspicious");
+```
+
+Ошибки:
+
+```echoscript
+private BodyAnimationId Wave = "jdh:wave";
+private FaceAnimationId AngryFace = "jdh:angry_face";
+
+private void Broken()
+{
+    Line("father", "Ошибка.")
+        .SetAnimation(AngryFace); // ожидался BodyAnimationId
+
+    Line("father", "Ошибка.")
+        .SetAnimationFace(Wave); // ожидался FaceAnimationId
+
+    Line("father", "Ошибка.")
+        .SetAnimation(Wave)
+        .SetAnimation(Wave); // duplicate body animation
+
+    Line("father", "Ошибка.")
+        .SetAnimationFace(AngryFace)
+        .SetAnimationFaceClear(); // duplicate face animation
+
+    Line("father", "Ошибка.")
+        .SetAnimationFace(AngryFace)
+        .StopFaceAnimation(); // duplicate face animation
+}
+```
+
+Подробно про face rig, portrait overlay, `Surface("3d")`, `Surface("portrait")`, тики и `enter/stay/exit`: [Лицо в диалогах](/docs/animation/facial-dialogue-animations/).
+
+## Выборы
+
+Один выбор:
+
+```echoscript
+private void Greeting()
+{
+    Line("father", "Ты поможешь мне?");
+    Choice("accept", "Да.", Accepted);
+}
+
+private void Accepted()
+{
+    Line("john", "Хорошо.");
+    Complete("jdh:accepted");
+}
+```
+
+Несколько выборов:
+
+```echoscript
+private void Greeting()
+{
+    Line("father", "Что ты скажешь?");
+    Choice("truth", "Сказать правду.", ToldTruth);
+    Choice("lie", "Солгать.", Lied);
+    Choice("silent", "Промолчать.", Silent);
+}
+```
+
+Choice target - это метод:
+
+```echoscript
+Choice("truth", "Сказать правду.", ToldTruth);
+```
+
+Не строка:
+
+```echoscript
+Choice("truth", "Сказать правду.", "told_truth"); // старый стиль, новый контент так не пишет
+```
+
+Outcome ветки:
+
+```echoscript
+private void ToldTruth()
+{
+    Line("john", "Да. Я был у дороги.");
+    Complete("jdh:told_truth");
+}
+
+private void Lied()
+{
+    Line("john", "Я просто гулял.");
+    Complete("jdh:lied");
+}
+
+private void Silent()
+{
+    Line("john", "...");
+    Complete("jdh:silent");
+}
+```
+
+## Завершение диалога
+
+`Complete` возвращает `DialogueOutcomeId` наружу. Story может сохранить этот outcome через `Action(..., output: "outcome")`.
+
+```echoscript
+private void Accepted()
+{
+    Line("john", "Я помогу.");
+    Complete("jdh:accepted_help");
+}
+```
+
+Если outcome не важен, всё равно используйте явный stable ID:
+
+```echoscript
+private void Done()
+{
+    Complete("jdh:home_arrival_done");
+}
+```
+
+Не используйте разные outcome IDs для одного и того же смыслового результата. Story будет сравнивать строку буквально.
+
+## Переход внутри того же диалога
+
+`Dialogue.GoTo` переводит текущую сессию на другой узел того же диалога без выбора игрока.
+
+```echoscript
+private void Intro()
+{
+    Line("father", "Сначала выслушай.");
+    Dialogue.GoTo(Warning);
+}
+
+private void Warning()
+{
+    Line("father", "Домой вернёшься до темноты.");
+    Complete("jdh:warning_done");
+}
+```
+
+Используйте `GoTo`, когда:
+
+- длинную сцену нужно разбить на читаемые методы;
+- после блока реплик всегда должен идти один следующий блок;
+- не нужен новый `DialogueId`.
+
+Нельзя:
+
+```echoscript
+Dialogue.GoTo("warning");
+Dialogue.GoTo(MissingNode);
+```
+
+## Загрузка другого диалога
+
+`Dialogue.Load` переключает сессию на другой `DialogueId` через catalog.
+
+Через строку:
+
+```echoscript
+private void LeaveHouse()
+{
+    Line("john", "Пойду на улицу.");
+    Dialogue.Load("jdh:chapter_1_street_talk_with_self");
+}
+```
+
+Через поле:
+
+```echoscript
+private DialogueId StreetSelfTalk = "jdh:chapter_1_street_talk_with_self";
+
+private void LeaveHouse()
+{
+    Line("john", "Пойду на улицу.");
+    Dialogue.Load(StreetSelfTalk);
+}
+```
+
+Используйте `Dialogue.Load`, когда:
+
+- начинается другая сцена;
+- нужно перейти к другому файлу;
+- текущий диалог должен сохранить тот же session flow, но compiled graph меняется.
+
+Не передавайте путь к файлу:
+
+```echoscript
+Dialogue.Load("data/jdh/echo_dialogue/dialogues/chapter_1/street/self.dialogue.es");
+```
+
+Передавайте `DialogueId`:
+
+```echoscript
+Dialogue.Load("jdh:chapter_1_street_talk_with_self");
+```
+
+## Рецепт: линейная сцена без выборов
+
+```echoscript
+namespace JDH.Chapter1.Room;
+
+class RoomIntroDialogue : DialogueResource
+{
+    private void Init()
+    {
+        Id("jdh:chapter_1_room_intro");
+        Start(Intro);
+        Alias("john", "jdh:john", display: "Джон");
+        Alias("thought", "jdh:john", display: "Мысли");
+    }
+
+    private void Intro()
+    {
+        Line("john", "Комната снова кажется чужой.");
+        Line("thought", "Надо найти дневник.", thought: true);
+        Complete("jdh:room_intro_done");
+    }
+}
+```
+
+## Рецепт: вопрос с тремя вариантами
+
+```echoscript
+namespace JDH.Chapter1.Home;
+
+class FatherQuestionDialogue : DialogueResource
+{
+    private void Init()
+    {
+        Id("jdh:father_question");
+        Start(Question);
+        Alias("father", "jdh:john_father", display: "Отец");
+        Alias("john", "jdh:john", display: "Джон");
+    }
+
+    private void Question()
+    {
+        Line("father", "Где ты был?");
+        Choice("truth", "Сказать правду.", Truth);
+        Choice("lie", "Солгать.", Lie);
+        Choice("silent", "Промолчать.", Silent);
+    }
+
+    private void Truth()
+    {
+        Line("john", "У дороги.");
+        Complete("jdh:father_question_truth");
+    }
+
+    private void Lie()
+    {
+        Line("john", "Просто гулял.");
+        Complete("jdh:father_question_lie");
+    }
+
+    private void Silent()
+    {
+        Line("john", "...");
+        Complete("jdh:father_question_silent");
+    }
+}
+```
+
+## Рецепт: один файл, несколько смысловых блоков
+
+```echoscript
+namespace JDH.Chapter1.Home;
+
+class FatherWarningDialogue : DialogueResource
+{
+    private void Init()
+    {
+        Id("jdh:father_warning");
+        Start(Open);
+        Alias("father", "jdh:john_father", display: "Отец");
+    }
+
+    private void Open()
+    {
+        Line("father", "Ты слушаешь?");
+        Dialogue.GoTo(Warning);
+    }
+
+    private void Warning()
+    {
+        Line("father", "В этом доме правила не обсуждаются.");
+        Dialogue.GoTo(FinalLine);
+    }
+
+    private void FinalLine()
+    {
+        Line("father", "Иди в комнату.");
+        Complete("jdh:father_warning_done");
+    }
+}
+```
+
+## Рецепт: диалог с переходом в другой файл
+
+```echoscript
+namespace JDH.Chapter1.Home;
+
+class HomeExitDialogue : DialogueResource
+{
+    private DialogueId StreetSelfTalk = "jdh:chapter_1_street_talk_with_self";
+
+    private void Init()
+    {
+        Id("jdh:chapter_1_home_exit");
+        Start(Exit);
+        Alias("john", "jdh:john", display: "Джон");
+    }
+
+    private void Exit()
+    {
+        Line("john", "Снаружи будет спокойнее.");
+        Dialogue.Load(StreetSelfTalk);
+    }
+}
+```
+
+## Рецепт: реплика двигает тело и лицо
+
+```echoscript
+namespace JDH.Chapter1.Home;
+
+class FatherGestureDialogue : DialogueResource
+{
+    private BodyAnimationId PointToRoom = "jdh:father_point_to_room";
+    private FaceAnimationId Angry = "jdh:father_angry";
+
+    private void Init()
+    {
+        Id("jdh:father_gesture");
+        Start(Warning);
+        Alias("father", "jdh:john_father", display: "Отец", visual: SkinHead("jdh:john_father"));
+    }
+
+    private void Warning()
+    {
+        Line("father", "В комнату.")
+            .SetAnimationFace(Angry)
+            .SetAnimation(PointToRoom);
+        Complete("jdh:father_sent_john_to_room");
+    }
+}
+```
+
+## Рецепт: запасной visual для NPC-говорящего
+
+```echoscript
+namespace JDH.Chapter1.Home;
+
+class FatherVisualDialogue : DialogueResource
+{
+    private void Init()
+    {
+        Id("jdh:father_visual");
+        Start(Greeting);
+        Alias("father", "jdh:john_father", display: "Отец", visual: SkinHead("jdh:john_father"));
+        Alias("john", "jdh:john", display: "Джон", visual: Portrait("jdh:john"));
+    }
+
+    private void Greeting()
+    {
+        Line("father", "Ты опять пропал.");
+        Line("john", "Я здесь.");
+        Complete("jdh:father_visual_done");
+    }
+}
+```
+
+## Рецепт: story сможет проверить outcome
+
+Dialogue:
+
+```echoscript
+private void Accepted()
+{
+    Line("john", "Я помогу.");
+    Complete("jdh:help_accepted");
+}
+
+private void Refused()
+{
+    Line("john", "Нет.");
+    Complete("jdh:help_refused");
+}
+```
+
+Story action:
+
+```echoscript
+Action(
+    "play_help_dialogue",
+    type: "echo_dialogue:play",
+    dialogueId: "jdh:help_dialogue",
+    audienceId: "jdh:local_author",
+    output: "outcome",
+    next: "require_accepted");
+Require(
+    "require_accepted",
+    variable: "outcome",
+    value: "jdh:help_accepted",
+    next: "mark_help_accepted");
+```
+
+`Require` не является `if/else`: если значение не совпало, текущий Story execution завершится как failed. Для разных веток сейчас используйте отдельные StoryResources или отдельный механизм во время игры, когда он появится.
+
+## Рецепт: dialogue outcomes для будущего branch
+
+Диалог сам не пишет `if/else`. Диалог отдает наружу стабильный outcome, а Story решает, что делать дальше.
+
+```echoscript
+namespace JDH.Chapter1.Home;
+
+class FatherTrustQuestionDialogue : DialogueResource
+{
+    private void Init()
+    {
+        Id("jdh:father_trust_question");
+        Start(Question);
+        Alias("father", "jdh:john_father", display: "Отец");
+        Alias("john", "jdh:john", display: "Джон");
+        Alias("thought", "jdh:john", display: "Мысли");
+    }
+
+    private void Question()
+    {
+        Line("father", "Ты скажешь мне правду?");
+        Line("thought", "Если соврать сейчас, он заметит.", thought: true);
+        Choice("truth", "Сказать правду.", Truth);
+        Choice("lie", "Солгать.", Lie);
+        Choice("silent", "Промолчать.", Silent);
+    }
+
+    private void Truth()
+    {
+        Line("john", "Да. Я был у дороги.");
+        Complete("jdh:father_trust_truth");
+    }
+
+    private void Lie()
+    {
+        Line("john", "Я просто гулял.");
+        Complete("jdh:father_trust_lie");
+    }
+
+    private void Silent()
+    {
+        Line("john", "...");
+        Complete("jdh:father_trust_silent");
+    }
+}
+```
+
+Story сейчас проверяет конкретный outcome через `Require`:
+
+```echoscript
+Action(
+    "play_trust_question",
+    type: "echo_dialogue:play",
+    dialogueId: "jdh:father_trust_question",
+    audienceId: "jdh:local_author",
+    output: "outcome",
+    next: "require_truth");
+Require(
+    "require_truth",
+    variable: "outcome",
+    value: "jdh:father_trust_truth",
+    next: "mark_truth");
+```
+
+Когда в Story появится настоящий branch intrinsic, менять нужно будет Story, а не Dialogue. Поэтому outcomes уже сейчас называйте по смыслу:
+
+```text
+jdh:father_trust_truth
+jdh:father_trust_lie
+jdh:father_trust_silent
+```
+
+Не делайте временные outcomes:
+
+```text
+jdh:option_1
+jdh:good
+jdh:bad
+jdh:test_done
+```
+
+## Рецепт: длинный разговор кусками
+
+Не превращайте один метод в огромную простыню. Делите разговор на смысловые блоки через `Dialogue.GoTo`.
+
+```echoscript
+namespace JDH.Chapter1.Home;
+
+class FatherLongWarningDialogue : DialogueResource
+{
+    private FaceAnimationId Angry = "jdh:father_angry";
+    private FaceAnimationId Tired = "jdh:father_tired";
+
+    private void Init()
+    {
+        Id("jdh:father_long_warning");
+        Start(Open);
+        Alias("father", "jdh:john_father", display: "Отец", visual: SkinHead("jdh:john_father"));
+        Alias("john", "jdh:john", display: "Джон");
+    }
+
+    private void Open()
+    {
+        Line("father", "Ты опять вернулся поздно.")
+            .SetAnimationFace(Angry);
+        Dialogue.GoTo(Pressure);
+    }
+
+    private void Pressure()
+    {
+        Line("father", "Я не спрашиваю из любопытства.");
+        Line("father", "Я спрашиваю, потому что это уже не первый раз.");
+        Choice("answer", "Ответить.", Answer);
+        Choice("avoid", "Уйти от ответа.", Avoid);
+    }
+
+    private void Answer()
+    {
+        Line("john", "Я видел кое-что у старой дороги.");
+        Dialogue.GoTo(FatherSoftens);
+    }
+
+    private void Avoid()
+    {
+        Line("john", "Ничего не случилось.");
+        Dialogue.GoTo(FatherHardens);
+    }
+
+    private void FatherSoftens()
+    {
+        Line("father", "Тогда начни сначала.")
+            .SetAnimationFace(Tired);
+        Complete("jdh:father_warning_truth_path");
+    }
+
+    private void FatherHardens()
+    {
+        Line("father", "Не делай вид, что я не вижу.");
+        Complete("jdh:father_warning_lie_path");
+    }
+}
+```
+
+## Рецепт: локальный переход в другой файл
+
+Когда разговор физически переходит в другую сцену, используйте `Dialogue.Load`, а не копируйте узлы.
+
+```echoscript
+namespace JDH.Chapter1.Home;
+
+class HomeDoorDialogue : DialogueResource
+{
+    private DialogueId StreetSelfTalk = "jdh:chapter_1_street_talk_with_self";
+
+    private void Init()
+    {
+        Id("jdh:home_door");
+        Start(Leave);
+        Alias("john", "jdh:john", display: "Джон");
+        Alias("thought", "jdh:john", display: "Мысли");
+    }
+
+    private void Leave()
+    {
+        Line("thought", "На улице будет проще подумать.", thought: true);
+        Dialogue.Load(StreetSelfTalk);
+    }
+}
+```
+
+Проверка:
+
+```text
+/reload
+/echo_dialogue dialogues
+/echo_dialogue play jdh:home_door
+/echo_dialogue diagnostics 20
+```
+
+Если `jdh:chapter_1_street_talk_with_self` не найден, `Dialogue.Load` не сможет перейти. Проверяйте не путь файла, а именно `Id(...)` внутри целевого `.dialogue.es`.
+
+## Команды вокруг DialogueResource
+
+Полный справочник команд: [Консольные команды](/docs/platform/console-commands/).
+
+Минимальный цикл:
+
+```text
+/reload
+/echo_dialogue health
+/echo_dialogue dialogues
+/echo_dialogue diagnostics 20
+/echo_dialogue play jdh:chapter_1_home_arrival
+```
+
+Если диалог открыт не тому игроку:
+
+```text
+/echo_dialogue play jdh:chapter_1_home_arrival PlayerName
+```
+
+Если висит старая сессия:
+
+```text
+/echo_dialogue active
+/echo_dialogue cancel
+/echo_dialogue play jdh:chapter_1_home_arrival
+```
+
+Если нужен список provider-ов:
+
+```text
+/echo_dialogue providers
+/echo_dialogue provider <providerId>
+```
+
+Story-проверка для outcome:
+
+```text
+/echo_story health
+/echo_story executions
+/echo_story diagnostics 20
+```
+
+NPC-проверка для speaker alias, который ссылается на actor:
+
+```text
+/echo_npc definitions
+/echo_npc spawn jdh:john_father jdh:john_father ~ ~ ~
+/echo_npc actor jdh:john_father
+```
+
+## Что EchoScript разрешает синтаксически
+
+EchoScript V1 - ограниченный C#-похожий формат данных.
+
+```echoscript
+namespace My.Namespace;
+
+class Example : DialogueResource
+{
+    private DialogueId Next = "jdh:next";
+    private int Count = 3;
+    private bool Enabled = true;
+
+    private void Node()
+    {
+        Line("speaker", "Текст", order: 1, enabled: true);
+    }
+}
+```
+
+Синтаксически допустимы:
+
+- `namespace`;
+- один `class Name : Type`;
+- поля `private Type Name = expression;`;
+- методы `private void Name() { ... }`;
+- string, integer, decimal и boolean literals;
+- named arguments: `display: "Отец"`, `thought: true`;
+- вызовы: `Line(...)`;
+- цепочки вызовов: `Line(...).SetAnimation(...).SetAnimationFace(...)`;
+- `new Type(...)` и arrays на уровне общего синтаксиса.
+
+Для `DialogueResource` имеют смысл только поддержанные dialogue intrinsics. Если EchoScript распарсил выражение, это не значит, что dialogue binder его примет.
+
+## Что нельзя писать в `.dialogue.es`
+
+Не поддерживается:
+
+```echoscript
+import something;                 // Нет imports.
+using Something;                  // Нет using.
+class A : B, C { }                // Нет множественного наследования.
+interface IExample { }            // Нет interfaces.
+enum Mood { Angry, Calm }         // Нет enums.
+if (flag) { Line("a", "b"); }     // Нет if.
+for (...) { }                     // Нет loops.
+while (...) { }                   // Нет loops.
+speaker = "father";              // Нет assignment statements.
+Line("a", $"text {value}");       // Нет string interpolation.
+Line("a", "x" + "y");            // Нет конкатенации.
+await Something();                // Нет async/await.
+```
+
+Не пишите старый node boilerplate в новых диалогах:
+
+```echoscript
+private NodeDef[] dialogueNodes = [ Greeting() ];
+
+public override DialogueResourceDef Build()
+{
+    return Dialogue("jdh:old");
+}
+
+private NodeDef[] Nodes()
+{
+    return dialogueNodes;
+}
+
+private NodeDef Greeting()
+{
+    var node = new Node("greeting");
+    Line("father", "Старый стиль.");
+    return node;
+}
+```
+
+Новый стиль:
+
+```echoscript
+private void Init()
+{
+    Id("jdh:new");
+    Start(Greeting);
+    Alias("father", "jdh:john_father", display: "Отец");
+}
+
+private void Greeting()
+{
+    Line("father", "Новый стиль.");
+    Complete("jdh:done");
+}
+```
+
+## Частые ошибки
+
+Не объявлен alias:
+
+```echoscript
+private void Init()
+{
+    Id("jdh:broken");
+    Start(Greeting);
+}
+
+private void Greeting()
+{
+    Line("father", "Где ты был?");
+}
+```
+
+Старт указывает не на метод:
+
+```echoscript
+private void Init()
+{
+    Id("jdh:broken");
+    Start(Missing);
+    Alias("father", "jdh:john_father");
+}
+```
+
+Метод не private:
+
+```echoscript
+public void Greeting()
+{
+    Line("father", "Я не стану node.");
+}
+```
+
+Пустой узел:
+
+```echoscript
+private void Empty()
+{
+}
+```
+
+Повтор choice ID:
+
+```echoscript
+private void Question()
+{
+    Line("father", "Выбирай.");
+    Choice("answer", "Да.", Yes);
+    Choice("answer", "Нет.", No);
+}
+```
+
+Смешаны terminal-действия:
+
+```echoscript
+private void Broken()
+{
+    Line("father", "Выбирай.");
+    Choice("one", "Один.", One);
+    Complete("jdh:done");
+}
+```
+
+## Быстрая проверка перед `/reload`
+
+Проверьте файл по списку:
+
+- путь содержит `data/<namespace>/echo_dialogue/dialogues/`;
+- расширение ровно `.dialogue.es`;
+- класс наследуется от `DialogueResource`;
+- есть `private void Init()`;
+- в `Init()` есть один `Id(...)` и один `Start(...)`;
+- каждый speaker alias из `Line("alias", ...)` объявлен в `Alias(...)`;
+- каждый `Start`, `Choice`, `Dialogue.GoTo` указывает на существующий `private void` метод;
+- `Complete` и `Dialogue.Load` используют `namespace:path`;
+- после `Choice`, `Complete`, `Dialogue.GoTo` или `Dialogue.Load` в том же узле больше нет `Line`;
+- старого `Build()`, `dialogueNodes`, `Nodes()`, `new Node(...)`, `return node` нет.
+
+Проверка в игре:
+
+```text
+/reload
+/echo_dialogue dialogues
+/echo_dialogue diagnostics 20
+/echo_dialogue play jdh:chapter_1_home_arrival
+```
+
+Если `/reload` отклонен, система продолжит использовать last-known-good catalog. Исправьте `.dialogue.es`, выполните `/reload` снова и проверьте диагностику.

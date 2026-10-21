@@ -1,0 +1,8 @@
+package io.github.kxyr0.echotriggervisibilityadapter.forge;
+
+public enum VisibilityAdapterDiagnostic {
+    TRIGGER_VISIBILITY_PROVIDER_UNAVAILABLE,
+    TRIGGER_VISIBILITY_SELECTOR_INVALID,
+    TRIGGER_VISIBILITY_CONTEXT_INHERITANCE_FAILED,
+    TRIGGER_VISIBILITY_EXECUTION_DUPLICATE
+}

@@ -1,0 +1,5 @@
+base {
+    archivesName = 'echo-script-api'
+}
+
+description = 'Stable public parser-facing contracts for EchoScript.'

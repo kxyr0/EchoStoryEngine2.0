@@ -1,0 +1,239 @@
+plugins {
+    id 'base'
+}
+
+allprojects {
+    group = 'io.github.kxyr0.echoscript'
+    version = echo_script_version
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'maven-publish'
+    apply plugin: 'pmd'
+
+    java {
+        withSourcesJar()
+    }
+
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+                artifactId = project.name
+                pom {
+                    name = project.name
+                    description = project.description
+                }
+            }
+        }
+    }
+
+    dependencies {
+        testImplementation platform('org.junit:junit-bom:5.10.3')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.3'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.3'
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    checkstyle {
+        toolVersion = '10.17.0'
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    }
+
+    pmd {
+        toolVersion = '7.4.0'
+        ruleSetFiles = files(rootProject.file('config/pmd/pmd.xml'))
+        ruleSets = []
+        consoleOutput = true
+    }
+
+    sourceSets {
+        architectureTest {
+            java.srcDir 'src/architectureTest/java'
+            resources.srcDir 'src/architectureTest/resources'
+            compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+            runtimeClasspath += output + compileClasspath
+        }
+    }
+
+    configurations {
+        architectureTestImplementation.extendsFrom testImplementation
+        architectureTestRuntimeOnly.extendsFrom testRuntimeOnly
+    }
+
+    dependencies {
+        architectureTestImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
+        architectureTestRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.3'
+        architectureTestRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.3'
+    }
+
+    tasks.register('architectureTest', Test) {
+        description = 'Runs architectural dependency and source-safety checks.'
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs = sourceSets.architectureTest.output.classesDirs
+        classpath = sourceSets.architectureTest.runtimeClasspath
+        shouldRunAfter tasks.named('test')
+    }
+
+    tasks.register('checkWhitespace') {
+        description = 'Checks text files for tabs, trailing whitespace, and missing final newlines.'
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        doLast {
+            def textFiles = fileTree(projectDir) {
+                include '**/*.java', '**/*.gradle', '**/*.properties', '**/*.xml', '**/*.md', '**/*.es'
+                exclude '**/build/**'
+            }
+            textFiles.each { file ->
+                def text = file.getText('UTF-8')
+                def lines = text.readLines()
+                lines.eachWithIndex { line, index ->
+                    if (line.endsWith(' ') || line.endsWith('\t')) {
+                        throw new GradleException("Trailing whitespace in ${file}:${index + 1}")
+                    }
+                    if (line.contains('\t')) {
+                        throw new GradleException("Tab character in ${file}:${index + 1}")
+                    }
+                }
+                if (!text.isEmpty() && !text.endsWith('\n')) {
+                    throw new GradleException("Missing final newline in ${file}")
+                }
+            }
+        }
+    }
+
+    tasks.register('checkSourceShape') {
+        description = 'Checks production Java source limits and forbidden source shapes.'
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        doLast {
+            def productionFiles = fileTree("${projectDir}/src/main/java") {
+                include '**/*.java'
+            }.files
+            def packageCounts = [:].withDefault { 0 }
+            productionFiles.each { file ->
+                def text = file.getText('UTF-8')
+                def relativePath = projectDir.toPath().relativize(file.toPath()).toString()
+                if (text =~ /(?m)^import\s+.*\.\*;/) {
+                    throw new GradleException("Wildcard import in ${relativePath}")
+                }
+                if (text =~ /(?m)\bstatic\s+(?!final\b)[^;{=]+[;=]/) {
+                    throw new GradleException("Mutable static field candidate in ${relativePath}")
+                }
+                if (relativePath =~ /(?i)(^|[\\\/])(common|utils?|helpers?|manager|processor|handler)([\\\/]|$)/) {
+                    throw new GradleException("Forbidden generic package name in ${relativePath}")
+                }
+                if (file.name =~ /(?i)(Manager|Helper|Utils|Common|Processor|Handler|Impl)\.java$/) {
+                    throw new GradleException("Forbidden generic type name in ${relativePath}")
+                }
+                def packageMatch = text =~ /(?m)^package\s+([a-zA-Z0-9_.]+);/
+                if (packageMatch.find()) {
+                    packageCounts[packageMatch.group(1)] = packageCounts[packageMatch.group(1)] + 1
+                }
+                def logicalLines = text.readLines().findAll {
+                    def trimmed = it.trim()
+                    !trimmed.isEmpty() && !trimmed.startsWith('*') && !trimmed.startsWith('//')
+                }.size()
+                if (logicalLines > 180) {
+                    throw new GradleException("${relativePath} has ${logicalLines} logical lines; max is 180")
+                }
+                checkMethodShape(file, text, relativePath)
+            }
+            packageCounts.each { packageName, count ->
+                if (count > 12) {
+                    throw new GradleException("${packageName} has ${count} production types; max is 12")
+                }
+            }
+        }
+    }
+
+    tasks.named('check') {
+        dependsOn tasks.named('architectureTest')
+        dependsOn tasks.named('checkWhitespace')
+        dependsOn tasks.named('checkSourceShape')
+    }
+}
+
+tasks.register('architectureTest') {
+    description = 'Runs all module architecture tests.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn subprojects.collect { it.tasks.named('architectureTest') }
+}
+
+tasks.register('checkWhitespace') {
+    description = 'Runs all module whitespace checks.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn subprojects.collect { it.tasks.named('checkWhitespace') }
+}
+
+tasks.register('checkSourceShape') {
+    description = 'Runs all module source-shape checks.'
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn subprojects.collect { it.tasks.named('checkSourceShape') }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('architectureTest')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('checkSourceShape')
+}
+
+void checkMethodShape(File file, String text, String relativePath) {
+    def lines = text.readLines()
+    for (int index = 0; index < lines.size(); index++) {
+        def line = lines[index].trim()
+        if (!looksLikeMethodStart(line)) {
+            continue
+        }
+        int depth = 0
+        int logical = 0
+        boolean started = false
+        for (int cursor = index; cursor < lines.size(); cursor++) {
+            def current = lines[cursor]
+            if (!current.trim().isEmpty() && !current.trim().startsWith('//')) {
+                logical++
+            }
+            for (int charIndex = 0; charIndex < current.length(); charIndex++) {
+                char ch = current.charAt(charIndex)
+                if (ch == '{') {
+                    depth++
+                    started = true
+                } else if (ch == '}') {
+                    depth--
+                }
+            }
+            if (started && depth == 0) {
+                if (logical > 40) {
+                    throw new GradleException("${relativePath}:${index + 1} has ${logical} method lines; max is 40")
+                }
+                index = cursor
+                break
+            }
+        }
+    }
+}
+
+boolean looksLikeMethodStart(String line) {
+    if (!line.endsWith('{') || !line.contains('(') || !line.contains(')')) {
+        return false
+    }
+    def excluded = ['if ', 'for ', 'while ', 'switch ', 'catch ', 'try ', 'else ', 'do ']
+    if (excluded.any { line.startsWith(it) }) {
+        return false
+    }
+    return !(line.contains(' class ') || line.contains(' record ') || line.contains(' interface '))
+}

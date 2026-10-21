@@ -1,0 +1,104 @@
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+}
+
+version = mod_version
+group = mod_group_id
+base { archivesName = artifact_name }
+java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+
+repositories {
+    mavenCentral()
+    maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    maven { name = 'EchoMagicSibling'; url = file('../echo-magic/build/integration-maven').toURI() }
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'debug'
+            mods { "${mod_id}" { source sourceSets.main } }
+        }
+        client { }
+        server { args '--nogui' }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation "io.github.kxyr0.echomagic:magic-contracts:${echo_magic_version}"
+    implementation "io.github.kxyr0.echomagic:magic-forge-api-1.20.1:${echo_magic_version}"
+}
+
+tasks.register('prepareMagicArtifacts', Exec) {
+    workingDir file('../echo-magic')
+    commandLine new File(workingDir, org.gradle.internal.os.OperatingSystem.current().isWindows()
+            ? 'gradlew.bat' : 'gradlew').absolutePath,
+            'publishMagicIntegrationArtifacts', '--console=plain'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    dependsOn tasks.named('prepareMagicArtifacts')
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def values = [minecraft_version_range: minecraft_version_range, forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range, mod_id: mod_id, mod_name: mod_name,
+            mod_license: mod_license, mod_version: mod_version, mod_authors: mod_authors,
+            mod_description: mod_description]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand values + [project: project] }
+}
+
+tasks.named('jar', Jar).configure {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('sourceShapeCheck') {
+    doLast {
+        def violations = []
+        def files = fileTree(rootDir) { include 'src/main/java/**/*.java'; exclude '**/build/**' }.files
+        files.each { file ->
+            def logical = file.getText('UTF-8').readLines().count {
+                it.trim() && !it.trim().startsWith('//') && !it.trim().startsWith('*')
+            }
+            if (logical > 200) violations << "${file}: ${logical} logical lines; max is 200"
+        }
+        files.groupBy { it.parentFile }.each { path, grouped ->
+            if (grouped.size() > 7) violations << "${path}: ${grouped.size()} Java files; max is 7"
+        }
+        if (!violations.isEmpty()) throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+    }
+}
+
+tasks.register('verifyProductionJarContents') {
+    dependsOn tasks.named('reobfJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip -> zip.entries().each { entries.add(it.name) } }
+        def required = ['META-INF/mods.toml',
+                'io/github/kxyr0/echomagicweapons/forge/EchoMagicWeaponsMod.class',
+                'io/github/kxyr0/echomagicweapons/forge/combat/ArsenalRuntime.class',
+                'io/github/kxyr0/echomagicweapons/forge/item/ArsenalWeaponItem.class',
+                'assets/echo_magic_weapons/models/item/fire_spear.json',
+                'data/echo_magic_weapons/capabilities/weapons/void_dagger.json']
+        def missing = required.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll { it.startsWith('io/github/kxyr0/echomagic/') || it.startsWith('net/minecraft/') }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) throw new GradleException(
+                "Arsenal JAR verification failed.\nmissing:\n${missing.join('\n')}\nforbidden:\n${forbidden.join('\n')}")
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('verifyProductionJarContents')
+}

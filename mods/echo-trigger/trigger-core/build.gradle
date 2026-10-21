@@ -1,0 +1,7 @@
+description = 'Plain Java Echo Trigger binding, runtime, persistence DTOs, and recovery.'
+
+dependencies {
+    api project(':trigger-contracts')
+    implementation "io.github.kxyr0.echoscript:echo-script-api:${echo_script_version}"
+    testImplementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}

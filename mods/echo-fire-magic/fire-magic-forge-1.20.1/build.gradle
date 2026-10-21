@@ -1,0 +1,89 @@
+plugins { id 'net.minecraftforge.gradle' }
+
+base { archivesName = artifact_name }
+description = 'Forge registration and resources for the Fire Magic school.'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    source project(':fire-magic-content').sourceSets.main
+                }
+            }
+        }
+        client { }
+        server { args '--nogui' }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation "io.github.kxyr0.echomagic:magic-contracts:${echo_magic_version}"
+    implementation "io.github.kxyr0.echomagic:magic-forge-api-1.20.1:${echo_magic_version}"
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def values = [minecraft_version_range: minecraft_version_range,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description]
+    inputs.properties values
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand values + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn ':fire-magic-content:processResources'
+    from project(':fire-magic-content').sourceSets.main.output
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJar'
+}
+
+tasks.register('verifyProductionJarContents') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn tasks.named('reobfJar')
+    doLast {
+        def jarFile = layout.buildDirectory.file("libs/${artifact_name}-${mod_version}.jar").get().asFile
+        if (!jarFile.isFile() || jarFile.length() == 0L) {
+            throw new GradleException("Missing production JAR: ${jarFile}")
+        }
+        def entries = []
+        new java.util.zip.ZipFile(jarFile).withCloseable {
+            zip -> zip.entries().each { entries.add(it.name) }
+        }
+        def required = ['META-INF/mods.toml',
+                'io/github/kxyr0/echofiremagic/forge/EchoFireMagicMod.class',
+                'data/echo_fire_magic/tags/blocks/blacksmith_heatable.json',
+                'assets/echo_fire_magic/blockstates/blacksmith_blank.json',
+                'io/github/kxyr0/echofiremagic/forge/blacksmith/BlacksmithHandRuntime.class',
+                'data/echo_fire_magic/damage_type/fire_magic.json',
+                'assets/echo_fire_magic/textures/particle/fire_flame.png',
+                'assets/echo_fire_magic/particles/fire_flame.json']
+        def missing = required.findAll { !entries.contains(it) }
+        def forbidden = entries.findAll {
+            it.startsWith('io/github/kxyr0/echomagic/')
+                    || it.contains('FireBoltSpell.class')
+                    || it.startsWith('data/echo_fire_magic/echo_magic/spells/')
+                    || it.startsWith('net/minecraft/')
+        }
+        if (!missing.isEmpty() || !forbidden.isEmpty()) {
+            throw new GradleException("Fire JAR verification failed.\nmissing:\n"
+                    + missing.join('\n') + "\nforbidden:\n" + forbidden.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') { dependsOn tasks.named('verifyProductionJarContents') }

@@ -1,0 +1,5 @@
+__pycache__/
+*.py[cod]
+.audit_original/
+dist/
+tests/therig_audit.json

@@ -1,0 +1,9 @@
+base {
+    archivesName = 'echo-script-language'
+}
+
+description = 'Hand-written EchoScript lexer, parser, immutable syntax construction, and diagnostics.'
+
+dependencies {
+    api project(':echo-script-api')
+}

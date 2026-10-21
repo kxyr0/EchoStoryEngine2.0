@@ -1,0 +1,24 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-seating'
+
+include 'seating-contracts'
+include 'seating-core'
+include 'seating-forge-api-1.20.1'
+include 'seating-forge-1.20.1'
+include 'seating-testmod-1.20.1'
+
+includeBuild '../echo-script'

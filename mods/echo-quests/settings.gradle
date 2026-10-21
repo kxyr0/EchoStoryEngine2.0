@@ -1,0 +1,20 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven { name = 'MinecraftForge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+plugins { id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0' }
+
+rootProject.name = 'echo-quests'
+
+include 'quest-contracts'
+include 'quest-core'
+include 'quest-echoscript-adapter'
+include 'quest-forge-api-1.20.1'
+include 'quest-forge-1.20.1'
+
+includeBuild '../echo-script'
+includeBuild '../echo-time'

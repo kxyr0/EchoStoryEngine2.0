@@ -1,0 +1,29 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+rootProject.name = 'echo-npc-interaction'
+
+include 'npc-interaction-contracts'
+include 'npc-interaction-core'
+include 'npc-interaction-forge-api-1.20.1'
+include 'npc-interaction-forge-1.20.1'
+include 'npc-interaction-script-adapter-1.20.1'
+include 'npc-interaction-testmod-1.20.1'
+
+includeBuild '../echo-npc'
+includeBuild '../echo-navigation'
+includeBuild '../echo-story-engine'
+includeBuild '../echo-dialogue'
+includeBuild '../echo-trigger'

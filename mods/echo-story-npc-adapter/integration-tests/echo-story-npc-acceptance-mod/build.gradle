@@ -1,0 +1,162 @@
+plugins {
+    id 'java-library'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = 'echo-story-npc-acceptance'
+}
+
+def requiredAcceptanceGameTests = [
+        'EchoStoryNpcAcceptanceGameTests.storySpawnTeleportDespawnSequence',
+        'EchoStoryNpcAcceptanceGameTests.storySpawnDormantChunkThenMaterializesOnce'
+]
+
+repositories {
+    maven {
+        name = 'EchoStoryIntegration'
+        url = uri('../../../echo-story-engine/build/integration-maven')
+    }
+    maven {
+        name = 'EchoNpcIntegration'
+        url = uri('../../../echo-npc/build/integration-maven')
+    }
+    mavenCentral()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+    flatDir {
+        dirs '../../../echo-story-engine/story-forge-1.20.1/build/libs'
+        dirs '../../../echo-npc/npc-forge-1.20.1/build/libs'
+        dirs '../../build/libs'
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+sourceSets {
+    gameTest {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        compileClasspath += configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            mods {
+                "${mod_id}" {
+                    source sourceSets.gameTest
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    compileOnly "io.github.kxyr0.echostoryengine:story-contracts:${story_engine_version}"
+    compileOnly "io.github.kxyr0.echostoryengine:story-extension-forge-1.20.1:${story_engine_version}"
+    compileOnly "io.github.kxyr0.echonpc:npc-contracts:${echo_npc_version}"
+    compileOnly "io.github.kxyr0.echonpc:npc-forge-api-1.20.1:${echo_npc_version}"
+    runtimeOnly fg.deobf(group: 'local', name: 'echo-story-engine', version: story_engine_version, classifier: 'all')
+    runtimeOnly fg.deobf(group: 'local', name: 'echo-npc', version: echo_npc_version, classifier: 'all')
+    runtimeOnly fg.deobf(group: 'local', name: 'echo-story-npc-adapter', version: adapter_version)
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version_range: minecraft_version_range,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+            story_engine_mod_version_range: story_engine_mod_version_range,
+            echo_npc_mod_version_range: echo_npc_mod_version_range,
+            adapter_mod_version_range: adapter_mod_version_range,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties
+    }
+}
+
+tasks.matching { it.name == 'prepareRunGameTestServer' }.configureEach {
+    dependsOn tasks.named('processGameTestResources')
+    doLast {
+        copy {
+            from sourceSets.gameTest.resources
+            include 'gameteststructures/**'
+            into project.file('run')
+        }
+    }
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doLast {
+        def logFile = project.file('run/logs/latest.log')
+        if (!logFile.isFile()) {
+            throw new GradleException("GameTest log не создан: ${logFile}")
+        }
+        def text = logFile.getText('UTF-8')
+        def missing = requiredAcceptanceGameTests.findAll { testName ->
+            !text.contains("ESNPC-GAMETEST-RUN ${testName}")
+        }
+        def passed = firstInt(text, /All (\d+) required tests passed/)
+        if (passed <= 0 || !missing.isEmpty()) {
+            throw new GradleException("Story NPC acceptance GameTests не подтверждены."
+                    + "\npassed=${passed}"
+                    + "\nmissing markers=${missing.join(', ')}")
+        }
+        println "Story NPC acceptance GameTests verified: passed=${passed}"
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('gameTestClasses')
+}
+
+int firstInt(String text, String pattern) {
+    def matcher = text =~ pattern
+    return matcher.find() ? matcher.group(1).toInteger() : 0
+}

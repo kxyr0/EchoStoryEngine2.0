@@ -1,9 +1,0 @@
-description = 'Java-only StoryResource adapter for EchoScript source.'
-
-dependencies {
-    implementation project(':story-definition')
-    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
-
-    testImplementation project(':story-persistence')
-    testImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
-}

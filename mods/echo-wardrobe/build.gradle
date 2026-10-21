@@ -1,0 +1,424 @@
+plugins {
+    id 'base'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)' apply false
+}
+
+version = mod_version
+group = mod_group_id
+
+def echoScriptExternalMaven = layout.buildDirectory.dir('external-maven')
+def echoPlayerIntegrationMaven = file('../echo-content-player/build/integration-maven')
+
+allprojects {
+    repositories {
+        maven {
+            name = 'EchoWardrobeExternal'
+            url = echoScriptExternalMaven.get().asFile.toURI()
+            content {
+                includeGroup 'io.github.kxyr0.echoscript'
+            }
+        }
+        maven {
+            name = 'EchoPlayerIntegration'
+            url = echoPlayerIntegrationMaven.toURI()
+            content {
+                includeGroup 'io.github.kxyr0.echoplayer'
+            }
+        }
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+        if (providers.gradleProperty('enableMavenLocal').map { it.toBoolean() }.orElse(false).get()) {
+            mavenLocal()
+        }
+    }
+}
+
+def productionFiles = {
+    fileTree(rootDir) {
+        include 'wardrobe-*/src/main/java/**/*.java'
+        exclude '**/build/**'
+        exclude 'wardrobe-testmod-1.20.1/**'
+    }
+}
+
+def contentScripts = {
+    fileTree(rootDir) {
+        include 'wardrobe-*/src/main/resources/**/*.wearable.es'
+        include 'wardrobe-*/src/main/resources/**/*.outfit.es'
+        include 'wardrobe-*/src/main/resources/**/*.wardrobe-profile.es'
+        exclude '**/build/**'
+        exclude 'wardrobe-testmod-1.20.1/**'
+    }
+}
+
+def checkedTextFiles = {
+    fileTree(rootDir) {
+        include '*.gradle', 'gradle.properties', '.gitignore', '.gitattributes'
+        include 'config/**/*.xml'
+        include 'wardrobe-*/src/**/*.java', 'wardrobe-*/src/**/*.wearable.es'
+        include 'wardrobe-*/src/**/*.outfit.es', 'wardrobe-*/src/**/*.wardrobe-profile.es'
+        include 'wardrobe-*/src/**/*.toml', 'wardrobe-*/src/**/*.mcmeta', 'wardrobe-*/src/**/*.json'
+        include 'README.md', 'CHANGELOG.md', 'docs/**/*.md'
+        exclude '**/build/**', '**/.gradle/**', '**/run/**', '**/.git/**'
+    }
+}
+
+tasks.register('prepareEchoScriptArtifacts') {
+    group = LifecycleBasePlugin.BUILD_GROUP
+    description = 'Publishes public EchoScript artifacts into build/external-maven.'
+    def siblingRoot = file('../echo-script')
+    inputs.files(fileTree(siblingRoot) {
+        include '*.gradle', 'gradle.properties', 'settings.gradle'
+        include '**/*.java', '**/*.xml', '**/*.md'
+        exclude '**/build/**', '**/.gradle/**'
+    })
+    outputs.dir(echoScriptExternalMaven)
+    doLast {
+        if (!siblingRoot.isDirectory()) {
+            throw new GradleException("Sibling EchoScript repository was not found: ${siblingRoot}")
+        }
+        def repo = echoScriptExternalMaven.get().asFile
+        def initFile = layout.buildDirectory.file('tmp/echo-script-publish.init.gradle').get().asFile
+        initFile.parentFile.mkdirs()
+        initFile.setText("""
+allprojects {
+    plugins.withId('maven-publish') {
+        publishing {
+            repositories {
+                maven {
+                    name = 'echoWardrobeExternal'
+                    url = uri('${repo.toURI()}')
+                }
+            }
+        }
+    }
+}
+
+""".stripIndent(), 'UTF-8')
+        exec {
+            workingDir siblingRoot
+            commandLine gradleWrapper(siblingRoot),
+                    ':echo-script-api:publishMavenJavaPublicationToEchoWardrobeExternalRepository',
+                    ':echo-script-language:publishMavenJavaPublicationToEchoWardrobeExternalRepository',
+                    '--init-script',
+                    initFile.absolutePath,
+                    '--console=plain'
+        }
+    }
+}
+
+tasks.register('prepareEchoPlayerArtifacts') {
+    group = LifecycleBasePlugin.BUILD_GROUP
+    description = 'Publishes public Echo Content Player artifacts for Wardrobe integration.'
+    def siblingRoot = file('../echo-content-player')
+    inputs.files(fileTree(siblingRoot) {
+        include '*.gradle', 'gradle.properties', 'settings.gradle'
+        include 'player-contracts/src/**/*.java'
+        include 'player-forge-api-1.20.1/src/**/*.java'
+        exclude '**/build/**', '**/.gradle/**'
+    })
+    outputs.dir(echoPlayerIntegrationMaven)
+    doLast {
+        if (!siblingRoot.isDirectory()) {
+            throw new GradleException("Sibling Echo Content Player repository was not found: ${siblingRoot}")
+        }
+        exec {
+            workingDir siblingRoot
+            commandLine gradleWrapper(siblingRoot), 'publishPlayerIntegrationArtifacts', '--console=plain'
+        }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'checkstyle'
+    apply plugin: 'pmd'
+    apply plugin: 'jacoco'
+
+    version = rootProject.version
+    group = rootProject.group
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+        withSourcesJar()
+    }
+
+    sourceSets {
+        architectureTest {
+            java.srcDir 'src/architectureTest/java'
+            resources.srcDir 'src/architectureTest/resources'
+            compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+            runtimeClasspath += output + compileClasspath
+        }
+    }
+
+    configurations {
+        architectureTestImplementation.extendsFrom testImplementation
+        architectureTestRuntimeOnly.extendsFrom testRuntimeOnly
+    }
+
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        architectureTestImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+        architectureTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    checkstyle {
+        toolVersion = checkstyle_version
+        configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    }
+
+    pmd {
+        toolVersion = pmd_version
+        ruleSetFiles = rootProject.files('config/pmd/ruleset.xml')
+        ruleSets = []
+        consoleOutput = true
+    }
+
+    tasks.withType(Pmd).configureEach {
+        classpath = files()
+    }
+
+    jacoco {
+        toolVersion = jacoco_version
+    }
+
+    tasks.register('architectureTest', Test) {
+        description = 'Runs module architecture checks.'
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs = sourceSets.architectureTest.output.classesDirs
+        classpath = sourceSets.architectureTest.runtimeClasspath
+        shouldRunAfter tasks.named('test')
+    }
+
+    tasks.named('check') {
+        dependsOn tasks.named('architectureTest')
+    }
+}
+
+gradle.projectsEvaluated {
+    [project(':wardrobe-core'), project(':wardrobe-forge-1.20.1')].each { echoScriptUser ->
+        echoScriptUser.tasks.matching { task ->
+            task.name in ['compileJava', 'compileTestJava', 'jarJar']
+        }.configureEach {
+            dependsOn rootProject.tasks.named('prepareEchoScriptArtifacts')
+        }
+    }
+    [project(':wardrobe-forge-1.20.1'), project(':wardrobe-content-player-adapter-1.20.1')].each { echoPlayerUser ->
+        echoPlayerUser.tasks.matching { task ->
+        task.name in ['compileJava', 'compileTestJava', 'jarJar']
+        }.configureEach {
+            dependsOn rootProject.tasks.named('prepareEchoPlayerArtifacts')
+        }
+    }
+}
+
+configure([
+        project(':wardrobe-contracts'),
+        project(':wardrobe-forge-api-1.20.1')
+]) {
+    apply plugin: 'maven-publish'
+
+    publishing {
+        publications {
+            register('mavenJava', MavenPublication) {
+                from components.java
+            }
+        }
+        repositories {
+            maven {
+                name = 'integrationMaven'
+                url = rootProject.layout.buildDirectory.dir('integration-maven')
+            }
+        }
+    }
+}
+
+tasks.register('test') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Runs unit tests for all modules.'
+    dependsOn subprojects.collect { "${it.path}:test" }
+}
+
+tasks.register('architectureTest') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Runs architecture checks for all modules.'
+    dependsOn subprojects.collect { "${it.path}:architectureTest" }
+}
+
+tasks.register('publishWardrobeIntegrationArtifacts') {
+    group = 'publishing'
+    description = 'Publishes public Echo Wardrobe artifacts to build/integration-maven.'
+    dependsOn ':wardrobe-contracts:publishMavenJavaPublicationToIntegrationMavenRepository'
+    dependsOn ':wardrobe-forge-api-1.20.1:publishMavenJavaPublicationToIntegrationMavenRepository'
+}
+
+tasks.register('verifyPublicationMetadata') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Verifies public Maven metadata for Echo Wardrobe artifacts.'
+    dependsOn tasks.named('publishWardrobeIntegrationArtifacts')
+    doLast {
+        def artifacts = ['wardrobe-contracts', 'wardrobe-forge-api-1.20.1']
+        def missing = []
+        artifacts.each { artifact ->
+            def artifactDir = layout.buildDirectory
+                    .dir("integration-maven/io/github/kxyr0/echowardrobe/${artifact}")
+                    .get()
+                    .asFile
+            def versionDir = new File(artifactDir, mod_version)
+            if (!new File(artifactDir, 'maven-metadata.xml').isFile()) {
+                missing << "${artifact}/maven-metadata.xml"
+            }
+            if (!versionDir.isDirectory() || versionDir.listFiles({ file ->
+                file.name.endsWith('.pom')
+            } as FileFilter).length == 0) {
+                missing << "${artifact}/${mod_version}/*.pom"
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Missing public Maven metadata:\n" + missing.join('\n'))
+        }
+    }
+}
+
+tasks.register('sourceShapeCheck') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks Echo Wardrobe source shape and package limits.'
+    doLast {
+        def violations = []
+        def javaCounts = [:].withDefault { 0 }
+        productionFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            javaCounts[file.parentFile.toPath()] = javaCounts[file.parentFile.toPath()] + 1
+            if ((text =~ /(?m)^import\s+.*\.\*;/).find()) {
+                violations << "${relative}: wildcard import"
+            }
+            if ((text =~ /(?m)\bstatic\s+(?!final\b)(?:[^;{=()]+)[;=]/).find()) {
+                violations << "${relative}: mutable static field candidate"
+            }
+            if (relative =~ /(?i)(^|[\\\/])(part1|part2|common2?|misc|helpers?|utils?|more|manager|processor|services2|wardrobe2|assets2|skins2|wearables2)([\\\/]|$)/) {
+                violations << "${relative}: forbidden vague directory segment"
+            }
+            if ((text =~ /(?m)^\s*public\s+(?:final\s+)?(?:class|interface|record|enum)\s+.*(?:Manager|Helper|Utils|Common|Processor|Handler|Impl)\b/).find()) {
+                violations << "${relative}: forbidden vague production type name"
+            }
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('*')
+            }
+            if (logicalLines > 200) {
+                violations << "${relative}: ${logicalLines} logical lines; max is 200"
+            }
+        }
+        javaCounts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} production files; max is 7"
+            }
+        }
+        def scriptCounts = [:].withDefault { 0 }
+        contentScripts().files.each { file ->
+            def text = file.getText('UTF-8')
+            def relative = rootDir.toPath().relativize(file.toPath()).toString()
+            scriptCounts[file.parentFile.toPath()] += 1
+            def logicalLines = text.readLines().count { line ->
+                def trimmed = line.trim()
+                trimmed && !trimmed.startsWith('//')
+            }
+            if (logicalLines > 200) {
+                violations << "${relative}: ${logicalLines} EchoScript logical lines; max is 200"
+            }
+        }
+        scriptCounts.each { path, count ->
+            if (count > 7) {
+                violations << "${rootDir.toPath().relativize(path)}: ${count} EchoScript files; max is 7"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Source shape violations:\n" + violations.join('\n'))
+        }
+        println 'Source shape: Java classes > 200 logical LOC = 0'
+        println 'Source shape: EchoScript files > 200 logical LOC = 0'
+        println 'Source shape: leaf Java packages > 7 files = 0'
+        println 'Source shape: leaf content folders > 7 scripts = 0'
+    }
+}
+
+tasks.register('checkWhitespace') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks UTF-8 text files for tabs, trailing whitespace, and missing final newlines.'
+    doLast {
+        def violations = []
+        checkedTextFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            text.readLines().eachWithIndex { line, index ->
+                if (line ==~ /.*[ \t]$/) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: trailing whitespace"
+                }
+                if (line.contains('\t')) {
+                    violations << "${rootDir.toPath().relativize(file.toPath())}:${index + 1}: tab"
+                }
+            }
+            if (!text.isEmpty() && !text.endsWith('\n')) {
+                violations << "${rootDir.toPath().relativize(file.toPath())}: missing final newline"
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Whitespace violations:\n" + violations.join('\n'))
+        }
+    }
+}
+
+tasks.register('verifyForbiddenText') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Checks that Echo Wardrobe keeps required public dependency boundaries.'
+    doLast {
+        def forbidden = ['echodialogue', 'echoanimation', 'echoitem', 'echostoryengine', 'echonpc', 'echotrigger']
+        def hits = []
+        productionFiles().files.each { file ->
+            def text = file.getText('UTF-8')
+            def marker = forbidden.find { text.contains(it) }
+            if (marker != null) {
+                hits << "${rootDir.toPath().relativize(file.toPath())}: ${marker}"
+            }
+        }
+        if (!hits.isEmpty()) {
+            throw new GradleException("Forbidden implementation coupling:\n" + hits.join('\n'))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn subprojects.collect { "${it.path}:check" }
+    dependsOn tasks.named('architectureTest')
+    dependsOn tasks.named('sourceShapeCheck')
+    dependsOn tasks.named('checkWhitespace')
+    dependsOn tasks.named('verifyForbiddenText')
+    dependsOn tasks.named('verifyPublicationMetadata')
+}
+
+String gradleWrapper(File root) {
+    return new File(root, org.gradle.internal.os.OperatingSystem.current().isWindows()
+            ? 'gradlew.bat' : 'gradlew').absolutePath
+}

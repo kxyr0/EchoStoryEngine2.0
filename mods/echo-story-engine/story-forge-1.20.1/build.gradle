@@ -1,0 +1,319 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+    id 'maven-publish'
+}
+
+description = 'Forge 1.20.1 platform adapter for Echo Story Engine.'
+
+def embeddedStoryProjects = [
+        project(':story-contracts'),
+        project(':story-core'),
+        project(':story-definition'),
+        project(':story-echoscript-adapter'),
+        project(':echo-envimproment'),
+        project(':story-extension-api'),
+        project(':story-extension-forge-1.20.1'),
+        project(':story-persistence')
+]
+
+def requiredEchoStoryGameTests = [
+        'ForgeHostGameTests.hostExecutesStoryThroughDurableSave',
+        'ForgeHostGameTests.hostRecreationRecoversWaitingAction',
+        'ForgeHostGameTests.invalidCandidateRetainsCatalog',
+        'ForgeHostGameTests.echoStoryCommandsExecuteOnServerDispatcher'
+]
+
+configurations {
+    embeddedExternalRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = true
+        exclude group: 'com.google.errorprone', module: 'error_prone_annotations'
+    }
+}
+
+sourceSets {
+    gameTest {
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+base {
+    archivesName = artifact_name
+}
+
+jarJar.enable()
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            lazyToken('minecraft_classpath') {
+                configurations.embeddedExternalRuntime.copyRecursive().resolve()
+                        .collect { it.absolutePath }
+                        .join(File.pathSeparator)
+            }
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    embeddedStoryProjects.each { storyProject ->
+                        source storyProject.sourceSets.main
+                    }
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            mods {
+                "${mod_id}" {
+                    source sourceSets.gameTest
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    jarJar(group: 'io.github.kxyr0.echoaudio', name: 'echo-audio', version: '[0.1,0.2)') {
+        jarJar.pin(it, '0.1.0')
+        transitive = false
+    }
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':story-core')
+    implementation project(':story-contracts')
+    implementation project(':story-definition')
+    implementation project(':story-echoscript-adapter')
+    implementation project(':echo-envimproment')
+    implementation project(':story-extension-api')
+    implementation project(':story-extension-forge-1.20.1')
+    implementation project(':story-persistence')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    implementation "com.google.code.gson:gson:${gson_version}"
+
+    embeddedExternalRuntime "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+    jarJar(group: 'io.github.kxyr0.echoscript',
+            name: 'echo-script-api',
+            version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+    jarJar(group: 'io.github.kxyr0.echoscript',
+            name: 'echo-script-language',
+            version: "[${echo_script_version},)") {
+        jarJar.pin(it, echo_script_version)
+    }
+
+    testImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn embeddedStoryProjects.collect { "${it.path}:classes" }
+    embeddedStoryProjects.each { storyProject ->
+        from(storyProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    manifest {
+        attributes([
+                'Specification-Title'     : mod_id,
+                'Specification-Vendor'    : mod_authors,
+                'Specification-Version'   : api_version,
+                'Implementation-Title'    : project.name,
+                'Implementation-Version'  : project.jar.archiveVersion,
+                'Implementation-Vendor'   : mod_authors,
+                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+
+    finalizedBy 'reobfJar'
+}
+
+tasks.named('jarJar', Jar).configure {
+    dependsOn embeddedStoryProjects.collect { "${it.path}:classes" }
+    embeddedStoryProjects.each { storyProject ->
+        from(storyProject.sourceSets.main.output)
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    finalizedBy 'reobfJarJar'
+}
+
+tasks.register('forgeJarContainsRuntimeClasses') {
+    group = 'verification'
+    description = 'Checks that the distributable Forge jar contains Java-only runtime modules.'
+    dependsOn tasks.named('jarJar')
+
+    doLast {
+        def jarFile = tasks.named('jarJar', Jar).get().archiveFile.get().asFile
+        def requiredEntries = [
+                'META-INF/mods.toml',
+                'io/github/kxyr0/echostoryengine/story/api/StoryEngineApi.class',
+                'io/github/kxyr0/echostoryengine/story/core/port/DiagnosticSink.class',
+                'io/github/kxyr0/echostoryengine/story/definition/compile/StorySourceCompiler.class',
+                'io/github/kxyr0/echostoryengine/story/echoscript/EchoScriptStorySourceCompiler.class',
+                'io/github/kxyr0/echostoryengine/story/echoscript/environment/EchoScriptEnvironmentSourceCompiler.class',
+                'io/github/kxyr0/echostoryengine/story/extension/api/execution/StoryActionHandler.class',
+                'io/github/kxyr0/echostoryengine/story/extension/forge/EchoStoryExtensionRegistrationEvent.class',
+                'io/github/kxyr0/echostoryengine/story/persistence/file/FileExecutionStateRepository.class',
+                'io/github/kxyr0/echostoryengine/story/forge/EchoStoryEngineMod.class',
+                'io/github/kxyr0/echostoryengine/story/forge/host/ForgeServerHost.class',
+                'io/github/kxyr0/echostoryengine/story/forge/diagnostic/ForgeDiagnosticsCommand.class',
+                'META-INF/jarjar/metadata.json'
+        ]
+        def forbiddenPrefixes = [
+                'com/google/gson/',
+                'net/minecraft/',
+                'net/minecraftforge/',
+                'io/github/kxyr0/echoscript/',
+                'io/github/kxyr0/echostoryengine/story/forge/gametest/',
+                'org/junit/',
+                'reports/',
+                'run/',
+                'docs/',
+                '.gradle/',
+                'gradle/'
+        ]
+        def forbiddenEntryNames = [
+                'AGENTS.md',
+                'eula.txt',
+                'latest.log',
+                'debug.log'
+        ]
+        def forbiddenText = [
+                'examplemod',
+                'com.example',
+                'C:\\',
+                'D:\\',
+                '.m2',
+                'maven-metadata-local.xml',
+                'Gradle caches'
+        ]
+        def missing = []
+        def forbidden = []
+        new java.util.jar.JarFile(jarFile).withCloseable { jar ->
+            requiredEntries.each { entry ->
+                if (jar.getEntry(entry) == null) {
+                    missing << entry
+                }
+            }
+            jar.entries().each { entry ->
+                if (forbiddenPrefixes.any { entry.name.startsWith(it) } || forbiddenEntryNames.contains(entry.name)) {
+                    forbidden << entry.name
+                }
+                if (!entry.directory && textEntry(entry.name)) {
+                    def content = jar.getInputStream(entry).getText('UTF-8')
+                    def marker = forbiddenText.find { content.contains(it) }
+                    if (marker != null) {
+                        forbidden << "${entry.name} contains ${marker}"
+                    }
+                }
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Forge jar is missing runtime classes:\n" + missing.join('\n'))
+        }
+        if (!forbidden.isEmpty()) {
+            throw new GradleException("Forge jar contains forbidden runtime classes:\n" + forbidden.take(20).join('\n'))
+        }
+    }
+}
+
+boolean textEntry(String name) {
+    return name.endsWith('.toml')
+            || name.endsWith('.mcmeta')
+            || name.endsWith('.json')
+            || name.endsWith('.MF')
+            || name.endsWith('.properties')
+            || name.endsWith('.xml')
+            || name.endsWith('.txt')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('forgeJarContainsRuntimeClasses')
+    dependsOn tasks.named('gameTestClasses')
+}
+
+tasks.matching { it.name == 'prepareRunGameTestServer' }.configureEach {
+    dependsOn tasks.named('processGameTestResources')
+    doLast {
+        copy {
+            from sourceSets.gameTest.resources
+            include 'gameteststructures/**'
+            into project.file('run')
+        }
+    }
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doLast {
+        def logFile = project.file('run/logs/latest.log')
+        if (!logFile.isFile()) {
+            throw new GradleException("GameTest log was not created: ${logFile}")
+        }
+        def text = logFile.getText('UTF-8')
+        def missing = requiredEchoStoryGameTests.findAll { testName ->
+            !text.contains("ESE-GAMETEST-RUN ${testName}")
+        }
+        def discoveredMatcher = text =~ /Running test batch '[^']+' \((\d+) tests\)/
+        def runningMatcher = text =~ /(\d+) tests are now running!/
+        def passedMatcher = text =~ /All (\d+) required tests passed/
+        int discovered = discoveredMatcher.find() ? discoveredMatcher.group(1).toInteger() : 0
+        int executed = runningMatcher.find() ? runningMatcher.group(1).toInteger() : 0
+        int passed = passedMatcher.find() ? passedMatcher.group(1).toInteger() : 0
+        if (discovered <= 0 || executed <= 0 || passed <= 0 || !missing.isEmpty()) {
+            throw new GradleException(
+                    "Echo Story Engine GameTests were not fully discovered/executed."
+                            + "\ndiscovered=${discovered}, executed=${executed}, passed=${passed}"
+                            + "\nmissing markers=${missing.join(', ')}")
+        }
+        println "Echo Story Engine GameTests verified: discovered=${discovered}, executed=${executed}, passed=${passed}"
+    }
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            artifact jar
+        }
+    }
+    repositories {
+        maven {
+            url "file://${project.projectDir}/mcmodsrepo"
+        }
+    }
+}

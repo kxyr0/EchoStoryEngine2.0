@@ -1,0 +1,73 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+group = 'io.github.kxyr0.echo'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    withSourcesJar()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.withType(Javadoc).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.register('sourceShapeCheck') {
+    group = 'verification'
+    description = 'Checks source files stay below 200 logical lines and 7 Java files per package folder.'
+    doLast {
+        def roots = [file('src/main/java'), file('src/test/java')]
+        def violations = []
+        roots.findAll { it.exists() }.each { root ->
+            root.eachFileRecurse { candidate ->
+                if (candidate.name.endsWith('.java')) {
+                    def lines = candidate.readLines('UTF-8')
+                            .collect { it.trim() }
+                            .findAll { !it.isEmpty() && !it.startsWith('//') }
+                    if (lines.size() > 200) {
+                        violations.add("${root.toPath().relativize(candidate.toPath())}: ${lines.size()} logical lines")
+                    }
+                }
+            }
+            root.eachDirRecurse { directory ->
+                def javaFiles = directory.listFiles()
+                        .findAll { it.file && it.name.endsWith('.java') }
+                if (javaFiles.size() > 7) {
+                    violations.add("${root.toPath().relativize(directory.toPath())}: ${javaFiles.size()} Java files")
+                }
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException('Source shape violations:\n' + violations.join('\n'))
+        }
+    }
+}
+
+check.dependsOn tasks.named('sourceShapeCheck')
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+}

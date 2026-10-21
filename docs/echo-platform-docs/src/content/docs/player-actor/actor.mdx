@@ -1,0 +1,22 @@
+---
+title: "Игрок как актёр"
+description: "Как настоящее тело игрока становится управляемым актёром без fake player и spectator."
+section: "Player"
+pageKind: "concept"
+status: "review"
+since: "PA1"
+updated: "2026-07-28"
+relatedIds: ["PlayerActorId", "ServerPlayer", "PlayerActorSnapshot"]
+relatedPages: ["player-actor/body-control", "player-actor/control-lease"]
+sourceRepositories: ["echo-player-actor"]
+sourcePaths: ["D:/JDHSeason/mods/echo-player-actor"]
+visualIdentity: "player-actor"
+interactiveModules: ["PlayerActorSequenceLab"]
+searchKeywords: ["player actor", "ServerPlayer", "body", "fake player"]
+---
+
+# Игрок как актёр
+
+Echo Player Actor управляет настоящим `ServerPlayer`. Он не создаёт NPC-клон, не скрывает body, не переводит игрока в spectator и не телепортирует его в отдельную комнату.
+
+Тело сохраняет внешний вид, Wardrobe outfit, предметы, здоровье, инвентарь, позу и Dialogue identity. Камера остаётся ответственностью Echo Cutscene.

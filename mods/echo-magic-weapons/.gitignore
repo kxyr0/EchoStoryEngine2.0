@@ -1,0 +1,35 @@
+# Gradle
+.gradle/
+build/
+out/
+
+# Minecraft development runtime
+run/
+runs/
+logs/
+crash-reports/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# VS Code
+.vscode/
+
+# Java
+*.class
+hs_err_pid*
+replay_pid*
+
+# Operating systems
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,26 @@
+---
+title: "Removed Overlay Workflow"
+description: "W2 does not compose runtime skin layers; use exact outfit variants with full PNG assets."
+section: "Wardrobe"
+pageKind: "decision"
+status: "review"
+since: "W2"
+updated: "2026-07-27"
+relatedIds: ["OutfitVariantDefinition", "OutfitKey"]
+relatedPages: ["wardrobe/full-skin-import", "wardrobe/overview"]
+sourceRepositories: ["echo-wardrobe"]
+sourcePaths: ["D:/JDHSeason/mods/echo-wardrobe/docs/authoring/SKIN_OVERLAYS.md"]
+visualIdentity: "wardrobe-skin-overlays"
+interactiveModules: ["OutfitResolverLab"]
+searchKeywords: ["exact outfit", "full skin", "removed workflow"]
+---
+
+import { OutfitResolverLab } from "../../../components/WardrobeLabs";
+
+# Removed Overlay Workflow
+
+W2 never blends runtime skin layers. A visible combination is authored as a complete `OutfitVariantResource` and points to one full 64x64 PNG.
+
+<OutfitResolverLab client:load />
+
+Legacy files are migration inventory only. Canonical scripts live under `echo_wardrobe/profiles`, `echo_wardrobe/wearables`, and `echo_wardrobe/outfits`.

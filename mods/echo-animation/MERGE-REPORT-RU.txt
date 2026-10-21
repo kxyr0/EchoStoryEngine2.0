@@ -1,0 +1,60 @@
+ECHO ANIMATION 0.8.0 — АККУРАТНЫЙ MERGE НА НОВЫЙ SOURCE ИЗ mods(7).rar
+
+Что было проверено в переданном архиве:
+- Git HEAD проекта echo-animation указывает на stable.
+- Последний доступный stable commit: 12a499457e295d8c90af46f2e15ab9f6dcdb8533 (message: stable).
+- В нём уже есть новые изменения split-body/system-sit/skinning, которые нельзя затирать старым source patch.
+
+СОХРАНЕНЫ И НЕ ПЕРЕЗАПИСЫВАЮТСЯ ЭТИМ MERGE:
+- 14-bone split body: root -> body_lower -> body;
+- SegmentedHumanoidGeometry / раздельная геометрия торса;
+- SegmentedHumanoidModelRenderer и SegmentedHumanoidPoseApplier из новой версии;
+- legacy schema 1/2 -> body_lower compatibility в NormalizedClipSampler;
+- SkinnedAttachmentBindings и новое attachment/skinning поведение;
+- SkinningPalette / CPU skinning / SkinnedModelRenderer изменения;
+- новые body_rig/body_clip/subject debug-команды;
+- новые runtime resources/rigs/docs;
+- весь проект echo-item-attachments: НЕ ТРОГАЛСЯ.
+
+ЕДИНСТВЕННЫЕ ПЕРЕСЕЧЕНИЯ С ПОСЛЕДНИМИ ПРАВКАМИ ПОЛЬЗОВАТЕЛЯ:
+1) HumanoidRenderDispatcher.java
+   Старую монолитную реализацию НЕ тупо заменили старой версией.
+   Её поведение перенесено в новые компоненты:
+   - HumanoidRigResolver: сохраняет выбор rig по активному clip;
+   - HumanoidPoseLayers: сохраняет authored-bones и legacy body -> body_lower mapping;
+   - HumanoidSystemPoseLibrary: сохраняет pose_sit fallback;
+   - HumanoidPoseResolver: вводит строгую BODY state machine.
+   ВАЖНО: сидение теперь намеренно EXCLUSIVE. По последнему требованию BODY-анимация
+   не может одновременно быть WALK/RUN/foreground и SIT.
+
+2) gradle.properties
+   Взят ТОЧНО из нового проекта пользователя. Изменена только строка:
+       mod_version=0.7.1-SNAPSHOT
+   на:
+       mod_version=0.8.0-SNAPSHOT
+
+ЧТО ДОБАВЛЕНО:
+- BODY posture lock;
+- один foreground BODY playback;
+- WALK/RUN как transient locomotion;
+- IDLE как background pose, не занимающий BODY slot;
+- canonical idle: jdh:idle_main / jdh:idle с fallbacks pose_idle/humanoid_idle;
+- modern_idle_relaxed БОЛЬШЕ НЕ hardcoded system idle fallback;
+- rejoin sanitation: WALK/RUN/system poses не должны воскресать после входа;
+- transient persistence policy;
+- safe initial state fallback для direct MAIN / Loop / Hold;
+- EventBus listener fix в AnimationPlaybackHost.
+
+КАК НАЛОЖИТЬ:
+1. Сделай git commit/backup текущего echo-animation.
+2. Скопируй СОДЕРЖИМОЕ этого архива поверх:
+   D:\JDHSeason\mods\echo-animation\
+3. Из корня echo-animation выполни:
+       python apply_rejoin_nbt_codec_patch.py
+4. Затем:
+       python verify_merge.py
+5. Потом собирай проект обычным Gradle workflow.
+
+apply_rejoin_nbt_codec_patch.py не переписывает весь NBT codec. Он вставляет одну
+строку в существующий AnimationRuntimeNbtCodec.java и падает с ошибкой, если не
+находит ожидаемый метод. Это сделано специально, чтобы не затереть твои изменения.

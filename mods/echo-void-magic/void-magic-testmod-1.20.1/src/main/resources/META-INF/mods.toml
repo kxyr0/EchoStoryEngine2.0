@@ -1,0 +1,18 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="echo_void_magic_test"
+version="${mod_version}"
+displayName="Echo Void Magic Testmod"
+authors="${mod_authors}"
+description='''Development-only Void Daggers acceptance helper.'''
+
+[[dependencies.echo_void_magic_test]]
+modId="echo_void_magic"
+mandatory=true
+versionRange="[0.1.0,)"
+ordering="AFTER"
+side="BOTH"
+

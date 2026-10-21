@@ -1,0 +1,10 @@
+description = 'Plain Java domain runtime for Echo Content Player profiles.'
+
+base {
+    archivesName = 'player-core'
+}
+
+dependencies {
+    api project(':player-contracts')
+    implementation "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}

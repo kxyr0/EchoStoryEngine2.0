@@ -1,0 +1,124 @@
+plugins { id 'net.minecraftforge.gradle' }
+base { archivesName = 'echo-item-inspection-testmod' }
+configurations {
+    embeddedExternalRuntime { canBeConsumed = false; canBeResolved = true }
+}
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            property 'forge.enabledGameTestNamespaces', 'echo_item_inspection_testmod'
+            lazyToken('minecraft_classpath') {
+                configurations.embeddedExternalRuntime.resolve().collect { it.absolutePath }.join(File.pathSeparator)
+            }
+            mods {
+                "${mod_id}" {
+                    source project(':inspection-forge-1.20.1').sourceSets.main
+                    source project(':inspection-core').sourceSets.main
+                }
+                echo_item_inspection_testmod { source sourceSets.main }
+            }
+        }
+        client {
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', project.file('build/createSrgToMcp/output.srg').absolutePath
+            property 'echo_item_inspection.iplaSmoke', providers.gradleProperty('inspectionIplaSmoke').orElse('false').get()
+            property 'echo_item_inspection.iplaManual', providers.gradleProperty('inspectionIplaManual').orElse('false').get()
+            property 'echo_item_inspection.smoke', providers.gradleProperty('inspectionSmoke').orElse('false').get()
+            property 'echo_item_inspection.manual', providers.gradleProperty('inspectionManual').orElse('false').get()
+            if (providers.gradleProperty('inspectionSmoke').orElse('false').get().toBoolean()
+                    || providers.gradleProperty('inspectionManual').orElse('false').get().toBoolean()
+                    || providers.gradleProperty('inspectionIplaSmoke').orElse('false').get().toBoolean()
+                    || providers.gradleProperty('inspectionIplaManual').orElse('false').get().toBoolean()) {
+                def defaultWorld = (providers.gradleProperty('inspectionIplaSmoke').orElse('false').get().toBoolean()
+                        || providers.gradleProperty('inspectionIplaManual').orElse('false').get().toBoolean())
+                        ? 'inspection-ipla-smoke' : 'inspection-smoke'
+                args '--quickPlaySingleplayer', providers.gradleProperty('inspectionWorld').orElse(defaultWorld).get()
+                args '--width', '1920', '--height', '1080'
+            }
+        }
+        gameTestServer { args '--nogui' }
+    }
+}
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation project(':inspection-forge-1.20.1')
+    implementation project(':inspection-core')
+    compileOnly fg.deobf('local:ipla-mc1.20.1-forge:6.3.1')
+    compileOnly fg.deobf('local:architectury:9.2.14-forge')
+    compileOnly files(new File(rootProject.prismModsDirectory, 'echo-concentration-1.0.6.jar'))
+    if (providers.gradleProperty('inspectionIplaSmoke').orElse('false').get().toBoolean()
+            || providers.gradleProperty('inspectionIplaManual').orElse('false').get().toBoolean()) {
+        runtimeOnly fg.deobf('local:ipla-mc1.20.1-forge:6.3.1')
+        runtimeOnly fg.deobf('local:architectury:9.2.14-forge')
+        runtimeOnly fg.deobf('local:echo-concentration:1.0.6')
+    }
+    embeddedExternalRuntime "io.github.kxyr0.echoscript:echo-script-language:${echo_script_version}"
+}
+tasks.named('processResources', ProcessResources).configure {
+    inputs.property 'mod_version', mod_version
+    filesMatching('META-INF/mods.toml') { expand mod_version: mod_version }
+}
+tasks.named('jar', Jar).configure { finalizedBy 'reobfJar' }
+
+tasks.matching { it.name == 'runClient' }.configureEach {
+    def iplaSmoke = providers.gradleProperty('inspectionIplaSmoke').orElse('false').get().toBoolean()
+    def inventorySmoke = providers.gradleProperty('inspectionSmoke').orElse('false').get().toBoolean()
+    def iplaManual = providers.gradleProperty('inspectionIplaManual').orElse('false').get().toBoolean()
+    doFirst {
+        if (iplaSmoke || inventorySmoke || iplaManual) {
+            def worldName = providers.gradleProperty('inspectionWorld').orElse(
+                    (iplaSmoke || iplaManual) ? 'inspection-ipla-smoke' : 'inspection-smoke').get()
+            if (!(worldName ==~ /[A-Za-z0-9_-]+/)) throw new GradleException('Invalid inspection test world name')
+            def world = file("run/saves/${worldName}")
+            if (!new File(world, 'level.dat').isFile()) {
+                def seed = file('run/world')
+                if (!new File(seed, 'level.dat').isFile()) {
+                    throw new GradleException('Run :inspection-testmod-1.20.1:runGameTestServer first to create the isolated test-world seed')
+                }
+                copy { from seed; into world; exclude 'session.lock' }
+            }
+        }
+        if (iplaManual) {
+            def options = file('run/options.txt')
+            def lines = options.isFile() ? options.readLines('UTF-8') : []
+            ['lang': 'ru_ru', 'tutorialStep': 'none', 'pauseOnLostFocus': 'false'].each { key, value ->
+                lines.removeAll { it.startsWith("${key}:") }
+                lines.add("${key}:${value}")
+            }
+            options.setText(lines.join('\n') + '\n', 'UTF-8')
+        }
+        if (iplaSmoke) file('run/ipla-inspection-smoke.json').delete()
+        if (inventorySmoke) file('run/inspection-smoke.json').delete()
+    }
+    doLast {
+        if (iplaSmoke || inventorySmoke) {
+            def report = file(iplaSmoke ? 'run/ipla-inspection-smoke.json' : 'run/inspection-smoke.json')
+            if (!report.isFile() || new groovy.json.JsonSlurper().parse(report).status != 'PASS') {
+                throw new GradleException("Client smoke did not pass: ${report}")
+            }
+        }
+    }
+}
+tasks.matching { it.name == 'prepareRunGameTestServer' }.configureEach {
+    dependsOn tasks.named('processResources')
+    doLast {
+        copy {
+            from sourceSets.main.resources
+            include 'gameteststructures/**'
+            into project.file('run')
+        }
+        file('run/logs/latest.log').delete()
+    }
+}
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doLast {
+        def log = file('run/logs/latest.log')
+        def output = log.exists() ? log.getText('UTF-8') : ''
+        if (!output.contains('All 6 required tests passed')) {
+            throw new GradleException("Expected six successful Item Inspection GameTests in ${log}")
+        }
+    }
+}

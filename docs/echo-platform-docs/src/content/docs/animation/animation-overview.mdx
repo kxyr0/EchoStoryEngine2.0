@@ -1,0 +1,27 @@
+---
+title: "Обзор анимации"
+description: "Карта AnimationProfile, AnimationSubject, channels, leases и жизненного цикла playback без зависимости от NPC."
+section: "Animation"
+pageKind: "concept"
+status: "review"
+since: "A4"
+updated: "2026-07-22"
+relatedIds: ["AnimationSubjectId", "AnimationProfileId", "AnimationPlaybackId"]
+relatedPages: ["animation/restart-recovery", "animation/a4-npc-lifecycle-integration"]
+sourceRepositories: ["echo-animation", "echo-story-content-pack"]
+sourcePaths: ["D:/JDHSeason/mods/echo-animation"]
+visualIdentity: "animation-continuum"
+interactiveModules: ["LifecycleStage"]
+searchKeywords: ["обзор анимации", "A4", "EchoScript", "AnimationSubjectId", "/echo_animation"]
+---
+import { AnimationLifecycleLab } from "../../../components/AnimationLifecycleLab";
+
+# Обзор анимации
+
+Animation core работает с logical subject, профилями, клипами и каналами. Он не импортирует NPC и не знает UUID сущности. Внешний домен может дать ему owner, но управляет playback только через публичный API.
+
+<AnimationLifecycleLab client:load />
+
+## Основная цепочка
+
+`AnimationProfileId` описывает authoring resource. `AnimationSubjectId` закрепляет состояние за логическим владельцем. `AnimationPlaybackId` появляется на время конкретного проигрывания. Lease защищает канал от двух конфликтующих движений.

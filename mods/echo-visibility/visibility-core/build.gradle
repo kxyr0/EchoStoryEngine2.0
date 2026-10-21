@@ -1,0 +1,5 @@
+description = 'Plain Java projection, sampling, transition, arm, and report logic.'
+
+dependencies {
+    api project(':visibility-contracts')
+}

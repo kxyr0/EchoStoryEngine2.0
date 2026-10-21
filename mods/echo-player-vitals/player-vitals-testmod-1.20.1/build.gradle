@@ -1,0 +1,11 @@
+description = 'Development-only Echo Player Vitals test module.'
+
+base {
+    archivesName = 'player-vitals-testmod-1.20.1'
+}
+
+dependencies {
+    implementation project(':player-vitals-contracts')
+    implementation project(':player-vitals-core')
+    implementation project(':player-vitals-forge-api-1.20.1')
+}

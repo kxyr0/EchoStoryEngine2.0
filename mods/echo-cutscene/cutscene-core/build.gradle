@@ -1,0 +1,5 @@
+description = 'Plain Java cutscene binding, playback, camera curve, and recording core.'
+
+dependencies {
+    api project(':cutscene-contracts')
+}

@@ -1,0 +1,26 @@
+---
+title: "Wardrobe Hot Reload"
+description: "Profile, wearable, outfit and asset reload with last-known-good catalog retention."
+section: "Wardrobe"
+pageKind: "lifecycle"
+status: "review"
+since: "W2"
+updated: "2026-07-27"
+relatedIds: ["WearableSourceFingerprint", "WardrobeCatalogRevision"]
+relatedPages: ["platform/hot-reload", "wardrobe/full-reference"]
+sourceRepositories: ["echo-wardrobe"]
+sourcePaths: ["D:/JDHSeason/mods/echo-wardrobe/wardrobe-core/src/main/java/io/github/kxyr0/echowardrobe/core/reload"]
+visualIdentity: "wardrobe-hot-reload"
+interactiveModules: ["OutfitCoverageLab"]
+searchKeywords: ["hot reload", "last-known-good", "fingerprint", "outfit"]
+---
+
+import { OutfitCoverageLab } from "../../../components/WardrobeLabs";
+
+# Wardrobe Hot Reload
+
+The reload planner tracks script and asset fingerprints. Broken candidates do not replace the previous accepted `WardrobeCatalog`.
+
+<OutfitCoverageLab client:load />
+
+After authoring changes, use `/echo_wardrobe coverage`, `/echo_wardrobe missing`, and `/echo_wardrobe diagnostics` to find exact outfit gaps.

@@ -1,0 +1,5 @@
+description = 'Plain Java immutable definition catalog and actor runtime for Echo NPC.'
+
+dependencies {
+    api project(':npc-contracts')
+}

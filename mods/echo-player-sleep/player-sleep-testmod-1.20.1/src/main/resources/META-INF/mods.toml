@@ -1,0 +1,31 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="echo_player_sleep_testmod"
+version="0.1.0"
+displayName="Echo Player Sleep Testmod"
+authors="kxyr0"
+description='''Development-only acceptance harness for Echo Player Sleep.'''
+
+[[dependencies.echo_player_sleep_testmod]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.echo_player_sleep_testmod]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.echo_player_sleep_testmod]]
+modId="echo_player_sleep"
+mandatory=true
+versionRange="[0.1.0,)"
+ordering="AFTER"
+side="BOTH"

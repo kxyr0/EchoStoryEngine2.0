@@ -1,0 +1,5 @@
+description = 'Plain Java Trigger Wand authoring state and source generation.'
+
+dependencies {
+    api "io.github.kxyr0.echotrigger:trigger-contracts:${echo_trigger_version}"
+}
